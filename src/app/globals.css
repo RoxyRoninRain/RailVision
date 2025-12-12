@@ -1,53 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --background: #0a0a0a;
   --foreground: #ededed;
-  --primary: #FFD700; /* Industrial Yellow */
-  --secondary: #2f2f2f; /* Dark Steel */
-  --accent: #FF4500; /* Rust Orange */
+
+  /* Industrial Theme Palette */
+  --primary: #FFD700;
+  /* Industrial Yellow/Gold */
+  --secondary: #2f2f2f;
+  /* Dark Steel */
+  --accent: #FF4500;
+  /* Rust Orange */
+
   --font-mono: 'Courier New', monospace;
+  /* Fallback until Geist Mono loads */
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased font-sans overflow-x-hidden m-0 p-0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-mono uppercase tracking-widest;
+  }
 }
 
-h1, h2, h3 {
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-button {
-  cursor: pointer;
-  border: 1px solid var(--primary);
-  background: transparent;
-  color: var(--primary);
-  padding: 1rem 2rem;
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  font-weight: bold;
-  transition: all 0.2s;
-}
-
-button:hover {
-  background: var(--primary);
-  color: #000;
-  box-shadow: 0 0 15px var(--primary);
-}
-
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+@layer components {
+  .btn-primary {
+    @apply px-8 py-4 bg-transparent border border-primary text-primary font-mono uppercase font-bold transition-all duration-200 hover:bg-primary hover:text-black hover:shadow-[0_0_15px_var(--primary)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none cursor-pointer;
+  }
 }
