@@ -18,4 +18,14 @@ export class InputSanitizer {
 
         return { valid: true };
     }
+
+    static validateType(file: File): { valid: boolean; error?: string } {
+        if (!file) {
+            return { valid: false, error: 'No file selected.' };
+        }
+        if (!this.ALLOWED_TYPES.includes(file.type)) {
+            return { valid: false, error: 'Invalid file type. Only JPG and PNG are allowed.' };
+        }
+        return { valid: true };
+    }
 }

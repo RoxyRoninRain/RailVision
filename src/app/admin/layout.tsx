@@ -9,8 +9,11 @@ export default async function AdminLayout({
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    console.log('[ADMIN CHECK] Current User:', user?.email); // Debug log
+
     // strict security check
     if (!user || !['admin@railvision.com', 'me@railvision.com'].includes(user.email || '')) {
+        console.log('[ADMIN CHECK] Access Denied. Serving 404.');
         // 404 to hide existence
         return notFound();
     }

@@ -6,6 +6,7 @@ import { generateDesign, submitLead } from './actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Check, Loader2, ArrowRight, MousePointerClick, TrendingUp, AlertCircle, Quote } from 'lucide-react';
 import clsx from 'clsx';
+import { compressImage } from '@/utils/imageUtils';
 
 interface DesignStudioProps {
     styles: { id: string; name: string; description: string }[];
@@ -50,56 +51,35 @@ export default function DesignStudio({ styles }: DesignStudioProps) {
         return () => clearInterval(interval);
     }, [loading]);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         setError(null);
         if (e.target.files && e.target.files[0]) {
             const selectedFile = e.target.files[0];
-            const validation = InputSanitizer.validate(selectedFile);
-            if (!validation.valid) {
-                setError(validation.error || 'Invalid file');
+
+            // 1. Validate Type ONLY (Allow large files if they are valid images)
+            const typeValidation = InputSanitizer.validateType(selectedFile);
+            if (!typeValidation.valid) {
+                setError(typeValidation.error || 'Invalid file');
                 return;
             }
 
-            // Client-side resizing
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                const img = document.createElement('img');
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    let width = img.width;
-                    let height = img.height;
-                    const MAX_SIZE = 1200;
+            try {
+                // 2. Compress (Reduce 20MB -> ~500KB)
+                const compressedFile = await compressImage(selectedFile);
 
-                    if (width > height) {
-                        if (width > MAX_SIZE) {
-                            height *= MAX_SIZE / width;
-                            width = MAX_SIZE;
-                        }
-                    } else {
-                        if (height > MAX_SIZE) {
-                            width *= MAX_SIZE / height;
-                            height = MAX_SIZE;
-                        }
-                    }
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx?.drawImage(img, 0, 0, width, height);
+                // 3. Validate Final Size (Must be < 5MB)
+                const finalValidation = InputSanitizer.validate(compressedFile);
+                if (!finalValidation.valid) {
+                    setError(finalValidation.error || 'Compressed file is still too large.');
+                    return;
+                }
 
-                    canvas.toBlob((blob) => {
-                        if (blob) {
-                            const newFile = new File([blob], selectedFile.name, {
-                                type: 'image/jpeg',
-                                lastModified: Date.now(),
-                            });
-                            setFile(newFile);
-                            setPreview(URL.createObjectURL(newFile));
-                        }
-                    }, 'image/jpeg', 0.8);
-                };
-                img.src = event.target?.result as string;
-            };
-            reader.readAsDataURL(selectedFile);
+                setFile(compressedFile);
+                setPreview(URL.createObjectURL(compressedFile));
+            } catch (err) {
+                console.error("Compression failed", err);
+                setError("Failed to process image. It might be corrupted or type not supported.");
+            }
         }
     };
 
@@ -393,9 +373,15 @@ export default function DesignStudio({ styles }: DesignStudioProps) {
                                                 <span>Select Image</span>
                                                 <input
                                                     type="file"
-                                                    onChange={(e) => {
+                                                    onChange={async (e) => {
                                                         if (e.target.files && e.target.files[0]) {
-                                                            setCustomStyleFile(e.target.files[0]);
+                                                            try {
+                                                                const compressed = await compressImage(e.target.files[0]);
+                                                                setCustomStyleFile(compressed);
+                                                            } catch (err) {
+                                                                console.error("Style compression failed", err);
+                                                                setError("Failed to compress style image. Please try another file.");
+                                                            }
                                                         }
                                                     }}
                                                     className="hidden"

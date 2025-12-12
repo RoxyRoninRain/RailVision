@@ -1,7 +1,7 @@
 'use server';
 
 import { InputSanitizer } from '@/components/security/InputSanitizer';
-import { generateImage } from '@/lib/imagen';
+
 import { createClient } from '@/lib/supabase/server';
 import { supabase as adminSupabase } from '@/lib/supabase'; // Keep admin/anon client for specific uses if needed, but prefer server client for actions
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
@@ -60,7 +60,22 @@ export async function generateDesign(formData: FormData) {
         }
 
         // Use Nano Banana Pro (Gemini 3.0)
-        const result = await generateDesignWithNanoBanana(base64Image, styleInput);
+        // 1. Fetch dynamic prompt configuration
+        const { getSystemPrompt } = await import('@/app/admin/actions');
+        const promptData = await getSystemPrompt('gemini-handrail-main');
+
+        let promptConfig = undefined;
+        if (promptData) {
+            promptConfig = {
+                systemInstruction: promptData.system_instruction,
+                userTemplate: promptData.user_template
+            };
+            console.log('[DEBUG] Using dynamic prompt from DB:', promptData.key);
+        } else {
+            console.log('[DEBUG] Using default fallback prompt (DB fetch failed or empty)');
+        }
+
+        const result = await generateDesignWithNanoBanana(base64Image, styleInput, promptConfig);
 
         if (result.success && result.image) {
             console.log('[DEBUG] Image generated successfully with Nano Banana');

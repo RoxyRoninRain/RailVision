@@ -26,7 +26,15 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
 
 const vertexAI = new VertexAI({
     project: projectId || 'mock-project',
-    location,
+    location: location, // e.g. us-central1
+    googleAuthOptions
+});
+
+// CRITICAL: Gemini 3 Pro Image Preview requires GLOBAL endpoint
+const vertexAIGlobal = new VertexAI({
+    project: projectId || 'mock-project',
+    location: 'global',
+    apiEndpoint: 'aiplatform.googleapis.com', // Explicitly set global API endpoint
     googleAuthOptions
 });
 
@@ -39,7 +47,8 @@ export const getGeminiModel = () => {
 export async function analyzeStyleWithGemini(base64Image: string): Promise<string> {
     try {
         console.log('[GEMINI] Analyzing style image...');
-        const model = vertexAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+        // Use Global client for Gemini 3 Preview
+        const model = vertexAIGlobal.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
 
         const request = {
             contents: [{
@@ -60,6 +69,7 @@ export async function analyzeStyleWithGemini(base64Image: string): Promise<strin
 
         const result = await model.generateContent(request);
         const response = await result.response;
+        // @ts-ignore
         const text = response.candidates?.[0].content.parts[0].text;
 
         console.log('[GEMINI] Analysis complete:', text?.substring(0, 50) + '...');
@@ -72,12 +82,29 @@ export async function analyzeStyleWithGemini(base64Image: string): Promise<strin
 
 export async function generateDesignWithNanoBanana(
     base64TargetImage: string,
-    styleInput: string | { base64StyleImage: string }
+    styleInput: string | { base64StyleImage: string },
+    promptConfig?: { systemInstruction: string; userTemplate: string }
 ): Promise<{ success: boolean; image?: string; error?: string }> {
     try {
         console.log('[NANO BANANA] Initializing generation...');
-        // "Nano Banana Pro" -> gemini-3-pro-image-preview
-        const model = vertexAI.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
+        // User requested: gemini-3-pro-image-preview
+        // Must use Global client
+        const model = vertexAIGlobal.getGenerativeModel({
+            model: 'gemini-3-pro-image-preview',
+            // Inject System Instruction if provided, otherwise default to "Hybrid Architect" fallback
+            systemInstruction: promptConfig?.systemInstruction || `You are a world-renowned architectural visualization expert. Your goal is to produce indistinguishable-from-reality renovations.
+
+**PHASE 1: IMAGE ANALYSIS (Internal Thought)**.
+Before drawing, you must analyze the inputs:
+1.  **Source Analysis**: Identify the PERSPECTIVE (camera angle), LIGHTING (direction, color temp), and GEOMETRY (stair pitch, treads, stringers).
+2.  **Style Analysis**: Identify the HANDRAIL MATERIAL (e.g., matte black steel, glass), MOUNTING STYLE (side-mount vs. top-mount), and FINISH quality.
+
+**PHASE 2: IMAGE GENERATION**
+Using your analysis, generate a pixel-perfect renovation.
+-   **STRICT KEEP**: You must keep the original stairs, treads, walls, flooring, and background EXACTLY as they are. DO NOT change the camera angle.
+-   **STRICT CHANGE**: You must remove the existing handrail (if any) and install the NEW handrail style from the reference image.
+-   **REALISM**: Ensure shadows cast by the new railing match the original lighting direction.`
+        });
 
         const parts: any[] = [];
 
@@ -89,15 +116,8 @@ export async function generateDesignWithNanoBanana(
             }
         });
 
-        // 2. Add Prompt details
-        let prompt = "Act as a high-end architectural visualization artist. Redesign the staircase in the attached image. Maintain the exact perspective, lighting, and structural geometry of the original photo. Replace the existing handrail and stair finish with a new design. ";
-
-        if (typeof styleInput === 'string') {
-            // Text-based style
-            prompt += `The new design should be in the "${styleInput}" style. Make it look photorealistic, 8k resolution.`;
-        } else {
-            // Image-based style
-            prompt += "The new design must MATCH THE STYLE of the second attached image (Style Reference). Copy the materials, railing type, and aesthetic vibe from the reference image and apply it to the first image.";
+        // 2. Add Style Reference if image-based
+        if (typeof styleInput !== 'string') {
             parts.push({
                 inlineData: {
                     mimeType: 'image/jpeg',
@@ -106,13 +126,27 @@ export async function generateDesignWithNanoBanana(
             });
         }
 
-        parts.push({ text: prompt });
+        // 3. Construct Text Prompt
+        // Use userTemplate if provided, otherwise fallback
+        let promptText = promptConfig?.userTemplate || `[Input: Source Image, Style Reference Image]
+Command: Analyze the geometry of the Source Image and the style of the Reference Image. Then, generate the renovation. STRICTLY adhere to the geometry of the source.`;
+
+        // If specific style text is provided (less common now), append it
+        if (typeof styleInput === 'string') {
+            promptText += `\n\nTarget Style: "${styleInput}"`;
+        }
+
+        parts.push({ text: promptText });
 
         const request = {
             contents: [{ role: 'user', parts }]
         };
 
-        console.log('[NANO BANANA] Sending request to Gemini 3.0...');
+        console.log('[GEMINI 3.0] Sending request to Gemini 3.0 Pro Image (Global)...');
+        // Log the prompt being used for debugging
+        console.log('[DEBUG] System Instruction:', promptConfig?.systemInstruction ? 'Custom from DB' : 'Default Hybrid');
+        console.log('[DEBUG] User Prompt:', promptText);
+
         const result = await model.generateContent(request);
         const response = await result.response;
 
@@ -126,9 +160,11 @@ export async function generateDesignWithNanoBanana(
 
         // Check for images in the parts
         for (const part of candidate.content.parts) {
+            // @ts-ignore
             if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
                 return {
                     success: true,
+                    // @ts-ignore
                     image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
                 };
             }
@@ -136,6 +172,7 @@ export async function generateDesignWithNanoBanana(
 
         console.warn('[NANO BANANA] Response did not contain inline image. Checking for other formats...');
         // If no image found, it might have failed or returned text.
+        // @ts-ignore
         return { success: false, error: "Model returned text instead of image: " + candidate.content.parts[0].text?.substring(0, 100) };
 
     } catch (error: any) {
