@@ -4,6 +4,7 @@ import { InputSanitizer } from '@/components/security/InputSanitizer';
 import { generateImage } from '@/lib/imagen';
 import { createClient } from '@/lib/supabase/server';
 import { supabase as adminSupabase } from '@/lib/supabase'; // Keep admin/anon client for specific uses if needed, but prefer server client for actions
+import { generateDesignWithNanoBanana } from '@/lib/vertex';
 
 // TYPES
 export interface Lead {
@@ -27,13 +28,13 @@ export interface Profile {
 }
 
 export async function generateDesign(formData: FormData) {
-    console.log('[DEBUG] generateDesign (IMAGE MODE) called');
+    console.log('[DEBUG] generateDesign (NANO BANANA MODE) called');
     const file = formData.get('image') as File;
-    const maskFile = formData.get('mask') as File;
     const style = formData.get('style') as string;
+    const styleFile = formData.get('style_image') as File;
 
-    if (!file || !style) {
-        return { error: 'Missing image or style.' };
+    if (!file || (!style && !styleFile)) {
+        return { error: 'Missing image or style reference.' };
     }
 
     // Server-side validation
@@ -47,29 +48,29 @@ export async function generateDesign(formData: FormData) {
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
 
-        let base64Mask = undefined;
-        if (maskFile) {
-            const maskBuffer = Buffer.from(await maskFile.arrayBuffer());
-            base64Mask = maskBuffer.toString('base64');
+        let styleInput: string | { base64StyleImage: string } = style;
+
+        if (styleFile) {
+            const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
+            const styleBase64 = styleBuffer.toString('base64');
+            styleInput = { base64StyleImage: styleBase64 };
+            console.log('[DEBUG] Using Style Image for Nano Banana fusion');
+        } else {
+            console.log('[DEBUG] Using Style Text for Nano Banana generation:', style);
         }
 
-        // Construct Image Prompt
-        const prompt = `A photo-realistic renovation of this staircase in a ${style} style. 
-        High quality, 4k, architectural photography, modern materials, sleek design. 
-        Maintain the original camera angle and structural perspective.`;
-
-        console.log('[DEBUG] Calling Imagen with Mask...');
-        const result = await generateImage(prompt, base64Image, base64Mask);
+        // Use Nano Banana Pro (Gemini 3.0)
+        const result = await generateDesignWithNanoBanana(base64Image, styleInput);
 
         if (result.success && result.image) {
-            console.log('[DEBUG] Image generated successfully');
-            return { success: true, data: result.image }; // Data is now a Base64 Data URL
+            console.log('[DEBUG] Image generated successfully with Nano Banana');
+            return { success: true, data: result.image };
         } else {
-            throw new Error(result.error || 'Unknown Imagen error');
+            throw new Error(result.error || 'Unknown Nano Banana error');
         }
 
     } catch (error: any) {
-        console.error('[ERROR] Imagen Failed:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        console.error('[ERROR] Generation Failed:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
         return { error: 'Failed to generate image. ' + (error.message || 'Unknown error') };
     }
 }

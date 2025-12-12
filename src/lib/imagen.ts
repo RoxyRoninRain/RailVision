@@ -28,10 +28,10 @@ export async function generateImage(prompt: string, base64InputImage?: string, b
         };
 
         if (base64InputImage) {
-            // WE ARE INTENTIONALLY OMITTING THE MASK.
-            // Sending 'image' without 'mask' triggers "Image Guided Generation" (ControlNet-like behavior)
-            // which is better for "Redesigning" the whole image.
             instanceObj.image = { bytesBase64Encoded: base64InputImage };
+            if (base64Mask) {
+                instanceObj.mask = { bytesBase64Encoded: base64Mask };
+            }
         }
 
         const instances = [

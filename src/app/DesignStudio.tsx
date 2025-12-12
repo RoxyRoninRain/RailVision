@@ -20,6 +20,10 @@ export default function DesignStudio({ styles }: DesignStudioProps) {
     const [result, setResult] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
 
+    // New AI Workflow State
+    const [styleSource, setStyleSource] = useState<'preset' | 'upload'>('preset');
+    const [customStyleFile, setCustomStyleFile] = useState<File | null>(null);
+
     // Lead Form
     const [email, setEmail] = useState('');
     const [customerName, setCustomerName] = useState('');
@@ -106,7 +110,43 @@ export default function DesignStudio({ styles }: DesignStudioProps) {
 
         const formData = new FormData();
         formData.append('image', file);
-        formData.append('style', selectedStyle);
+
+        if (styleSource === 'upload' && customStyleFile) {
+            formData.append('style_image', customStyleFile);
+            formData.append('style', 'custom'); // Backend indicator
+        } else {
+            formData.append('style', selectedStyle);
+        }
+
+        // Generate Mask (Full White = Edit Everything)
+        try {
+            const maskBlob = await new Promise<Blob | null>((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.fillStyle = '#FFFFFF'; // White = Edit Area
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    }
+                    canvas.toBlob(resolve, 'image/png');
+                };
+                // Ensure preview is ready; logic implies preview exists if file exists
+                if (preview) {
+                    img.src = preview;
+                } else {
+                    resolve(null);
+                }
+            });
+
+            if (maskBlob) {
+                formData.append('mask', maskBlob, 'mask.png');
+            }
+        } catch (e) {
+            console.error("Failed to generate mask", e);
+        }
 
         const res = await generateDesign(formData);
 
@@ -266,41 +306,110 @@ export default function DesignStudio({ styles }: DesignStudioProps) {
                         <div className="lg:col-span-8">
                             <h2 className="text-3xl font-bold mb-8">Select Design Aesthetic</h2>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                                {styles.map((style) => (
-                                    <div
-                                        key={style.id}
-                                        onClick={() => setSelectedStyle(style.name)}
-                                        className={clsx(
-                                            "relative p-6 rounded-xl border-2 cursor-pointer transition-all duration-300 group overflow-hidden",
-                                            selectedStyle === style.name
-                                                ? "border-[var(--primary)] bg-[var(--primary)]/5 shadow-[0_0_30px_-10px_var(--primary)]"
-                                                : "border-[var(--secondary)] hover:border-gray-500 bg-[#111]"
-                                        )}
-                                    >
-                                        <div className="flex justify-between items-start mb-4 relative z-10">
-                                            <h3 className={clsx("text-xl font-bold uppercase", selectedStyle === style.name ? "text-[var(--primary)]" : "text-white")}>
-                                                {style.name}
-                                            </h3>
-                                            {selectedStyle === style.name && (
-                                                <div className="bg-[var(--primary)] text-black rounded-full p-1">
-                                                    <Check className="w-4 h-4" />
-                                                </div>
-                                            )}
-                                        </div>
-                                        <p className="text-gray-400 text-sm leading-relaxed relative z-10">
-                                            {style.description}
-                                        </p>
-
-                                        {/* Background decoration */}
-                                        <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-gradient-to-tl from-white/5 to-transparent rounded-full blur-2xl group-hover:from-white/10 transition-colors" />
-                                    </div>
-                                ))}
+                            {/* Style Source Toggle */}
+                            <div className="flex items-center gap-4 mb-8">
+                                <button
+                                    onClick={() => setStyleSource('preset')}
+                                    className={clsx(
+                                        "px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all",
+                                        styleSource === 'preset'
+                                            ? "bg-[var(--primary)] text-black"
+                                            : "bg-gray-900 text-gray-400 hover:bg-gray-800"
+                                    )}
+                                >
+                                    Choose Preset
+                                </button>
+                                <button
+                                    onClick={() => setStyleSource('upload')}
+                                    className={clsx(
+                                        "px-6 py-3 rounded-full text-sm font-bold uppercase tracking-wider transition-all",
+                                        styleSource === 'upload'
+                                            ? "bg-[var(--primary)] text-black"
+                                            : "bg-gray-900 text-gray-400 hover:bg-gray-800"
+                                    )}
+                                >
+                                    Upload Reference Photo
+                                </button>
                             </div>
+
+                            {styleSource === 'preset' ? (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                                    {styles.map((style) => (
+                                        <div
+                                            key={style.id}
+                                            onClick={() => setSelectedStyle(style.name)}
+                                            className={clsx(
+                                                "relative p-6 rounded-xl border-2 cursor-pointer transition-all duration-300 group overflow-hidden",
+                                                selectedStyle === style.name
+                                                    ? "border-[var(--primary)] bg-[var(--primary)]/5 shadow-[0_0_30px_-10px_var(--primary)]"
+                                                    : "border-[var(--secondary)] hover:border-gray-500 bg-[#111]"
+                                            )}
+                                        >
+                                            <div className="flex justify-between items-start mb-4 relative z-10">
+                                                <h3 className={clsx("text-xl font-bold uppercase", selectedStyle === style.name ? "text-[var(--primary)]" : "text-white")}>
+                                                    {style.name}
+                                                </h3>
+                                                {selectedStyle === style.name && (
+                                                    <div className="bg-[var(--primary)] text-black rounded-full p-1">
+                                                        <Check className="w-4 h-4" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <p className="text-gray-400 text-sm leading-relaxed relative z-10">
+                                                {style.description}
+                                            </p>
+
+                                            {/* Background decoration */}
+                                            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-gradient-to-tl from-white/5 to-transparent rounded-full blur-2xl group-hover:from-white/10 transition-colors" />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="mb-8 p-8 border border-dashed border-gray-700 rounded-xl bg-[#111] text-center">
+                                    {customStyleFile ? (
+                                        <div className="relative group max-w-sm mx-auto">
+                                            <img
+                                                src={URL.createObjectURL(customStyleFile)}
+                                                alt="Style Reference"
+                                                className="w-full rounded-lg"
+                                            />
+                                            <button
+                                                onClick={() => setCustomStyleFile(null)}
+                                                className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white font-bold"
+                                            >
+                                                REMOVE IMAGE
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="py-8">
+                                            <div className="w-16 h-16 mx-auto bg-gray-900 rounded-full flex items-center justify-center mb-4 text-[var(--primary)]">
+                                                <Upload className="w-8 h-8" />
+                                            </div>
+                                            <h3 className="text-lg font-bold text-white mb-2">Upload Style Reference</h3>
+                                            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                                                Upload a photo of a railing or staircase you love. Our AI will analyze the style and apply it to your space.
+                                            </p>
+                                            <label className="btn-primary inline-flex items-center gap-2 cursor-pointer px-6 py-3 rounded-lg bg-[var(--primary)] text-black font-bold hover:bg-yellow-400 transition-colors">
+                                                <span>Select Image</span>
+                                                <input
+                                                    type="file"
+                                                    onChange={(e) => {
+                                                        if (e.target.files && e.target.files[0]) {
+                                                            setCustomStyleFile(e.target.files[0]);
+                                                        }
+                                                    }}
+                                                    className="hidden"
+                                                    accept=".jpg,.jpeg,.png,.webp"
+                                                />
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             <button
                                 onClick={handleGenerate}
-                                disabled={loading}
+                                disabled={loading || (styleSource === 'upload' && !customStyleFile)}
                                 className="w-full py-6 bg-[var(--primary)] text-black font-bold text-xl uppercase tracking-wider hover:bg-yellow-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 rounded-lg"
                             >
                                 {loading ? (
