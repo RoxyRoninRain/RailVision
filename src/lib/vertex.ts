@@ -128,8 +128,12 @@ Using your analysis, generate a pixel-perfect renovation.
 
         // 3. Construct Text Prompt
         // Use userTemplate if provided, otherwise fallback
-        let promptText = promptConfig?.userTemplate || `[Input: Source Image, Style Reference Image]
-Command: Analyze the geometry of the Source Image and the style of the Reference Image. Then, generate the renovation. STRICTLY adhere to the geometry of the source.`;
+        let promptText = promptConfig?.userTemplate || `[Input: Source Image (The space to renovate), Style Reference Image (The desired handrail design)]
+Command: 
+1. Analyze the GEOMETRY of the Source Image (stairs, walls, lighting).
+2. Analyze the HANDRAIL STYLE of the Reference Image. Focus ONLY on the railing materials, shape, and mounting hardware. Ignore the flooring, walls, or other elements in the reference.
+3. GENERATE the renovation: Replace the existing handrail in the Source Image with the Handrail Style from the Reference Image.
+4. CONSTRAINT: You must STRICTLY preserve the original stair geometry and lighting of the Source Image.`;
 
         // If specific style text is provided (less common now), append it
         if (typeof styleInput === 'string') {

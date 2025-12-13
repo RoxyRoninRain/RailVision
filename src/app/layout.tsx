@@ -13,8 +13,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RailVision Platform",
-  description: "AI-Powered Handrail Visualization & Estimation",
+  title: {
+    default: 'Railify - AI Handrail Visualizer',
+    template: '%s | Railify'
+  },
+  description: 'Visualize your dream handrail with AI',
 };
 
 export default function RootLayout({

@@ -9,6 +9,8 @@ import { LayoutGrid, List, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+import { formatDistanceToNow } from 'date-fns';
+
 function cn(...inputs: (string | undefined | null | false)[]) {
     return twMerge(clsx(inputs));
 }
@@ -65,65 +67,88 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
     const filteredLeads = (status: string) => leads.filter(l => l.status === status);
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] p-8 text-white relative">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div className="min-h-screen bg-[#050505] p-6 md:p-8 text-white relative font-sans">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6 border-b border-gray-900 pb-6">
                 <div>
-                    <h1 className="text-3xl font-mono text-[var(--primary)] mb-1">RailVision Dashboard</h1>
-                    <p className="text-gray-500">Manage your leads and status pipeline</p>
+                    <h1 className="text-4xl font-mono font-bold text-[var(--primary)] uppercase tracking-tighter mb-2">
+                        Leads Pipeline
+                    </h1>
+                    <p className="text-gray-500 font-light">Monitor incoming requests and manage deal flow.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => setViewMode(viewMode === 'kanban' ? 'list' : 'kanban')}
-                        className="p-2 border border-gray-700 rounded hover:bg-gray-800 transition-colors"
-                        title="Toggle View"
-                    >
-                        {viewMode === 'kanban' ? <List size={20} /> : <LayoutGrid size={20} />}
-                    </button>
-                    <button
                         onClick={handleExport}
-                        className="border border-[var(--primary)] text-[var(--primary)] px-4 py-2 hover:bg-[var(--primary)] hover:text-black transition-colors font-mono text-sm uppercase"
+                        className="bg-zinc-900 hover:bg-zinc-800 text-gray-300 border border-zinc-800 px-4 py-2 transition-all font-mono text-xs uppercase tracking-widest flex items-center gap-2 rounded"
                     >
                         Export CSV
                     </button>
+                    <div className="bg-zinc-900 p-1 rounded border border-zinc-800 flex gap-1">
+                        <button
+                            onClick={() => setViewMode('kanban')}
+                            className={cn("p-2 rounded transition-colors", viewMode === 'kanban' ? "bg-zinc-800 text-white" : "text-gray-500 hover:text-gray-300")}
+                            title="Board View"
+                        >
+                            <LayoutGrid size={18} />
+                        </button>
+                        <button
+                            onClick={() => setViewMode('list')}
+                            className={cn("p-2 rounded transition-colors", viewMode === 'list' ? "bg-zinc-800 text-white" : "text-gray-500 hover:text-gray-300")}
+                            title="List View"
+                        >
+                            <List size={18} />
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {viewMode === 'kanban' ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)] overflow-hidden">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-250px)]">
                     {['New', 'Contacted', 'Closed'].map((status) => (
-                        <div key={status} className="flex flex-col h-full bg-[#111] border border-gray-800 rounded-lg overflow-hidden">
+                        <div key={status} className="flex flex-col h-full bg-[#111] border border-gray-800/50 rounded-xl overflow-hidden shadow-2xl">
                             <div className={cn(
-                                "p-3 border-b border-gray-800 font-mono font-bold flex justify-between items-center",
+                                "p-4 border-b border-gray-800 font-mono font-bold flex justify-between items-center bg-black/40 backdrop-blur-sm sticky top-0 z-10",
                                 status === 'New' && "text-blue-400",
                                 status === 'Contacted' && "text-yellow-400",
-                                status === 'Closed' && "text-green-400"
+                                status === 'Closed' && "text-[var(--primary)]" // Using primary (green usually)
                             )}>
-                                {status.toUpperCase()}
-                                <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-full">
+                                <span className="uppercase tracking-widest text-sm">{status}</span>
+                                <span className="text-xs font-bold bg-zinc-900 border border-zinc-800 text-gray-400 px-2 py-1 rounded-md min-w-[30px] text-center">
                                     {filteredLeads(status).length}
                                 </span>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                                 {filteredLeads(status).map(lead => (
-                                    <div key={lead.id} className="relative group">
+                                    <div key={lead.id} className="relative group transition-transform duration-200 hover:-translate-y-1">
                                         <LeadCard lead={lead} onClick={setSelectedLead} />
-                                        {/* Quick Move Actions (Hover) */}
-                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-black/80 rounded p-1 backdrop-blur-sm">
-                                            {status !== 'New' && (
-                                                <button onClick={(e) => { e.stopPropagation(); handleStatusChange(lead.id, 'New'); }} className="text-xs text-blue-400 hover:text-blue-300 px-1">← New</button>
-                                            )}
-                                            {status !== 'Contacted' && (
-                                                <button onClick={(e) => { e.stopPropagation(); handleStatusChange(lead.id, 'Contacted'); }} className="text-xs text-yellow-400 hover:text-yellow-300 px-1">Contacted</button>
-                                            )}
-                                            {status !== 'Closed' && (
-                                                <button onClick={(e) => { e.stopPropagation(); handleStatusChange(lead.id, 'Closed'); }} className="text-xs text-green-400 hover:text-green-300 px-1">Closed →</button>
-                                            )}
+
+                                        {/* Quick Actions Overlay */}
+                                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 flex gap-1">
+                                            <div className="bg-black/90 rounded border border-gray-700 p-1 flex gap-1 shadow-xl backdrop-blur-md">
+                                                {status !== 'New' && (
+                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(lead.id, 'New'); }} className="p-1 hover:bg-blue-900/30 text-blue-400 rounded" title="Move to New">
+                                                        <span className="sr-only">New</span>
+                                                        ←
+                                                    </button>
+                                                )}
+                                                {status !== 'Contacted' && (
+                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(lead.id, 'Contacted'); }} className="p-1 hover:bg-yellow-900/30 text-yellow-400 rounded" title="Move to Contacted">
+                                                        <span className="sr-only">Contacted</span>
+                                                        •
+                                                    </button>
+                                                )}
+                                                {status !== 'Closed' && (
+                                                    <button onClick={(e) => { e.stopPropagation(); handleStatusChange(lead.id, 'Closed'); }} className="p-1 hover:bg-green-900/30 text-green-400 rounded" title="Move to Closed">
+                                                        <span className="sr-only">Closed</span>
+                                                        →
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
                                 {filteredLeads(status).length === 0 && (
-                                    <div className="text-center py-10 opacity-30 italic">
-                                        No leads
+                                    <div className="h-32 flex flex-col items-center justify-center text-gray-700 border-2 border-dashed border-gray-900 rounded-lg m-2">
+                                        <span className="text-sm font-mono uppercase">Empty</span>
                                     </div>
                                 )}
                             </div>

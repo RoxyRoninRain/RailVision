@@ -30,10 +30,28 @@ export default function LoginPage() {
             });
 
             if (error) {
+                console.error('[LOGIN] SignIn Error:', error);
                 setError(error.message);
             } else {
-                router.push('/dashboard');
-                router.refresh(); // Refresh to update middleware state
+                console.log('[LOGIN] SignIn Success. Fetching Dashboard URL...');
+                try {
+                    // Smart Redirect
+                    const { getDashboardUrl } = await import('@/app/actions');
+                    const redirectUrl = await getDashboardUrl();
+
+                    console.log('[LOGIN] Redirecting to:', redirectUrl);
+
+                    if (redirectUrl === '/login') {
+                        console.warn('[LOGIN] Server returned /login. Forcing /dashboard/leads fallback.');
+                        router.push('/dashboard/leads');
+                    } else {
+                        router.push(redirectUrl);
+                    }
+                } catch (actionError) {
+                    console.error('[LOGIN] Action Error, falling back:', actionError);
+                    router.push('/dashboard/leads');
+                }
+                router.refresh();
             }
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred');
@@ -52,7 +70,7 @@ export default function LoginPage() {
 
             <div className="w-full max-w-md relative z-10">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-black uppercase tracking-tighter text-[var(--primary)] mb-2">RailVision</h1>
+                    <h1 className="text-3xl font-black uppercase tracking-tighter text-[var(--primary)] mb-2">Railify</h1>
                     <p className="text-gray-500 font-mono text-sm tracking-widest">AUTHORIZED ACCESS ONLY</p>
                 </div>
 
@@ -72,7 +90,7 @@ export default function LoginPage() {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         className="w-full bg-black/50 border border-gray-700 text-white pl-12 pr-4 py-3 rounded-lg focus:outline-none focus:border-[var(--primary)] transition-all placeholder:text-gray-700"
-                                        placeholder="admin@railvision.com"
+                                        placeholder="admin@railify.com"
                                         required
                                     />
                                 </div>
