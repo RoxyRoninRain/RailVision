@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { getAdminStats, inviteTenant } from '@/app/actions';
 import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,12 +35,16 @@ export default function TenantsPage() {
 
     // Initial Fetch
     // In a real app, use React Query or SWR. Here, generic effect.
-    useState(() => {
+    // Initial Fetch
+    useEffect(() => {
         getAdminStats().then(data => {
             setStats(data);
             setLoading(false);
+        }).catch(err => {
+            console.error("Failed to load stats", err);
+            setLoading(false);
         });
-    });
+    }, []);
 
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
