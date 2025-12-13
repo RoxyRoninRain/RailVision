@@ -30,6 +30,7 @@ export default function TenantsPage() {
     const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
     const [isSimulation, setIsSimulation] = useState(false);
     const [inviteLink, setInviteLink] = useState<string | null>(null);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // Widget Copy
     const [copied, setCopied] = useState(false);
@@ -67,10 +68,12 @@ export default function TenantsPage() {
             } else {
                 console.error('Invite Failed:', res.error);
                 setInviteStatus('error');
+                setErrorMessage(res.error || 'Unknown error');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('System Error during invite:', error);
             setInviteStatus('error');
+            setErrorMessage(error.message || 'System error');
         }
     };
 
@@ -251,8 +254,8 @@ export default function TenantsPage() {
                                     ) : (
                                         <div className="bg-green-900/20 border border-green-900/50 p-3 rounded mt-2 space-y-2">
                                             <div>
-                                                <p className="text-green-500 text-xs font-mono text-center font-bold">INVITATION CREATED</p>
-                                                <p className="text-gray-400 text-xs text-center">User created in system.</p>
+                                                <p className="text-green-500 text-xs font-mono text-center font-bold">INVITATION SENT</p>
+                                                <p className="text-gray-400 text-xs text-center">User will receive an email shortly.</p>
                                             </div>
                                             {inviteLink && (
                                                 <div className="bg-black/50 p-2 rounded border border-green-900/30">
@@ -271,6 +274,12 @@ export default function TenantsPage() {
                                             )}
                                         </div>
                                     )
+                                )}
+                                {inviteStatus === 'error' && (
+                                    <div className="bg-red-900/20 border border-red-900/50 p-3 rounded mt-2">
+                                        <p className="text-red-500 text-xs font-mono text-center font-bold">INVITE FAILED</p>
+                                        <p className="text-gray-400 text-xs text-center">{errorMessage}</p>
+                                    </div>
                                 )}
                             </form>
                         </motion.div>

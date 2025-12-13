@@ -231,9 +231,13 @@ export async function inviteTenant(email: string) {
     }
 
     try {
-        // Send actual email via Supabase
-        const { data, error } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
-            redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/dashboard/leads'
+        // Use generateLink to get the URL directly (bypassing SMTP issues)
+        const { data, error } = await adminSupabase.auth.admin.generateLink({
+            type: 'invite',
+            email: email,
+            options: {
+                redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/dashboard/leads'
+            }
         });
 
         if (error) {
@@ -244,12 +248,12 @@ export async function inviteTenant(email: string) {
             return { success: false, error: error.message };
         }
 
-        console.log('[ADMIN] Invite sent to:', email);
+        console.log('[ADMIN] Invite Link generated for:', email);
         return {
             success: true,
-            message: `Invitation sent to ${email}`,
+            message: `Invitation generated for ${email}`,
             isSimulation: false,
-            inviteLink: undefined // inviteUserByEmail does not return the link directly
+            inviteLink: data.properties?.action_link
         };
     } catch (err: any) {
         return { success: false, error: err.message };
