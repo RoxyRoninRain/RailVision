@@ -8,6 +8,7 @@ export async function updateSession(request: NextRequest) {
         },
     })
 
+    // Create Client
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,8 +27,19 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    // refreshing the auth token
-    await supabase.auth.getUser()
+    // Refresh Session
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // Protected Routes Logic
+    if (
+        !user &&
+        (request.nextUrl.pathname.startsWith("/dashboard") ||
+            request.nextUrl.pathname.startsWith("/admin"))
+    ) {
+        const loginUrl = request.nextUrl.clone()
+        loginUrl.pathname = '/login'
+        return NextResponse.redirect(loginUrl)
+    }
 
     return response
 }
