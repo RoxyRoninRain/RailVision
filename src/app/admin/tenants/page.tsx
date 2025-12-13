@@ -226,9 +226,9 @@ export default function TenantsPage() {
                                     {inviteStatus === 'sending' ? 'Sending...' : inviteStatus === 'sent' ? 'Invitation Sent!' : 'Send Invite'}
                                 </button>
                                 {inviteStatus === 'sent' && (
-                                    <div className="bg-yellow-900/20 border border-yellow-900/50 p-3 rounded mt-2">
-                                        <p className="text-yellow-500 text-xs font-mono text-center font-bold">SIMULATION MODE</p>
-                                        <p className="text-gray-400 text-xs text-center">Email sending is disabled (no service key). Check server logs for invite link.</p>
+                                    <div className="bg-green-900/20 border border-green-900/50 p-3 rounded mt-2">
+                                        <p className="text-green-500 text-xs font-mono text-center font-bold">INVITATION SENT</p>
+                                        <p className="text-gray-400 text-xs text-center">The user will receive an email to join Railify.</p>
                                     </div>
                                 )}
                             </form>

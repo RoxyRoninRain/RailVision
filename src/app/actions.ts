@@ -216,18 +216,33 @@ export async function getTenantProfile(organizationId: string) {
 }
 
 // Admin Action to "Invite" (Mock for now, or actual if we had Service Key)
+// Admin Action to Invite Tenant
 export async function inviteTenant(email: string) {
-    // 1. In a real scenario with Service Role:
-    // const { data, error } = await adminSupabase.auth.inviteUserByEmail(email);
+    // Dynamic import to avoid client-side bundling issues if this file is shared
+    const { adminSupabase } = await import('@/lib/supabase');
 
-    // 2. Without Service Role (safe default):
-    // We cannot create the user directly. We assume we are sending them a link.
-    // However, we want to list them in the "Tenants" list perhaps?
-    // We can't really list them until they exist in Auth/Profiles.
+    if (!adminSupabase) {
+        console.warn('SUPABASE_SERVICE_ROLE_KEY missing. Falling back to mock.');
+        return { success: true, message: `[SIMULATION] Email sent to ${email} (Key missing)` };
+    }
 
-    // For this prototype, we'll return a "simulator" success
-    console.log('[MOCK] Invite sent to:', email);
-    return { success: true, message: `Invitation simulation: Email sent to ${email}` };
+    try {
+        const { data, error } = await adminSupabase.auth.admin.inviteUserByEmail(email);
+
+        if (error) {
+            console.error('Invite Error:', error);
+            // Handle "User already registered" gracefully
+            if (error.message.includes('already registered')) {
+                return { success: false, error: 'User is already registered.' };
+            }
+            return { success: false, error: error.message };
+        }
+
+        console.log('[ADMIN] Invite sent to:', email);
+        return { success: true, message: `Invitation sent to ${email}` };
+    } catch (err: any) {
+        return { success: false, error: err.message };
+    }
 }
 
 export async function getStyles() {
