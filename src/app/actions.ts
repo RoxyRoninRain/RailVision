@@ -233,7 +233,7 @@ export async function inviteTenant(email: string) {
     try {
         // Send actual email via Supabase
         const { data, error } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
-            redirectTo: 'https://railvision-5kw8lst4j-johns-projects-1e70bd02.vercel.app/auth/callback?next=/dashboard/leads'
+            redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/dashboard/leads'
         });
 
         if (error) {
