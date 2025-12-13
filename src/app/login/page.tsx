@@ -33,25 +33,20 @@ export default function LoginPage() {
                 console.error('[LOGIN] SignIn Error:', error);
                 setError(error.message);
             } else {
-                console.log('[LOGIN] SignIn Success. Fetching Dashboard URL...');
-                try {
-                    // Smart Redirect
-                    const { getDashboardUrl } = await import('@/app/actions');
-                    const redirectUrl = await getDashboardUrl();
+                console.log('[LOGIN] SignIn Success. Checking user role...');
 
-                    console.log('[LOGIN] Redirecting to:', redirectUrl);
+                // Client-side redirect logic to avoid Server Action cookie delays
+                const { data: { user } } = await supabase.auth.getUser();
 
-                    if (redirectUrl === '/login') {
-                        console.warn('[LOGIN] Server returned /login. Forcing /dashboard/leads fallback.');
-                        router.push('/dashboard/leads');
-                    } else {
-                        router.push(redirectUrl);
-                    }
-                } catch (actionError) {
-                    console.error('[LOGIN] Action Error, falling back:', actionError);
+                if (user?.email && ['admin@railify.com', 'me@railify.com', 'john@railify.com'].includes(user.email)) {
+                    console.log('[LOGIN] Redirecting to Admin Dashboard');
+                    router.push('/admin/stats');
+                } else {
+                    console.log('[LOGIN] Redirecting to Shop Dashboard');
                     router.push('/dashboard/leads');
                 }
-                router.refresh();
+
+                router.refresh(); // Ensure server components update with new session
             }
         } catch (err: any) {
             setError(err.message || 'An unexpected error occurred');
