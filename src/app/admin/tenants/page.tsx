@@ -29,6 +29,7 @@ export default function TenantsPage() {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
     const [isSimulation, setIsSimulation] = useState(false);
+    const [inviteLink, setInviteLink] = useState<string | null>(null);
 
     // Widget Copy
     const [copied, setCopied] = useState(false);
@@ -54,11 +55,15 @@ export default function TenantsPage() {
             if (res.success) {
                 setInviteStatus('sent');
                 setIsSimulation(res.isSimulation || false);
+                setInviteLink(res.inviteLink || null);
                 setInviteEmail('');
-                setTimeout(() => {
-                    setShowInviteModal(false);
-                    setInviteStatus('idle');
-                }, 2000);
+                // Only auto-close if NO link to show
+                if (!res.inviteLink) {
+                    setTimeout(() => {
+                        setShowInviteModal(false);
+                        setInviteStatus('idle');
+                    }, 2000);
+                }
             } else {
                 console.error('Invite Failed:', res.error);
                 setInviteStatus('error');
@@ -244,9 +249,26 @@ export default function TenantsPage() {
                                             <p className="text-gray-400 text-xs text-center">Service Key missing on Server. Email was NOT sent.</p>
                                         </div>
                                     ) : (
-                                        <div className="bg-green-900/20 border border-green-900/50 p-3 rounded mt-2">
-                                            <p className="text-green-500 text-xs font-mono text-center font-bold">INVITATION SENT</p>
-                                            <p className="text-gray-400 text-xs text-center">The user will receive an email to join Railify.</p>
+                                        <div className="bg-green-900/20 border border-green-900/50 p-3 rounded mt-2 space-y-2">
+                                            <div>
+                                                <p className="text-green-500 text-xs font-mono text-center font-bold">INVITATION CREATED</p>
+                                                <p className="text-gray-400 text-xs text-center">User created in system.</p>
+                                            </div>
+                                            {inviteLink && (
+                                                <div className="bg-black/50 p-2 rounded border border-green-900/30">
+                                                    <p className="text-gray-500 text-[10px] uppercase font-mono mb-1">Manual Invite Link:</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <code className="text-[10px] text-green-400 break-all bg-transparent flex-1">{inviteLink}</code>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => navigator.clipboard.writeText(inviteLink)}
+                                                            className="text-gray-400 hover:text-white"
+                                                        >
+                                                            <Copy size={12} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )
                                 )}
