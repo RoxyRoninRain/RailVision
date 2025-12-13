@@ -227,30 +227,25 @@ export async function inviteTenant(email: string) {
     }
 
     try {
-        // Use generateLink to get the URL directly (bypassing SMTP issues)
-        const { data, error } = await adminSupabase.auth.admin.generateLink({
-            type: 'invite',
-            email: email,
-            options: {
-                redirectTo: 'https://railvision-5kw8lst4j-johns-projects-1e70bd02.vercel.app/login'
-            }
+        // Send actual email via Supabase
+        const { data, error } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
+            redirectTo: 'https://railvision-5kw8lst4j-johns-projects-1e70bd02.vercel.app/auth/callback?next=/dashboard/leads'
         });
 
         if (error) {
             console.error('Invite Error:', error);
-            // Handle "User already registered" gracefully
             if (error.message.includes('already registered')) {
                 return { success: false, error: 'User is already registered.' };
             }
             return { success: false, error: error.message };
         }
 
-        console.log('[ADMIN] Invite Link generated for:', email);
+        console.log('[ADMIN] Invite sent to:', email);
         return {
             success: true,
-            message: `Invitation generated for ${email}`,
+            message: `Invitation sent to ${email}`,
             isSimulation: false,
-            inviteLink: data.properties?.action_link
+            inviteLink: undefined // inviteUserByEmail does not return the link directly
         };
     } catch (err: any) {
         return { success: false, error: err.message };
