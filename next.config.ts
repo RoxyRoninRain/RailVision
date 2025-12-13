@@ -1,10 +1,14 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Silence warning about multiple lockfiles
   experimental: {
     serverActions: {
       bodySizeLimit: '4mb',
     },
+    turbo: {
+      root: '.',
+    }
   },
   async headers() {
     return [
