@@ -346,7 +346,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             <header className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-center pointer-events-none">
                 <div className="pointer-events-auto flex items-center gap-4">
                     <h1 className="text-2xl font-black text-[var(--primary)] uppercase tracking-tighter cursor-pointer" onClick={() => window.location.reload()}>
-                        Railify <span className="text-xs text-gray-500 font-mono tracking-normal ml-1">v3.0</span>
+                        Railify
                     </h1>
                 </div>
                 {/* Steps */}
@@ -427,14 +427,14 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                     "lg:col-span-4 space-y-6 transition-all duration-300",
                                     isFullscreen ? "fixed inset-0 z-50 bg-black flex items-center justify-center p-0" : "relative shrink-0"
                                 )}>
-                                    <div className={clsx("sticky top-0 lg:top-8 w-full", isFullscreen ? "h-full" : "bg-black/80 backdrop-blur-sm lg:bg-transparent pt-4 pb-2 z-10")}>
+                                    <div className={clsx("sticky top-0 lg:top-28 w-full", isFullscreen ? "h-full" : "bg-black/80 backdrop-blur-sm lg:bg-transparent pt-4 pb-2 z-10")}>
                                         {!isFullscreen && (
                                             <h3 className="text-gray-500 font-mono text-xs uppercase mb-4 tracking-widest hidden lg:block">Target Structure</h3>
                                         )}
 
                                         <div className={clsx(
                                             "relative overflow-hidden border border-[var(--secondary)] transition-all",
-                                            isFullscreen ? "w-full h-full border-none rounded-none" : "rounded-xl max-h-[60vh] lg:max-h-none mx-auto"
+                                            isFullscreen ? "w-full h-full border-none rounded-none" : "rounded-xl max-h-[50vh] mx-auto"
                                         )}>
                                             {preview && (
                                                 <img
@@ -463,7 +463,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                         </div>
 
                                         {!isFullscreen && (
-                                            <div className="mt-8 p-6 bg-[#111] border border-gray-800 rounded-lg hidden lg:block">
+                                            <div className="mt-4 p-4 bg-[#111] border border-gray-800 rounded-lg hidden lg:block">
                                                 <h4 className="text-[var(--primary)] mb-2 font-mono text-sm">System Ready</h4>
                                                 <p className="text-gray-500 text-sm leading-relaxed">
                                                     Our AI engine will analyze structural hardpoints and overlay the selected aesthetic while maintaining perspective geometry.
