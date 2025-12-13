@@ -226,7 +226,10 @@ export default function TenantsPage() {
                                     {inviteStatus === 'sending' ? 'Sending...' : inviteStatus === 'sent' ? 'Invitation Sent!' : 'Send Invite'}
                                 </button>
                                 {inviteStatus === 'sent' && (
-                                    <p className="text-green-500 text-xs text-center">Check the console logs for the mocked email trigger.</p>
+                                    <div className="bg-yellow-900/20 border border-yellow-900/50 p-3 rounded mt-2">
+                                        <p className="text-yellow-500 text-xs font-mono text-center font-bold">SIMULATION MODE</p>
+                                        <p className="text-gray-400 text-xs text-center">Email sending is disabled (no service key). Check server logs for invite link.</p>
+                                    </div>
                                 )}
                             </form>
                         </motion.div>
