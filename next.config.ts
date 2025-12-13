@@ -6,9 +6,6 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '4mb',
     },
-    turbo: {
-      root: '.',
-    }
   },
   async headers() {
     return [
