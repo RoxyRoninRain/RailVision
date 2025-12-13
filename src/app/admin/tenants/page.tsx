@@ -44,15 +44,21 @@ export default function TenantsPage() {
     const handleInvite = async (e: React.FormEvent) => {
         e.preventDefault();
         setInviteStatus('sending');
-        const res = await inviteTenant(inviteEmail);
-        if (res.success) {
-            setInviteStatus('sent');
-            setInviteEmail('');
-            setTimeout(() => {
-                setShowInviteModal(false);
-                setInviteStatus('idle');
-            }, 2000);
-        } else {
+        try {
+            const res = await inviteTenant(inviteEmail);
+            if (res.success) {
+                setInviteStatus('sent');
+                setInviteEmail('');
+                setTimeout(() => {
+                    setShowInviteModal(false);
+                    setInviteStatus('idle');
+                }, 2000);
+            } else {
+                console.error('Invite Failed:', res.error);
+                setInviteStatus('error');
+            }
+        } catch (error) {
+            console.error('System Error during invite:', error);
             setInviteStatus('error');
         }
     };
