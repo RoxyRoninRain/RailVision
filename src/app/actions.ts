@@ -230,31 +230,51 @@ export async function inviteTenant(email: string) {
         return { success: true, message: `[SIMULATION] Email sent to ${email} (Key missing, Len: ${keyLen})`, isSimulation: true, inviteLink: undefined };
     }
 
-    try {
-        // Send actual email via Supabase (SMTP must be configured in Supabase Dashboard)
-        const { data, error } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
-            redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/dashboard/leads'
-        });
 
-        if (error) {
-            console.error('Invite Error:', error);
-            if (error.message.includes('already registered')) {
-                return { success: false, error: 'User is already registered.' };
-            }
-            return { success: false, error: error.message };
+    console.log('[ADMIN] Attempting invite via SMTP for:', email);
+    // 1. Try sending actual email
+    const { data: inviteData, error: inviteError } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
+        redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/dashboard/leads'
+    });
+
+    if (inviteError) {
+        console.error('[ADMIN] SMTP Invite Failed:', inviteError.message);
+
+        // If user already exists, don't generate a new link, just error out
+        if (inviteError.message.includes('already registered')) {
+            return { success: false, error: 'User is already registered.' };
         }
 
-        console.log('[ADMIN] Invite sent to:', email);
+        // 2. FALLBACK: Generate Manual Link if SMTP fails
+        console.warn('[ADMIN] Falling back to Manual Link generation...');
+        const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
+            type: 'invite',
+            email: email,
+            options: {
+                redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/dashboard/leads'
+            }
+        });
+
+        if (linkError) {
+            console.error('[ADMIN] Manual Link Generation Failed:', linkError);
+            return { success: false, error: `Both Email and Manual generation failed. (${inviteError.message})` };
+        }
+
         return {
             success: true,
-            message: `Invitation sent to ${email}`,
+            message: `Email failed (${inviteError.message}), but Manual Link generated.`,
             isSimulation: false,
-            // inviteUserByEmail does NOT return a link. We rely on the email being sent.
-            inviteLink: undefined
+            inviteLink: linkData.properties?.action_link
         };
-    } catch (err: any) {
-        return { success: false, error: err.message };
     }
+
+    console.log('[ADMIN] Invite sent to:', email);
+    return {
+        success: true,
+        message: `Invitation sent to ${email}`,
+        isSimulation: false,
+        inviteLink: undefined
+    };
 }
 
 export async function getStyles() {
