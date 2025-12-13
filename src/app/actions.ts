@@ -218,12 +218,16 @@ export async function getTenantProfile(organizationId: string) {
 // Admin Action to "Invite" (Mock for now, or actual if we had Service Key)
 // Admin Action to Invite Tenant
 export async function inviteTenant(email: string) {
-    // Dynamic import to avoid client-side bundling issues if this file is shared
-    const { adminSupabase } = await import('@/lib/supabase');
+    // Import from the new server-only file
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const adminSupabase = createAdminClient();
 
     if (!adminSupabase) {
         console.warn('SUPABASE_SERVICE_ROLE_KEY missing. Falling back to mock.');
-        return { success: true, message: `[SIMULATION] Email sent to ${email} (Key missing)`, isSimulation: true, inviteLink: undefined };
+        // Add debug info to message
+        const keyLen = process.env.SUPABASE_SERVICE_ROLE_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY.length : 0;
+        console.log(`Debug Check: Env Var Length = ${keyLen}`);
+        return { success: true, message: `[SIMULATION] Email sent to ${email} (Key missing, Len: ${keyLen})`, isSimulation: true, inviteLink: undefined };
     }
 
     try {
