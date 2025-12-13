@@ -223,7 +223,7 @@ export async function inviteTenant(email: string) {
 
     if (!adminSupabase) {
         console.warn('SUPABASE_SERVICE_ROLE_KEY missing. Falling back to mock.');
-        return { success: true, message: `[SIMULATION] Email sent to ${email} (Key missing)` };
+        return { success: true, message: `[SIMULATION] Email sent to ${email} (Key missing)`, isSimulation: true };
     }
 
     try {
@@ -239,7 +239,7 @@ export async function inviteTenant(email: string) {
         }
 
         console.log('[ADMIN] Invite sent to:', email);
-        return { success: true, message: `Invitation sent to ${email}` };
+        return { success: true, message: `Invitation sent to ${email}`, isSimulation: false };
     } catch (err: any) {
         return { success: false, error: err.message };
     }

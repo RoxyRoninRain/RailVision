@@ -28,6 +28,7 @@ export default function TenantsPage() {
     // Invite Form
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+    const [isSimulation, setIsSimulation] = useState(false);
 
     // Widget Copy
     const [copied, setCopied] = useState(false);
@@ -48,6 +49,7 @@ export default function TenantsPage() {
             const res = await inviteTenant(inviteEmail);
             if (res.success) {
                 setInviteStatus('sent');
+                setIsSimulation(res.isSimulation || false);
                 setInviteEmail('');
                 setTimeout(() => {
                     setShowInviteModal(false);
@@ -232,10 +234,17 @@ export default function TenantsPage() {
                                     {inviteStatus === 'sending' ? 'Sending...' : inviteStatus === 'sent' ? 'Invitation Sent!' : 'Send Invite'}
                                 </button>
                                 {inviteStatus === 'sent' && (
-                                    <div className="bg-green-900/20 border border-green-900/50 p-3 rounded mt-2">
-                                        <p className="text-green-500 text-xs font-mono text-center font-bold">INVITATION SENT</p>
-                                        <p className="text-gray-400 text-xs text-center">The user will receive an email to join Railify.</p>
-                                    </div>
+                                    isSimulation ? (
+                                        <div className="bg-yellow-900/20 border border-yellow-900/50 p-3 rounded mt-2">
+                                            <p className="text-yellow-500 text-xs font-mono text-center font-bold">SIMULATION MODE</p>
+                                            <p className="text-gray-400 text-xs text-center">Service Key missing on Server. Email was NOT sent.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="bg-green-900/20 border border-green-900/50 p-3 rounded mt-2">
+                                            <p className="text-green-500 text-xs font-mono text-center font-bold">INVITATION SENT</p>
+                                            <p className="text-gray-400 text-xs text-center">The user will receive an email to join Railify.</p>
+                                        </div>
+                                    )
                                 )}
                             </form>
                         </motion.div>
