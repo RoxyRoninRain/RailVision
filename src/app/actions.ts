@@ -32,6 +32,8 @@ export interface Profile {
     address?: string | null;
     primary_color?: string | null;
     tool_background_color?: string | null;
+    logo_size?: number | null;
+    watermark_logo_url?: string | null;
 }
 
 export async function generateDesign(formData: FormData) {
@@ -249,7 +251,7 @@ export async function getTenantProfile(organizationId: string) {
     // Public fetch of branding details
     const { data, error } = await supabase
         .from('profiles')
-        .select('shop_name, logo_url, phone, address, primary_color, tool_background_color')
+        .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url')
         .eq('id', organizationId)
         .single();
 
@@ -618,6 +620,9 @@ export async function updateProfile(formData: FormData) {
     const address = formData.get('address') as string;
     const primary_color = formData.get('primary_color') as string;
     const tool_background_color = formData.get('tool_background_color') as string;
+    const logo_size = formData.get('logo_size') ? parseInt(formData.get('logo_size') as string) : null;
+    const logo_url = formData.get('logo_url') as string;
+    const watermark_logo_url = formData.get('watermark_logo_url') as string;
 
     const updates: any = {};
     if (shop_name) updates.shop_name = shop_name;
@@ -625,6 +630,9 @@ export async function updateProfile(formData: FormData) {
     if (address) updates.address = address;
     if (primary_color) updates.primary_color = primary_color;
     if (tool_background_color) updates.tool_background_color = tool_background_color;
+    if (logo_size) updates.logo_size = logo_size;
+    if (logo_url) updates.logo_url = logo_url;
+    if (watermark_logo_url) updates.watermark_logo_url = watermark_logo_url;
 
     const upsertData: any = {
         id: user.id,

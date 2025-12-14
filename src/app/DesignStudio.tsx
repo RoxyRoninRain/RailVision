@@ -27,6 +27,7 @@ interface TenantProfile {
     address?: string | null;
     primary_color?: string | null;
     tool_background_color?: string | null;
+    logo_size?: number | null;
 }
 
 interface DesignStudioProps {
@@ -56,6 +57,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [shopName, setShopName] = useState<string | null>(tenantProfile?.shop_name || null);
     const [primaryColor, setPrimaryColor] = useState(tenantProfile?.primary_color || '#FFD700');
     const [toolBackgroundColor, setToolBackgroundColor] = useState(tenantProfile?.tool_background_color || '#050505');
+    const [logoSize, setLogoSize] = useState(tenantProfile?.logo_size || 80);
 
     // Processing
     const [result, setResult] = useState<string | null>(null);
@@ -83,6 +85,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         if (tenantProfile?.shop_name) setShopName(tenantProfile.shop_name);
         if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
         if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
+        if (tenantProfile?.logo_size) setLogoSize(tenantProfile.logo_size);
     }, [tenantProfile]);
 
     const primaryRgb = hexToRgb(primaryColor);
@@ -407,7 +410,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 <div className="pointer-events-auto flex items-center gap-4">
                     <div className="cursor-pointer" onClick={() => window.location.reload()}>
                         {logo ? (
-                            <img src={logo} alt={shopName || "Logo"} className="h-20 w-auto object-contain" />
+                            <img src={logo} alt={shopName || "Logo"} style={{ height: logoSize }} className="w-auto object-contain" />
                         ) : (
                             <h1 className="text-2xl font-black text-[var(--primary)] uppercase tracking-tighter">
                                 {shopName || "Railify"}

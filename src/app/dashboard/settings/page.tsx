@@ -246,6 +246,33 @@ export default function SettingsPage() {
                                                 </div>
                                             </div>
                                         </div>
+
+                                        {/* Logo Size Control */}
+                                        <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                Logo Size (px)
+                                            </label>
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="range"
+                                                    name="logo_size"
+                                                    min="20"
+                                                    max="200"
+                                                    defaultValue={profile?.logo_size || 80}
+                                                    className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-[var(--primary)] hover:accent-white transition-all"
+                                                    onInput={(e) => {
+                                                        const p = e.currentTarget.parentElement?.querySelector('p');
+                                                        if (p) p.textContent = `${e.currentTarget.value}px`;
+                                                    }}
+                                                />
+                                                <p className="font-mono text-white w-16 text-right">
+                                                    {profile?.logo_size || 80}px
+                                                </p>
+                                            </div>
+                                            <p className="text-xs text-gray-600 mt-2">
+                                                Adjust the height of your logo in the header.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 

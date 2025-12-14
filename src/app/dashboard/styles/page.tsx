@@ -7,5 +7,13 @@ export default async function Page() {
     const initialStyles = stylesResult.data || [];
     const serverError = stylesResult.error;
 
-    return <StylesManager initialStyles={initialStyles} serverError={serverError} logoUrl={profile?.logo_url} />;
+    return (
+        <div className="p-8">
+            <h1 className="text-3xl font-black uppercase mb-8 text-white">Style Library</h1>
+            <StylesManager
+                styles={initialStyles || []}
+                logoUrl={profile?.watermark_logo_url || profile?.logo_url || undefined}
+            />
+        </div>
+    );
 }
