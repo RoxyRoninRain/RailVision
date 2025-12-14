@@ -139,15 +139,15 @@ export async function generateDesign(formData: FormData) {
 
                 await supabase.from('generations').insert({
                     organization_id: user ? user.id : null,
-                    // If result.image is huge base64, we might truncate or not store it in 'image_url' 
-                    // unless 'generations' table expects large text. 
-                    // Best practice: Store generated image to Supabase Storage, then link. 
-                    // For now, logging usage is key. We'll store 'Base64 Data' string placeholder or prompt snippet.
                     image_url: result.image.startsWith('data:') ? 'Base64 Image Data' : result.image,
                     prompt_used: promptConfig ? 'Dynamic Prompt' : 'Default Prompt',
                     style_id: style,
                     ip_address: ip,
-                    user_agent: userAgent
+                    user_agent: userAgent,
+                    // COST TRACKING
+                    model_id: 'gemini-3.0-pro-image-preview',
+                    input_tokens: result.usage?.inputTokens || 0,
+                    output_tokens: result.usage?.outputTokens || 0
                 });
                 console.log('[DEBUG] Generation tracked in DB with IP:', ip);
             } catch (err) {

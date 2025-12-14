@@ -352,3 +352,64 @@ export async function updateSubscriptionStatus(tenantId: string, status: 'active
         return { error: error.message };
     }
 }
+
+// COST ANALYSIS
+export async function getCostAnalysis() {
+    const supabase = await createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    try {
+        // Fetch all generations with token data
+        const { data, error } = await supabase
+            .from('generations')
+            .select('model_id, input_tokens, output_tokens, created_at');
+
+        if (error) throw error;
+
+        let totalCost = 0;
+        let totalGenerations = 0;
+        let modelBreakdown: any = {};
+
+        data.forEach((gen: any) => {
+            const model = gen.model_id || 'unknown';
+            const input = gen.input_tokens || 0;
+            const output = gen.output_tokens || 0;
+
+            if (!modelBreakdown[model]) {
+                modelBreakdown[model] = { count: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
+            }
+
+            modelBreakdown[model].count++;
+            modelBreakdown[model].inputTokens += input;
+            modelBreakdown[model].outputTokens += output;
+
+            // PRICING MAP (Gemini 3 Pro Image Preview)
+            // Output: $120 / 1M tokens
+            // Input: $0.0011/image -> let's fallback to $2/1M tokens if we have token counts
+
+            let cost = 0;
+            if (model.includes('gemini-3')) {
+                const inputCost = (input / 1000000) * 2;
+                const outputCost = (output / 1000000) * 120;
+                cost = inputCost + outputCost;
+            } else if (model.includes('imagen')) {
+                cost = 0.020;
+            }
+
+            modelBreakdown[model].cost += cost;
+            totalCost += cost;
+            totalGenerations++;
+        });
+
+        return {
+            totalCost,
+            totalGenerations,
+            modelBreakdown,
+            lastUpdated: new Date().toISOString()
+        };
+
+    } catch (error: any) {
+        console.error('Cost Analysis Failed:', error);
+        return { error: error.message };
+    }
+}

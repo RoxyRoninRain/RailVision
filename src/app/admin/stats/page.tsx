@@ -2,158 +2,141 @@
 
 import { useEffect, useState } from 'react';
 import { getAdminStats } from '@/app/actions';
-import { getGlobalStats, GlobalStats } from '@/app/admin/actions';
+import { getGlobalStats, GlobalStats, getCostAnalysis } from '@/app/admin/actions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
-import { TrendingUp, Users, DollarSign, Activity } from 'lucide-react';
+import { TrendingUp, Users, DollarSign, Activity, Building, Zap } from 'lucide-react';
 
 export default function AdminStatsPage() {
-    const [data, setData] = useState<{ organization_id: string, count: number }[]>([]);
-    const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<any>(null);
+    const [costs, setCosts] = useState<any>(null);
+    const [chartData, setChartData] = useState<any[]>([]);
 
     useEffect(() => {
-        Promise.all([
-            getAdminStats(),
-            getGlobalStats()
-        ]).then(([stats, globals]) => {
-            setData(stats);
-            setGlobalStats(globals);
-            setLoading(false);
-        });
+        const loadStats = async () => {
+            const [adminData, globalData, costData] = await Promise.all([
+                getAdminStats(),
+                getGlobalStats(),
+                getCostAnalysis()
+            ]);
+
+            setStats(globalData);
+            setCosts(costData);
+
+            // Accessing count from adminData properly
+            const formattedChartData = adminData.map((item: any, index: number) => ({
+                ...item,
+                name: `Shop ${index + 1} (${item.organization_id.substring(0, 4)})`,
+                fullId: item.organization_id
+            }));
+            setChartData(formattedChartData);
+        };
+        loadStats();
     }, []);
 
-    // Mock enhancement: convert organization_id to names if possible or just show ID
-    const chartData = data.map((item, index) => ({
-        ...item,
-        name: `Shop ${index + 1} (${item.organization_id.substring(0, 4)})`,
-        fullId: item.organization_id
-    }));
-
-    const totalLeads = data.reduce((acc, curr) => acc + curr.count, 0);
-    const totalRevenue = totalLeads * 2000;
-    const activeShops = data.length;
+    if (!stats || !costs) return (
+        <div className="min-h-screen bg-[#050505] flex items-center justify-center">
+            <div className="animate-spin h-8 w-8 border-2 border-red-500 rounded-full border-t-transparent"></div>
+        </div>
+    );
 
     const COLORS = ['#e11d48', '#2563eb', '#16a34a', '#d97706', '#9333ea'];
 
-    if (loading) return <div className="p-12 text-center font-mono text-gray-500 animate-pulse">Initializing Command Center...</div>;
-
     return (
-        <div className="min-h-screen bg-[#050505] p-6 text-white font-sans">
-            <header className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-900 pb-6">
-                <div>
-                    <h1 className="text-4xl font-mono font-bold text-[var(--primary)] uppercase tracking-tighter mb-1">
-                        Global Overwatch
-                    </h1>
-                    <p className="text-gray-500 font-light text-sm tracking-wide uppercase">System Metrics & Performance</p>
-                </div>
-                <div className="flex gap-2">
-                    <span className="bg-green-900/30 text-green-400 border border-green-900 px-3 py-1 rounded font-mono text-xs flex items-center gap-2">
-                        <Activity size={14} /> SYSTEM ONLINE
-                    </span>
+        <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-red-500/30 p-8">
+            <header className="mb-12 border-b border-white/10 pb-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-black uppercase tracking-tighter mb-2">Platform Intelligence</h1>
+                        <p className="text-gray-400 font-mono text-xs tracking-widest">REAL-TIME ANALYTICS & COST TRACKING</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <span className="bg-green-900/30 text-green-400 border border-green-900 px-3 py-1 rounded font-mono text-xs flex items-center gap-2">
+                            <Activity size={14} /> SYSTEM ONLINE
+                        </span>
+                    </div>
                 </div>
             </header>
 
-            {/* Metrics Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                <MetricCard
-                    label="Total Leads Processed"
-                    value={totalLeads.toString()}
-                    icon={<TrendingUp size={20} className="text-blue-500" />}
-                    trend="+12% this week"
+                <StatCard
+                    label="Total Leads"
+                    value={stats.totalLeads}
+                    icon={<Users size={16} />}
+                    trend="+12% (30d)"
                 />
-                <MetricCard
-                    label="Active Tenants"
-                    value={activeShops.toString()}
-                    icon={<Users size={20} className="text-purple-500" />}
-                    trend="Stable"
+                <StatCard
+                    label="Active Shops"
+                    value={stats.activeTenants}
+                    icon={<Building size={16} />}
                 />
-                <MetricCard
-                    label="Est. Pipeline Value"
-                    value={`$${totalRevenue.toLocaleString()}`}
-                    icon={<DollarSign size={20} className="text-green-500" />}
-                    trend="Based on $2k avg"
+                <StatCard
+                    label="Generations"
+                    value={stats.totalGenerations}
+                    icon={<Zap size={16} />}
+                    trend="Alive"
                 />
-                <MetricCard
-                    label="AI Generations"
-                    value={globalStats?.totalGenerations?.toString() || '0'}
-                    icon={<Activity size={20} className="text-orange-500" />}
-                    trend="Actual Usage"
-                />
-                <MetricCard
-                    label="Est. API Costs"
-                    value={`$${globalStats?.estimatedApiCost?.toFixed(2) || '0.00'}`}
-                    icon={<DollarSign size={20} className="text-red-500" />}
-                    trend="$0.04 / gen"
-                />
-                <MetricCard
-                    label="Active Users (IP)"
-                    value={globalStats?.uniqueIps?.toString() || '0'}
-                    icon={<Users size={20} className="text-purple-500" />}
-                    trend="Unique Devices"
+                <StatCard
+                    isCost
+                    label="Total AI Spend"
+                    value={`$${costs.totalCost?.toFixed(2) || '0.00'}`}
+                    icon={<DollarSign size={16} />}
+                    subtext="High Precision Tracker"
                 />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* 1. TOP STYLES */}
-                <div className="bg-[#111] border border-white/5 rounded-lg p-6">
-                    <h3 className="text-lg font-bold text-white mb-4 font-mono uppercase tracking-wider flex items-center gap-2">
-                        <Activity size={16} className="text-purple-500" /> Most Popular Styles
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* COST BREAKDOWN */}
+                <div className="lg:col-span-2 bg-[#111] border border-white/10 rounded-lg p-6">
+                    <h3 className="text-sm font-mono text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <DollarSign size={14} /> Cost Breakdown by Model
                     </h3>
-                    <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
-                        {(globalStats?.topStyles?.length || 0) > 0 ? globalStats?.topStyles.map((style: any, i: number) => (
-                            <div key={style.name} className="flex items-center justify-between group">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-xs font-mono text-gray-600 w-4">0{i + 1}</span>
-                                    <span className="text-sm text-gray-300 font-mono group-hover:text-white transition-colors capitalize">{style.name.replace('-', ' ')}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-purple-600 rounded-full"
-                                            style={{ width: `${(style.count / (globalStats?.totalGenerations || 1)) * 100}%` }}
-                                        />
+
+                    <div className="space-y-4">
+                        {Object.entries(costs.modelBreakdown || {}).map(([model, data]: [string, any]) => (
+                            <div key={model} className="bg-black/40 border border-white/5 rounded p-4 flex items-center justify-between">
+                                <div>
+                                    <div className="text-sm font-bold text-gray-200 mb-1">{model}</div>
+                                    <div className="text-xs font-mono text-gray-500">
+                                        {data.count} calls • {(data.outputTokens / 1000000).toFixed(3)}M output tokens
                                     </div>
-                                    <span className="text-xs font-bold text-white w-8 text-right">{style.count}</span>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-lg font-mono font-bold text-red-400">${data.cost.toFixed(3)}</div>
+                                    <div className="text-[10px] text-gray-600 uppercase tracking-wider">Est. Cost</div>
                                 </div>
                             </div>
-                        )) : (
-                            <div className="text-center py-8 text-gray-600 font-mono text-xs">NO STYLE DATA YET</div>
+                        ))}
+                        {(!costs.modelBreakdown || Object.keys(costs.modelBreakdown).length === 0) && (
+                            <div className="text-center py-8 text-gray-600 font-mono text-xs">NO COST DATA YET</div>
                         )}
                     </div>
                 </div>
 
-                {/* 2. MARKET SHARE (Existing) */}
-                {/* Main Bar Chart */}
-                <div className="lg:col-span-2 bg-[#0a0a0a] p-6 rounded-lg border border-gray-800 shadow-2xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-4 opacity-50">
-                        <Activity className="text-gray-800 w-24 h-24 absolute -top-4 -right-4" />
+                {/* TOP STYLES */}
+                <div className="bg-[#111] border border-white/10 rounded-lg p-6">
+                    <h3 className="text-sm font-mono text-gray-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                        <Activity size={14} /> Popular Styles
+                    </h3>
+                    <div className="space-y-3">
+                        {stats.topStyles.map((style: any, i: number) => (
+                            <div key={i} className="flex items-center justify-between p-3 bg-white/5 rounded hover:bg-white/10 transition-colors">
+                                <span className="text-sm font-medium text-gray-300">#{i + 1} {style.name}</span>
+                                <span className="text-xs font-mono bg-black/50 px-2 py-1 rounded text-red-400">{style.count}</span>
+                            </div>
+                        ))}
                     </div>
-                    <h2 className="text-xl font-mono font-bold text-gray-200 mb-6 relative z-10 flex items-center gap-2">
-                        Leads Distribution by Shop
-                    </h2>
-                    <div className="h-[350px] w-full relative z-10">
+
+                    {/* Market Share Chart (Mini) */}
+                    <div className="h-40 mt-8">
+                        <h4 className="text-xs font-mono text-gray-500 uppercase mb-4">Leads by Shop</h4>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" vertical={false} />
-                                <XAxis
-                                    dataKey="name"
-                                    stroke="#444"
-                                    tick={{ fontSize: 12, fontFamily: 'monospace' }}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                                <YAxis
-                                    stroke="#444"
-                                    tick={{ fontSize: 12, fontFamily: 'monospace' }}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
                                 <Tooltip
                                     cursor={{ fill: '#ffffff05' }}
                                     contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '4px' }}
                                     itemStyle={{ color: '#fff', fontFamily: 'monospace' }}
                                 />
-                                <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+                                <Bar dataKey="count" radius={[2, 2, 0, 0]}>
                                     {chartData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
@@ -162,61 +145,29 @@ export default function AdminStatsPage() {
                         </ResponsiveContainer>
                     </div>
                 </div>
-
-                {/* Secondary/Pie Chart Placeholders */}
-                <div className="bg-[#0a0a0a] p-6 rounded-lg border border-gray-800 shadow-2xl flex flex-col">
-                    <h2 className="text-xl font-mono font-bold text-gray-200 mb-6">Market Share</h2>
-                    <div className="flex-1 min-h-[200px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
-                                <Pie
-                                    data={chartData}
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                    dataKey="count"
-                                >
-                                    {chartData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(0,0,0,0.5)" />
-                                    ))}
-                                </Pie>
-                                <Tooltip
-                                    contentStyle={{ backgroundColor: '#000', border: '1px solid #333', borderRadius: '4px' }}
-                                    itemStyle={{ color: '#fff', fontFamily: 'monospace' }}
-                                />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                    <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                        {chartData.map((entry, index) => (
-                            <div key={index} className="flex items-center justify-between text-xs font-mono text-gray-500 p-2 hover:bg-white/5 rounded">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                                    <span className="truncate max-w-[120px]" title={entry.name}>{entry.name}</span>
-                                </div>
-                                <span className="text-white">{entry.count}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
             </div>
         </div>
     );
 }
 
-function MetricCard({ label, value, icon, trend }: { label: string, value: string, icon: React.ReactNode, trend: string }) {
+function StatCard({ label, value, icon, trend, isCost, subtext }: { label: string, value: string | number, icon: any, trend?: string, isCost?: boolean, subtext?: string }) {
     return (
-        <div className="bg-[#0a0a0a] p-5 rounded-lg border border-gray-800 hover:border-gray-700 transition-colors group">
-            <div className="flex justify-between items-start mb-4">
-                <span className="text-gray-500 font-mono text-xs uppercase tracking-wider">{label}</span>
-                <div className="p-2 bg-gray-900 rounded-lg group-hover:bg-gray-800 transition-colors">
+        <div className="bg-[#111] border border-white/10 rounded-lg p-6 hover:border-white/20 transition-all group">
+            <div className="flex items-center justify-between mb-4">
+                <div className={`p-2 rounded-lg ${isCost ? 'bg-red-500/10 text-red-500' : 'bg-white/5 text-gray-400 group-hover:text-white transition-colors'}`}>
                     {icon}
                 </div>
+                {trend && (
+                    <span className="text-[10px] font-mono bg-green-900/20 text-green-400 px-2 py-1 rounded border border-green-900/30">
+                        {trend}
+                    </span>
+                )}
             </div>
-            <div className="text-3xl font-bold font-mono text-white mb-2">{value}</div>
-            <div className="text-xs text-gray-600 font-mono">{trend}</div>
+            <div>
+                <div className="text-gray-500 text-xs font-mono uppercase tracking-widest mb-1">{label}</div>
+                <div className="text-2xl font-black text-white tracking-tight">{value}</div>
+                {subtext && <div className="text-[10px] text-gray-600 mt-1 font-mono uppercase tracking-wider">{subtext}</div>}
+            </div>
         </div>
-    )
+    );
 }

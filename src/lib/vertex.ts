@@ -80,11 +80,12 @@ export async function analyzeStyleWithGemini(base64Image: string): Promise<strin
     }
 }
 
+// Update return type
 export async function generateDesignWithNanoBanana(
     base64TargetImage: string,
     styleInput: string | { base64StyleImage: string },
     promptConfig?: { systemInstruction: string; userTemplate: string }
-): Promise<{ success: boolean; image?: string; error?: string }> {
+): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     try {
         console.log('[NANO BANANA] Initializing generation...');
         // User requested: gemini-3-pro-image-preview
@@ -154,6 +155,13 @@ Command:
         const result = await model.generateContent(request);
         const response = await result.response;
 
+        console.log('[DEBUG] Token Usage:', JSON.stringify(response.usageMetadata));
+
+        const usage = {
+            inputTokens: response.usageMetadata?.promptTokenCount || 0,
+            outputTokens: response.usageMetadata?.candidatesTokenCount || 0
+        };
+
         // Gemini 3.0 Image Generation usually returns inline data differently or as a standard part.
         // Assuming standard candidate part structure for image output if supported multimodally.
         // NOTE: For 'generateContent' with image output, check for executable code or inline data.
@@ -169,7 +177,8 @@ Command:
                 return {
                     success: true,
                     // @ts-ignore
-                    image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
+                    image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+                    usage
                 };
             }
         }
