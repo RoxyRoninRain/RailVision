@@ -8,7 +8,8 @@ ON CONFLICT (id) DO UPDATE SET public = true;
 
 -- 2. Add tenant_id column if missing (Safe)
 ALTER TABLE portfolio 
-ADD COLUMN IF NOT EXISTS tenant_id uuid DEFAULT auth.uid();
+ADD COLUMN IF NOT EXISTS tenant_id uuid DEFAULT auth.uid(),
+ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
 
 -- 3. Fix Permissions (Drop and Recreate to be sure)
 DROP POLICY IF EXISTS "Portfolio Public Read" ON storage.objects;

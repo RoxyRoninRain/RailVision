@@ -19,7 +19,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
     // Image Compression Helper
-    const compressImage = async (file: File): Promise<File> => {
+    const compressImage = async (file: File, maxDim = 1500, quality = 0.85): Promise<File> => {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.src = URL.createObjectURL(file);
@@ -28,17 +28,16 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                 let width = img.width;
                 let height = img.height;
 
-                // Max dimensions (e.g. 1500px)
-                const MAX_SIZE = 1500;
+                // Maintain aspect ratio
                 if (width > height) {
-                    if (width > MAX_SIZE) {
-                        height *= MAX_SIZE / width;
-                        width = MAX_SIZE;
+                    if (width > maxDim) {
+                        height *= maxDim / width;
+                        width = maxDim;
                     }
                 } else {
-                    if (height > MAX_SIZE) {
-                        width *= MAX_SIZE / height;
-                        height = MAX_SIZE;
+                    if (height > maxDim) {
+                        width *= maxDim / height;
+                        height = maxDim;
                     }
                 }
 
@@ -57,7 +56,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                         lastModified: Date.now(),
                     });
                     resolve(newFile);
-                }, 'image/jpeg', 0.85); // 85% quality
+                }, 'image/jpeg', quality);
             };
             img.onerror = (err) => reject(err);
         });
@@ -100,19 +99,50 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                 return;
             }
 
-            // Client-side Resize/Compression if > 1MB or large IDK
+            // Iterative Compression Strategy
             try {
-                if (file.size > 1 * 1024 * 1024) { // If > 1MB, try to compress
-                    console.log(`Compressing image: ${file.size / 1024 / 1024}MB`);
-                    const compressed = await compressImage(file);
-                    console.log(`Compressed to: ${compressed.size / 1024 / 1024}MB`);
-                    // If compression actually made it bigger (rare but possible with low qual orig), keep orig
-                    if (compressed.size < file.size) {
-                        file = compressed;
+                // If file is > 4MB (safety margin for 4.5MB limit), strict compress
+                // If file is > 1MB, moderate compress
+                let currentFile = file;
+                let attempt = 0;
+                let maxDimension = 2000;
+                let quality = 0.9;
+
+                while (currentFile.size > 4 * 1024 * 1024 && attempt < 3) {
+                    console.log(`Attempt ${attempt + 1}: Compressing ${currentFile.size / 1024 / 1024}MB image...`);
+
+                    // Progressive degradation
+                    if (attempt === 1) { maxDimension = 1500; quality = 0.8; }
+                    if (attempt === 2) { maxDimension = 1200; quality = 0.7; }
+
+                    const compressed = await compressImage(currentFile, maxDimension, quality);
+
+                    // Safety check: prevent infinite growth if compression fails or adds overhead
+                    if (compressed.size < currentFile.size) {
+                        currentFile = compressed;
+                    } else {
+                        // Compression didn't help (already optimized?), break to avoid loop
+                        console.warn('Compression did not reduce file size.');
+                        break;
                     }
+                    attempt++;
                 }
+
+                // Final Safety Check
+                if (currentFile.size > 4.5 * 1024 * 1024) {
+                    setErrorMsg(`Image is too large (${(currentFile.size / 1024 / 1024).toFixed(1)}MB) even after compression. Please upload a smaller file.`);
+                    return;
+                }
+
+                file = currentFile;
+                console.log(`Final File Size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+
             } catch (err) {
-                console.error('Compression failed, using original', err);
+                console.error('Compression failed:', err);
+                if (file.size > 4.5 * 1024 * 1024) {
+                    setErrorMsg('Compression failed and original file is too large (>4.5MB).');
+                    return;
+                }
             }
 
             setNewFile(file);
@@ -192,8 +222,8 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                 </div>
             )}
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Grid - Change to Masonry-like columns or just responsive heights */}
+            <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
                 {styles.length === 0 && !isAdding && (
                     <div className="col-span-full text-center py-12 border border-dashed border-gray-800 rounded-xl bg-white/5">
                         <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -211,9 +241,16 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
-                            className="group relative aspect-[4/3] bg-[#111] rounded-xl overflow-hidden border border-[#222] hover:border-[var(--primary)] transition-colors"
+                            className="group relative bg-[#111] rounded-xl overflow-hidden border border-[#222] hover:border-[var(--primary)] transition-colors break-inside-avoid mb-6"
                         >
-                            <img src={style.image_url} alt={style.name} className="w-full h-full object-cover" />
+                            {/* Use object-contain with background for varying aspect ratios */}
+                            <div className="w-full bg-black/50 flex items-center justify-center p-2 min-h-[200px]">
+                                <img
+                                    src={style.image_url}
+                                    alt={style.name}
+                                    className="max-w-full max-h-[500px] w-auto h-auto object-contain rounded-lg shadow-lg"
+                                />
+                            </div>
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-6 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                 <h4 className="text-xl font-bold text-white uppercase">{style.name}</h4>
                                 <p className="text-gray-400 text-xs mb-4 line-clamp-2">{style.description}</p>
