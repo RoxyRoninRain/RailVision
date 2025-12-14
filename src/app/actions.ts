@@ -281,8 +281,12 @@ export async function inviteTenant(email: string) {
     }
 
     console.log('[ADMIN] Invite sent to:', email);
-    inviteLink: undefined
-};
+    return {
+        success: true,
+        message: `Invitation email sent to ${email} successfully.`,
+        isSimulation: false,
+        inviteLink: undefined
+    };
 }
 
 // --- Porfolio Actions ---
@@ -495,16 +499,16 @@ export async function getStyles(tenantId?: string) {
         // Map to ensure it matches the format
         return data as any[];
     }
-}
 
-// Default System Styles available to everyone
-return [
-    { id: '1', name: 'Industrial', description: 'Raw steel and exposed elements', image_url: '/styles/industrial.png' },
-    { id: '2', name: 'Modern', description: 'Clean lines and glass', image_url: '/styles/modern.png' },
-    { id: '3', name: 'Rustic', description: 'Wood and iron', image_url: '/styles/rustic.png' },
-    // Fallback for Art Deco since 429 error prevented generation
-    { id: '4', name: 'Art Deco', description: 'Geometric patterns and brass', image_url: 'https://images.unsplash.com/photo-1551524559-867bc05417ab?w=400&q=80' }
-];
+
+    // Default System Styles available to everyone
+    return [
+        { id: '1', name: 'Industrial', description: 'Raw steel and exposed elements', image_url: '/styles/industrial.png' },
+        { id: '2', name: 'Modern', description: 'Clean lines and glass', image_url: '/styles/modern.png' },
+        { id: '3', name: 'Rustic', description: 'Wood and iron', image_url: '/styles/rustic.png' },
+        // Fallback for Art Deco since 429 error prevented generation
+        { id: '4', name: 'Art Deco', description: 'Geometric patterns and brass', image_url: 'https://images.unsplash.com/photo-1551524559-867bc05417ab?w=400&q=80' }
+    ];
 }
 
 export async function getOwnerLeads(): Promise<Lead[]> {

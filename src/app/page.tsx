@@ -13,6 +13,27 @@ export default async function Page({
   // Fetch synced styles
   const styles = await getPublicStyles(orgId);
 
+  // Fetch Tenant Profile
+  let tenantProfile = null;
+  if (orgId) {
+    const { getTenantProfile } = await import('./actions');
+    tenantProfile = await getTenantProfile(orgId);
+  } else {
+    // Fallback: Check if we are running on a subdomain or similar? 
+    // For now, just explicit param.
+    const { getTenantLogo } = await import('./actions');
+    const logo = await getTenantLogo(); // old fallback
+    if (logo) {
+      tenantProfile = {
+        logo_url: logo,
+        shop_name: null,
+        phone: null,
+        address: null,
+        primary_color: null
+      };
+    }
+  }
+
   // Fallback styles (Matches 'seedDefaults' in actions.ts)
   const safeStyles = styles.length > 0 ? styles : [
     { id: '1', name: 'Industrial Modern', description: 'Clean lines with raw metal finishes', image_url: '/styles/industrial.png' },
