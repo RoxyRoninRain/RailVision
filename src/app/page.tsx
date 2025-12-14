@@ -6,11 +6,11 @@ export default async function Page({
 }: {
   searchParams: Promise<{ org?: string }>;
 }) {
-  const styles = await getStyles();
-
   // Await searchParams in Next.js 15+
   const { org } = await searchParams;
   const orgId = org || '';
+
+  const styles = await getStyles(orgId);
 
   let tenantProfile = null;
   if (orgId) {

@@ -682,3 +682,26 @@ export async function convertHeicToJpg(formData: FormData) {
         return { success: false, error: 'Conversion failed: ' + error.message };
     }
 }
+
+export async function testResendConnectivity(apiKey: string, fromEmail: string, toEmail: string) {
+    try {
+        // Dynamic import to prevent build errors if 'resend' isn't used elsewhere or causes edge issues
+        const { Resend } = await import('resend');
+        const resend = new Resend(apiKey);
+
+        const { data, error } = await resend.emails.send({
+            from: fromEmail,
+            to: toEmail,
+            subject: 'Test Connectivity from RailVision Admin',
+            html: '<p>If you see this, the API Key works!</p>'
+        });
+
+        if (error) {
+            return { success: false, error: error };
+        }
+        return { success: true, data };
+    } catch (err: any) {
+        console.error('Test Resend Connectivity Error:', err);
+        return { success: false, error: err.message || 'Unknown error' };
+    }
+}
