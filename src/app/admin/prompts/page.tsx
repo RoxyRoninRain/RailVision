@@ -32,21 +32,27 @@ export default function PromptsPage() {
     const [targetPreview, setTargetPreview] = useState<string | null>(null);
     const [stylePreview, setStylePreview] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadPrompts();
-    }, []);
+    // DEBUG STATE
+    const [debugError, setDebugError] = useState<string | null>(null);
 
-    const loadPrompts = async () => {
+    const fetchPrompts = async () => {
         setLoading(true);
-        const data = await getAllSystemPrompts();
-        setPrompts(data || []);
-        if (data && data.length > 0 && !selectedPrompt) {
-            // Select active one by default if available, else first
-            const active = data.find(p => p.is_active);
-            selectPrompt(active || data[0]);
-        }
-        setLoading(false);
+        getAllSystemPrompts()
+            .then(data => {
+                if (data.length === 0) setDebugError("No prompts returned from API. Check RLS or DB.");
+                if (data.length > 0) {
+                    setPrompts(data);
+                    const active = data.find(p => p.is_active);
+                    if (!selectedPrompt) selectPrompt(active || data[0]);
+                }
+            })
+            .catch(err => setDebugError("Fetch Error: " + err.message))
+            .finally(() => setLoading(false));
     };
+
+    useEffect(() => {
+        fetchPrompts();
+    }, []);
 
     const selectPrompt = (prompt: SystemPrompt) => {
         setSelectedPrompt(prompt);
@@ -85,9 +91,9 @@ export default function PromptsPage() {
         setSaving(true);
         const res = await createSystemPrompt(newKey, "Your Instructions Here...", "[Input]");
         if (res.success) {
-            await loadPrompts();
-            setShowCreate(false);
             setNewKey('');
+            setShowCreate(false);
+            fetchPrompts(); // Refresh list
         } else {
             alert('Failed to create: ' + res.error);
         }
@@ -191,6 +197,15 @@ export default function PromptsPage() {
             </header>
 
             <main className="flex-1 flex overflow-hidden">
+                {debugError && (
+                    <div className="absolute top-4 right-4 z-50 bg-red-600 text-white p-4 rounded shadow-xl font-mono text-xs max-w-sm">
+                        <strong className="block mb-1">DEBUG ERROR:</strong>
+                        {debugError}
+                        <br />
+                        <span className="opacity-50 mt-2 block">Try refreshing or check browser console-</span>
+                    </div>
+                )}
+
                 {/* SIDEBAR: PROMPT LIST */}
                 <div className="w-80 border-r border-white/10 bg-[#0a0a0a] flex flex-col">
                     <div className="p-4 border-b border-white/5 flex items-center justify-between">
