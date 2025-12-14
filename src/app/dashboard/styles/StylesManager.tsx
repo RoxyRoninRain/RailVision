@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus } from '@/app/actions'; // Ensure these are exported from actions.ts
 import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -77,6 +77,8 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         setErrorMsg(null); // Clear previous errors
         if (e.target.files && e.target.files[0]) {
+            let file = e.target.files[0];
+
             // DEBUG LOGGING
             console.log('--- FILE SELECTED ---');
             console.log('Name:', file.name);

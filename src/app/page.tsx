@@ -1,5 +1,5 @@
 import DesignStudio from './DesignStudio';
-import { getStyles, getTenantLogo } from './actions';
+import { getStyles, getPublicStyles, getTenantLogo } from './actions';
 
 export default async function Page({
   searchParams,
@@ -10,35 +10,16 @@ export default async function Page({
   const { org } = await searchParams;
   const orgId = org || '';
 
-  const styles = await getStyles(orgId);
+  // Fetch synced styles
+  const styles = await getPublicStyles(orgId);
 
-  let tenantProfile = null;
-  if (orgId) {
-    const { getTenantProfile } = await import('./actions');
-    tenantProfile = await getTenantProfile(orgId);
-  } else {
-    // Fallback: Check if we are running on a subdomain or similar? 
-    // For now, just explicit param.
-    const { getTenantLogo } = await import('./actions');
-    const logo = await getTenantLogo(); // old fallback
-    if (logo) {
-      tenantProfile = {
-        logo_url: logo,
-        shop_name: null,
-        phone: null,
-        address: null,
-        // Ensure all required fields of Profile or partial structure are met?
-        // Actually Profile interface has 'shop_name: string | null'.
-        // This object { logo_url, shop_name: null, ... } matches expected.
-      };
-    }
-  }
-
-  // Fallback styles
+  // Fallback styles (Matches 'seedDefaults' in actions.ts)
   const safeStyles = styles.length > 0 ? styles : [
-    { id: '1', name: 'Industrial', description: 'Raw steel and exposed elements' },
-    { id: '2', name: 'Modern Minimalist', description: 'Clean lines and glass' },
-    { id: '3', name: 'Rustic', description: 'Wood and iron' }
+    { id: '1', name: 'Industrial Modern', description: 'Clean lines with raw metal finishes', image_url: '/styles/industrial.png' },
+    { id: '2', name: 'Classic Wrought Iron', description: 'Timeless elegance with ornate details', image_url: '/styles/classic.png' },
+    { id: '3', name: 'Minimalist Glass', description: 'Sleek and transparent for open spaces', image_url: '/styles/minimalist.png' },
+    { id: '4', name: 'Rustic Farmhouse', description: 'Warm wood tones mixed with metal', image_url: '/styles/rustic.png' },
+    { id: '5', name: 'Art Deco', description: 'Bold geometric patterns and luxury', image_url: '/styles/artdeco.png' },
   ];
 
   return <DesignStudio styles={safeStyles} tenantProfile={tenantProfile} orgId={orgId} />;
