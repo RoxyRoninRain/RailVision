@@ -53,6 +53,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
     // Branding
     const [logo, setLogo] = useState<string | null>(tenantProfile?.logo_url || null);
+    const [shopName, setShopName] = useState<string | null>(tenantProfile?.shop_name || null);
     const [primaryColor, setPrimaryColor] = useState(tenantProfile?.primary_color || '#FFD700');
     const [toolBackgroundColor, setToolBackgroundColor] = useState(tenantProfile?.tool_background_color || '#050505');
 
@@ -79,6 +80,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     // Effects
     useEffect(() => {
         if (tenantProfile?.logo_url) setLogo(tenantProfile.logo_url);
+        if (tenantProfile?.shop_name) setShopName(tenantProfile.shop_name);
         if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
         if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
     }, [tenantProfile]);
@@ -403,9 +405,15 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             {/* Header */}
             <header className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-center pointer-events-none">
                 <div className="pointer-events-auto flex items-center gap-4">
-                    <h1 className="text-2xl font-black text-[var(--primary)] uppercase tracking-tighter cursor-pointer" onClick={() => window.location.reload()}>
-                        Railify
-                    </h1>
+                    <div className="cursor-pointer" onClick={() => window.location.reload()}>
+                        {logo ? (
+                            <img src={logo} alt={shopName || "Logo"} className="h-12 w-auto object-contain" />
+                        ) : (
+                            <h1 className="text-2xl font-black text-[var(--primary)] uppercase tracking-tighter">
+                                {shopName || "Railify"}
+                            </h1>
+                        )}
+                    </div>
                 </div>
                 {/* Steps */}
                 <div className="flex gap-2 pointer-events-auto">
@@ -593,6 +601,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                                         customStyleFile={customStyleFile}
                                                         setCustomStyleFile={setCustomStyleFile}
                                                         error={error}
+                                                        logo={logo}
                                                     />
                                                 </motion.div>
                                             </>
@@ -617,6 +626,13 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                                             transition={{ duration: 0.4 }}
                                                             className="w-full h-full object-cover"
                                                         />
+                                                        {logo && (
+                                                            <img
+                                                                src={logo}
+                                                                className="absolute bottom-6 right-6 w-24 opacity-60 drop-shadow-md pointer-events-none z-10"
+                                                                alt="Watermark"
+                                                            />
+                                                        )}
                                                     </AnimatePresence>
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent flex flex-col justify-end p-8">
                                                         <h4 className="text-white text-4xl font-black uppercase italic mb-2">{styleList[selectedStyleIndex].name}</h4>
@@ -755,6 +771,11 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                     )}
 
                 </AnimatePresence>
+            </div>
+
+            {/* Footer Branding */}
+            <div className="fixed bottom-4 right-4 z-40 pointer-events-none opacity-30 text-[10px] font-mono text-white uppercase tracking-widest hidden md:block">
+                Software by Railify
             </div>
 
             {/* Quote Modal */}

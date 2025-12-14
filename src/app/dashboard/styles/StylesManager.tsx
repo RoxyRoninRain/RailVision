@@ -5,7 +5,7 @@ import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyle
 import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function StylesManager({ initialStyles, serverError }: { initialStyles: PortfolioItem[], serverError?: string | null }) {
+export default function StylesManager({ initialStyles, serverError, logoUrl }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null }) {
     const [styles, setStyles] = useState<PortfolioItem[]>(initialStyles);
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -350,6 +350,13 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                                     alt={style.name}
                                     className="max-w-full max-h-[500px] w-auto h-auto object-contain rounded-lg shadow-lg"
                                 />
+                                {logoUrl && (
+                                    <img
+                                        src={logoUrl}
+                                        className="absolute bottom-4 right-4 w-1/4 max-w-[80px] opacity-70 pointer-events-none drop-shadow-md"
+                                        alt="Watermark"
+                                    />
+                                )}
                             </div>
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-6 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                 <h4 className="text-xl font-bold text-white uppercase">{style.name}</h4>
