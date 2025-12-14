@@ -662,8 +662,8 @@ export async function uploadLogo(formData: FormData) {
     if (!file) return { error: 'No file provided' };
 
     // Validate file
-    if (!file.type.startsWith('image/')) {
-        return { error: 'File must be an image' };
+    if (!file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
+        return { error: 'File must be an image (PNG, JPG, SVG)' };
     }
     if (file.size > 2 * 1024 * 1024) { // 2MB
         return { error: 'File size must be less than 2MB' };

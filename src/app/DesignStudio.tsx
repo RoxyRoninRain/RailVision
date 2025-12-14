@@ -335,7 +335,11 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 // Better approach: Load it
                 logoImg.onload = () => {
                     const logoSize = Math.max(canvas.width * 0.15, 100); // 15% width
-                    const aspectRatio = logoImg.width / logoImg.height;
+                    // Handle SVG with no intrinsic dimensions (0x0 or very small)
+                    const imgW = logoImg.width || 300;
+                    const imgH = logoImg.height || 300;
+
+                    const aspectRatio = imgW / imgH;
                     const drawWidth = logoSize;
                     const drawHeight = logoSize / aspectRatio;
                     const padding = canvas.width * 0.03;

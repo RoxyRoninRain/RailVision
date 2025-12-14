@@ -118,12 +118,12 @@ export default function SettingsPage() {
                                 <input
                                     ref={fileInputRef}
                                     type="file"
-                                    accept="image/*"
+                                    accept="image/png, image/jpeg, image/svg+xml, .svg"
                                     className="hidden"
                                     onChange={handleLogoUpload}
                                 />
                                 <p className="text-xs text-gray-600 mt-2 text-center">
-                                    Recommended: 500x500px PNG/JPG<br />Max 2MB
+                                    Recommended: 500x500px PNG/JPG/SVG<br />Max 2MB
                                 </p>
                             </div>
                         </div>
@@ -170,6 +170,9 @@ export default function SettingsPage() {
                                                 className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
                                                 placeholder="e.g. Acme Ironworks LLC"
                                             />
+                                            <p className="text-xs text-gray-600 mt-2">
+                                                Used for image overlays.<br />PNG/SVG with transparency best.
+                                            </p>
                                         </div>
 
                                         <div>
