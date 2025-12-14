@@ -333,3 +333,22 @@ export async function testDesignGeneration(formData: FormData) {
         return { error: error.message };
     }
 }
+
+// SUBSCRIPTION MANAGEMENT
+export async function updateSubscriptionStatus(tenantId: string, status: 'active' | 'cancelled') {
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    try {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ subscription_status: status })
+            .eq('id', tenantId);
+
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Update Subscription Failed:', error);
+        return { error: error.message };
+    }
+}

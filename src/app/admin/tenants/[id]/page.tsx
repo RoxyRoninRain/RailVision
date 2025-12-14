@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { getTenantDetails } from '@/app/admin/actions';
+import { getTenantDetails, updateSubscriptionStatus } from '@/app/admin/actions';
 import { ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
@@ -35,6 +35,20 @@ export default function TenantShadowPage() {
     );
 
     const { profile, leads } = data;
+
+    const handleSubscription = async (newStatus: 'active' | 'cancelled') => {
+        if (!confirm(`Are you sure you want to set subscription to: ${newStatus.toUpperCase()}?`)) return;
+
+        const res = await updateSubscriptionStatus(id, newStatus);
+        if (res.success) {
+            setData((prev: any) => ({
+                ...prev,
+                profile: { ...prev.profile, subscription_status: newStatus }
+            }));
+        } else {
+            alert('Failed to update subscription: ' + res.error);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-red-500/30">
@@ -87,17 +101,31 @@ export default function TenantShadowPage() {
                     </div>
 
                     <div className="bg-[#111] border border-white/10 rounded-lg p-6">
-                        <h3 className="text-sm font-mono text-gray-500 uppercase tracking-widest mb-4">Quick Actions</h3>
-                        <div className="space-y-2">
+                        <h3 className="text-sm font-mono text-gray-500 uppercase tracking-widest mb-4">Subscription Management</h3>
+
+                        <div className="space-y-3">
+                            {profile.subscription_status === 'active' ? (
+                                <button
+                                    onClick={() => handleSubscription('cancelled')}
+                                    className="block w-full text-center bg-red-900/20 hover:bg-red-900/40 border border-red-900/50 text-red-500 rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors"
+                                >
+                                    Cancel Subscription
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => handleSubscription('active')}
+                                    className="block w-full text-center bg-green-900/20 hover:bg-green-900/40 border border-green-900/50 text-green-500 rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors"
+                                >
+                                    Reactivate Subscription
+                                </button>
+                            )}
+
                             <a
                                 href={`mailto:${profile.email}`}
-                                className="block w-full text-center bg-white/5 hover:bg-white/10 border border-white/10 rounded py-2 text-sm text-gray-300 transition-colors"
+                                className="block w-full text-center bg-white/5 hover:bg-white/10 border border-white/10 rounded py-2 text-xs text-gray-400 font-mono transition-colors"
                             >
-                                Email Owner
+                                Contact Owner
                             </a>
-                            <button disabled className="block w-full text-center bg-white/5 border border-white/10 rounded py-2 text-sm text-gray-600 cursor-not-allowed">
-                                Reset Settings (Coming Soon)
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -129,8 +157,8 @@ export default function TenantShadowPage() {
                                             <td className="p-4 text-gray-400">{lead.style_name || '-'}</td>
                                             <td className="p-4">
                                                 <span className={`px-2 py-0.5 rounded textxs capitalize ${lead.status === 'New' ? 'bg-blue-900/20 text-blue-400' :
-                                                        lead.status === 'Closed' ? 'bg-green-900/20 text-green-400' :
-                                                            'bg-gray-800 text-gray-400'
+                                                    lead.status === 'Closed' ? 'bg-green-900/20 text-green-400' :
+                                                        'bg-gray-800 text-gray-400'
                                                     }`}>
                                                     {lead.status}
                                                 </span>
