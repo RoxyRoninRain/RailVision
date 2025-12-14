@@ -281,13 +281,11 @@ export async function inviteTenant(email: string) {
     }
 
     console.log('[ADMIN] Invite sent to:', email);
-    return {
-        success: true,
-        message: `Invitation email sent to ${email} successfully.`,
-        isSimulation: false,
-        inviteLink: undefined
-    };
+    inviteLink: undefined
+};
 }
+
+// --- Porfolio Actions ---
 
 export interface PortfolioItem {
     id: string;
@@ -295,58 +293,111 @@ export interface PortfolioItem {
     description: string;
     image_url: string;
     tenant_id: string;
-    created_at: string;
+    created_at?: string;
+    is_active?: boolean;
 }
 
 export async function createStyle(formData: FormData) {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return { error: 'Not authenticated' };
-
-    const name = formData.get('name') as string;
-    const description = formData.get('description') as string;
+    // 1. Validate File
     const file = formData.get('file') as File;
+    if (!file) return { error: 'No file uploaded' };
 
-    if (!file || !name) return { error: 'Missing required fields' };
-
-    // File Size Validation (Max 4.5MB for Vercel Server Actions)
+    // STRICT SERVER-SIDE VALIDATION
+    // 4.5MB Limit (slightly under 5MB to be safe)
     const MAX_SIZE = 4.5 * 1024 * 1024;
     if (file.size > MAX_SIZE) {
-        return { error: `File too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Limit is 4.5MB.` };
+        return { error: `File too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Max allowed is 4.5MB.` };
     }
 
-    // 1. Upload Image
+    const name = formData.get('name') as string;
+    const desc = formData.get('description') as string;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Unauthorized' };
+
+    // 2. Upload to Storage
     const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
         .from('portfolio')
-        .upload(filePath, file);
+        .upload(fileName, file);
 
     if (uploadError) {
+        console.error('Upload Error:', uploadError);
         return { error: 'Upload failed: ' + uploadError.message };
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    // 3. Get Public URL
+    const { data: publicUrlData } = supabase.storage
         .from('portfolio')
-        .getPublicUrl(filePath);
+        .getPublicUrl(fileName);
 
-    // 2. Insert to DB
+    // 4. Insert into DB
     const { error: dbError } = await supabase
         .from('portfolio')
         .insert({
-            tenant_id: user.id,
             name,
-            description,
-            image_url: publicUrl
+            description: desc,
+            image_url: publicUrlData.publicUrl,
+            tenant_id: user.id,
+            is_active: true
         });
 
     if (dbError) {
-        return { error: dbError.message };
+        console.error('DB Insert Error:', dbError);
+        // Optional: Cleanup file if DB fails
+        return { error: 'Database error: ' + dbError.message };
     }
 
     return { success: true };
+}
+
+export async function updateStyleStatus(id: string, isActive: boolean) {
+    const supabase = await createClient();
+    const { error } = await supabase
+        .from('portfolio')
+        .update({ is_active: isActive })
+        .eq('id', id);
+
+    if (error) return { error: error.message };
+    return { success: true };
+}
+
+export async function seedDefaultStyles() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Unauthorized' };
+
+    // Check if user already has styles
+    const { count } = await supabase
+        .from('portfolio')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', user.id);
+
+    if (count && count > 0) return { success: true, message: 'Styles already exist' };
+
+    // Default Styles
+    const defaults = [
+        { name: 'Industrial Modern', description: 'Clean lines with raw metal finishes', image_url: '/styles/industrial.png' },
+        { name: 'Classic Wrought Iron', description: 'Timeless elegance with ornate details', image_url: '/styles/classic.png' },
+        { name: 'Minimalist Glass', description: 'Sleek and transparent for open spaces', image_url: '/styles/minimalist.png' },
+        { name: 'Rustic Farmhouse', description: 'Warm wood tones mixed with metal', image_url: '/styles/rustic.png' },
+        { name: 'Art Deco', description: 'Bold geometric patterns and luxury', image_url: '/styles/artdeco.png' },
+    ];
+
+    const { error } = await supabase
+        .from('portfolio')
+        .insert(defaults.map(d => ({
+            ...d,
+            tenant_id: user.id,
+            is_active: true
+        })));
+
+    if (error) return { error: error.message };
+    return { success: true, seeded: true };
 }
 
 export async function deleteStyle(styleId: string) {
@@ -404,39 +455,56 @@ export async function getTenantStyles(tenantId?: string) {
     return { data, error: null };
 }
 
-export async function getStyles(tenantId?: string) {
-    // If tenantId is present, fetch their styles.
-    // If they have NO styles, or if no tenantId, return defaults? 
-    // Spec: "IF a tenant_id is present... fetch that tenant's styles... ELSE show the default system styles."
+export async function getPublicStyles(tenantId: string) {
+    const supabase = await createClient(); // Ideally strictly public client or admin client? 
+    // Wait, createClient() uses cookies. For public page, we might need no-auth client?
+    // Actually, createClient util likely uses standardized client. 
+    // But since this is public, we rely on the Anon Key and RLS "Public can view active styles".
 
-    let customStyles: PortfolioItem[] = [];
+    // We need to instantiate a client that Doesn't need auth if the user isn't logged in.
+    // Standard createClient() on server actions tries to get cookies.
+    // If no cookies, it's anon.
 
-    if (tenantId) {
-        // We can use a public client or server client depending on RLS.
-        // Since getStyles is used in public visualizer, we likely need public access.
-        // But createClient() in server actions usually has full access or user context.
-        // For public visualizer (unauthenticated visitor), createClient() follows RLS for anon.
-        // We need to ensure 'portfolio' table has PUBLIC SELECT policy for tenant_id rows.
-        const supabase = await createClient();
-        const { data } = await supabase
-            .from('portfolio')
-            .select('id, name, description, image_url') // Select minimal fields to match 'style' interface
-            .eq('tenant_id', tenantId);
+    const { data, error } = await supabase
+        .from('portfolio')
+        .select('id, name, description, image_url')
+        .eq('tenant_id', tenantId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
 
-        if (data && data.length > 0) {
-            // Map to ensure it matches the format
-            return data as any[];
-        }
+    if (error) {
+        console.error('Get Public Styles Error:', error);
+        return [];
     }
 
-    // Default System Styles available to everyone
-    return [
-        { id: '1', name: 'Industrial', description: 'Raw steel and exposed elements', image_url: '/styles/industrial.png' },
-        { id: '2', name: 'Modern', description: 'Clean lines and glass', image_url: '/styles/modern.png' },
-        { id: '3', name: 'Rustic', description: 'Wood and iron', image_url: '/styles/rustic.png' },
-        // Fallback for Art Deco since 429 error prevented generation
-        { id: '4', name: 'Art Deco', description: 'Geometric patterns and brass', image_url: 'https://images.unsplash.com/photo-1551524559-867bc05417ab?w=400&q=80' }
-    ];
+    return data;
+}
+
+export async function getStyles(tenantId?: string) {
+    // Since getStyles is used in public visualizer, we likely need public access.
+    // But createClient() in server actions usually has full access or user context.
+    // For public visualizer (unauthenticated visitor), createClient() follows RLS for anon.
+    // We need to ensure 'portfolio' table has PUBLIC SELECT policy for tenant_id rows.
+    const supabase = await createClient();
+    const { data } = await supabase
+        .from('portfolio')
+        .select('id, name, description, image_url') // Select minimal fields to match 'style' interface
+        .eq('tenant_id', tenantId);
+
+    if (data && data.length > 0) {
+        // Map to ensure it matches the format
+        return data as any[];
+    }
+}
+
+// Default System Styles available to everyone
+return [
+    { id: '1', name: 'Industrial', description: 'Raw steel and exposed elements', image_url: '/styles/industrial.png' },
+    { id: '2', name: 'Modern', description: 'Clean lines and glass', image_url: '/styles/modern.png' },
+    { id: '3', name: 'Rustic', description: 'Wood and iron', image_url: '/styles/rustic.png' },
+    // Fallback for Art Deco since 429 error prevented generation
+    { id: '4', name: 'Art Deco', description: 'Geometric patterns and brass', image_url: 'https://images.unsplash.com/photo-1551524559-867bc05417ab?w=400&q=80' }
+];
 }
 
 export async function getOwnerLeads(): Promise<Lead[]> {

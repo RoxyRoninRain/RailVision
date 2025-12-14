@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { PortfolioItem, createStyle, deleteStyle } from '@/app/actions'; // Ensure these are exported from actions.ts
-import { Plus, Trash2, Loader2, Image as ImageIcon, X } from 'lucide-react';
+import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus } from '@/app/actions'; // Ensure these are exported from actions.ts
+import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function StylesManager({ initialStyles, serverError }: { initialStyles: PortfolioItem[], serverError?: string | null }) {
@@ -17,6 +17,18 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
     const [preview, setPreview] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+    // Auto-Seed Defaults
+    useEffect(() => {
+        if (initialStyles.length === 0) {
+            console.log('No styles found. Seeding defaults...');
+            seedDefaultStyles().then(res => {
+                if (res.success && res.seeded) {
+                    window.location.reload();
+                }
+            });
+        }
+    }, [initialStyles.length]);
 
     // Image Compression Helper
     const compressImage = async (file: File, maxDim = 1500, quality = 0.85): Promise<File> => {
@@ -65,7 +77,16 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         setErrorMsg(null); // Clear previous errors
         if (e.target.files && e.target.files[0]) {
-            let file = e.target.files[0];
+            // DEBUG LOGGING
+            console.log('--- FILE SELECTED ---');
+            console.log('Name:', file.name);
+            console.log('Type:', file.type);
+            console.log('Size:', file.size, 'bytes');
+            console.log('Last Modified:', file.lastModified);
+
+            // Check for weird iOS/Android Portrait types
+            if (!file.type) console.warn('WARNING: File has no type!');
+
 
             // HEIC Detection & Conversion
             try {
@@ -199,6 +220,13 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
         }
     };
 
+    const handleToggleStatus = async (id: string, currentStatus: boolean) => {
+        // Optimistic
+        setStyles(prev => prev.map(s => s.id === id ? { ...s, is_active: !currentStatus } : s));
+
+        await updateStyleStatus(id, !currentStatus);
+    };
+
     return (
         <div className="space-y-8">
             <div className="flex justify-between items-center">
@@ -241,7 +269,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
-                            className="group relative bg-[#111] rounded-xl overflow-hidden border border-[#222] hover:border-[var(--primary)] transition-colors break-inside-avoid mb-6"
+                            className={`group relative bg-[#111] rounded-xl overflow-hidden border transition-colors break-inside-avoid mb-6 ${style.is_active === false ? 'border-red-900/50 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
                         >
                             {/* Use object-contain with background for varying aspect ratios */}
                             <div className="w-full bg-black/50 flex items-center justify-center p-2 min-h-[200px]">
@@ -254,6 +282,13 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-6 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                 <h4 className="text-xl font-bold text-white uppercase">{style.name}</h4>
                                 <p className="text-gray-400 text-xs mb-4 line-clamp-2">{style.description}</p>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleToggleStatus(style.id, style.is_active !== false); }}
+                                    className="flex items-center gap-2 text-white/80 hover:text-white text-xs uppercase font-bold bg-black/50 px-3 py-2 rounded backdrop-blur-sm mb-2"
+                                >
+                                    {style.is_active !== false ? <Eye size={14} /> : <EyeOff size={14} className="text-gray-500" />}
+                                    {style.is_active !== false ? 'Visible' : 'Hidden'}
+                                </button>
                                 <button
                                     onClick={() => handleDelete(style.id)}
                                     className="self-start flex items-center gap-2 text-red-400 hover:text-red-300 text-xs uppercase font-bold bg-black/50 px-3 py-2 rounded backdrop-blur-sm"
