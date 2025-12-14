@@ -82,50 +82,21 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        setErrorMsg(null); // Clear previous errors
-        if (e.target.files && e.target.files[0]) {
-            setIsProcessing(true);
-            setNewFile(null); // Clear previous file state to prevent submitting stale/partial data
+        setErrorMsg(null);
+        if (!e.target.files || !e.target.files[0]) return;
+
+        setIsProcessing(true);
+        setNewFile(null); // Clear previous file
+
+        try {
             let file = e.target.files[0];
 
             // DEBUG LOGGING
             addLog('--- FILE SELECTED ---');
             addLog(`Name: ${file.name}`);
-            addLog(`Type: ${file.type}`);
-            addLog(`Size: ${file.size} bytes`);
-            addLog(`Last Modified: ${file.lastModified}`);
+            addLog(`Type: ${file.type || 'Unknown'}`);
+            addLog(`Size: ${(file.size / 1024).toFixed(1)} KB`);
 
-            // Check for weird iOS/Android Portrait types
-            if (!file.type) addLog('WARNING: File has no type!');
-
-
-            // HEIC Detection & Conversion
-            try {
-                if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif') {
-                    addLog('HEIC detected, converting to JPEG...');
-                    const heic2any = (await import('heic2any')).default;
-                    const convertedBlob = await heic2any({
-                        blob: file,
-                        toType: 'image/jpeg',
-                        quality: 0.9
-                    });
-
-                    // heic2any can return Blob or Blob[]
-                    const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
-
-                    file = new File([blob], file.name.replace(/\.(heic|HEIC|heif|HEIF)$/, '.jpg'), {
-                        type: 'image/jpeg',
-                        lastModified: Date.now()
-                    });
-                    console.log('HEIC conversion successful.');
-                }
-            } catch (err) {
-                console.error('HEIC conversion failed:', err);
-                setErrorMsg('HEIC conversion failed. Please use a JPG or PNG.');
-                return;
-            }
-
-            // Validate basic type (Post-conversion check)
             // Fix: iOS sometimes sends empty type or application/octet-stream
             const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
             const ext = file.name.split('.').pop()?.toLowerCase() || '';
@@ -133,7 +104,6 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
             if (!file.type.startsWith('image/') && !validExtensions.includes(ext)) {
                 addLog(`File Rejected: Invalid Type (${file.type}) and Extension (${ext})`);
                 setErrorMsg('Please upload an image file (JPG, PNG).');
-                setIsProcessing(false);
                 return;
             }
 
@@ -142,6 +112,43 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                 addLog('Fixing missing file type based on extension...');
                 const fixedType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
                 file = new File([file.slice(0, file.size, fixedType)], file.name, { type: fixedType, lastModified: Date.now() });
+            }
+
+            // HEIC Detection & Conversion with Timeout
+            if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif') {
+                addLog('HEIC detected. Starting conversion (this may take a few seconds)...');
+
+                try {
+                    // Dynamic import
+                    const heic2any = (await import('heic2any')).default;
+
+                    // Race condition protection: Timeout after 15s
+                    const conversionPromise = heic2any({
+                        blob: file,
+                        toType: 'image/jpeg',
+                        quality: 0.9
+                    });
+
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('HEIC conversion timed out')), 15000)
+                    );
+
+                    const convertedBlob = await Promise.race([conversionPromise, timeoutPromise]) as Blob | Blob[];
+
+                    const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+
+                    file = new File([blob], file.name.replace(/\.(heic|HEIC|heif|HEIF)$/i, '.jpg'), {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+
+                    addLog(`HEIC Converted Successfully. New Size: ${(file.size / 1024).toFixed(1)} KB`);
+
+                } catch (heicError: any) {
+                    console.error('HEIC Conversion failed:', heicError);
+                    addLog(`HEIC Error: ${heicError.message}`);
+                    throw new Error('Could not convert HEIC image. Please try a JPG or PNG instead.');
+                }
             }
 
             // Iterative Compression Strategy
@@ -154,7 +161,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                 let quality = 0.9;
 
                 while (currentFile.size > 4 * 1024 * 1024 && attempt < 3) {
-                    console.log(`Attempt ${attempt + 1}: Compressing ${currentFile.size / 1024 / 1024}MB image...`);
+                    addLog(`Attempt ${attempt + 1}: Compressing ${(currentFile.size / 1024 / 1024).toFixed(2)}MB image...`);
 
                     // Progressive degradation
                     if (attempt === 1) { maxDimension = 1500; quality = 0.8; }
@@ -167,35 +174,38 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                         currentFile = compressed;
                     } else {
                         // Compression didn't help (already optimized?), break to avoid loop
-                        console.warn('Compression did not reduce file size.');
+                        addLog('Compression did not reduce file size.');
                         break;
                     }
                     attempt++;
                 }
 
-                // Final Safety Check
-                if (currentFile.size > 4.5 * 1024 * 1024) {
-                    addLog(`File Rejected: Too Large (${(currentFile.size / 1024 / 1024).toFixed(1)}MB)`);
-                    setErrorMsg(`Image is too large (${(currentFile.size / 1024 / 1024).toFixed(1)}MB) even after compression. Please upload a smaller file.`);
-                    return;
-                }
-
                 file = currentFile;
-                console.log(`Final File Size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+                addLog(`Final File Size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
 
             } catch (err) {
                 console.error('Compression failed:', err);
                 if (file.size > 4.5 * 1024 * 1024) {
                     addLog('File Rejected: Compression failed & Too Large');
-                    setErrorMsg('Compression failed and original file is too large (>4.5MB).');
-                    return;
+                    throw new Error('Image too large and compression failed.');
                 }
+            }
+
+            // Final Safety Check
+            if (file.size > 4.5 * 1024 * 1024) {
+                addLog(`File Rejected: Still Too Large (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+                throw new Error(`Image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 4.5MB.`);
             }
 
             setNewFile(file);
             setPreview(URL.createObjectURL(file));
-            setIsProcessing(false);
-        } else {
+
+        } catch (err: any) {
+            console.error('File processing error:', err);
+            addLog(`Error: ${err.message}`);
+            setErrorMsg(err.message || 'Failed to process image');
+            setNewFile(null); // Ensure no partial file is set
+        } finally {
             setIsProcessing(false);
         }
     };
