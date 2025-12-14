@@ -1,18 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Settings, PenTool, LogOut, Shield, Menu, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { seedDefaultStyles } from '@/app/actions';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+    // Auto-Seed Defaults on Dashboard Access
+    useEffect(() => {
+        seedDefaultStyles().then(res => {
+            if (res.seeded) {
+                console.log('Default styles seeded successfully.');
+                // Optionally trigger a router refresh if strictly needed, but usually silent is fine for global state
+            }
+        });
+    }, []);
+
     const navItems = [
         { name: 'Leads Pipeline', href: '/dashboard/leads', icon: LayoutDashboard },
-        { name: 'Style Portfolio', href: '/dashboard/styles', icon: PenTool },
+        { name: 'Visualizer Styles', href: '/dashboard/styles', icon: PenTool },
         { name: 'Shop Settings', href: '/dashboard/settings', icon: Settings },
         { name: 'Visualizer Tool', href: '/', icon: PenTool },
     ];

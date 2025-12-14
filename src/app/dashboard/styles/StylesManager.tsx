@@ -294,8 +294,8 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
         <div className="space-y-8">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Your Portfolio</h2>
-                    <p className="text-gray-500 font-mono text-sm mt-1">Manage custom styles for your clients.</p>
+                    <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Visualizer Styles</h2>
+                    <p className="text-gray-500 font-mono text-sm mt-1">Manage the styles available in your public visualizer carousel.</p>
                 </div>
                 <button
                     onClick={() => setIsAdding(true)}
