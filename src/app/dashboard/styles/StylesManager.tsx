@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus } from '@/app/actions'; // Ensure these are exported from actions.ts
+import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg } from '@/app/actions'; // Ensure these are exported from actions.ts
 import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -114,35 +114,47 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                 file = new File([file.slice(0, file.size, fixedType)], file.name, { type: fixedType, lastModified: Date.now() });
             }
 
-            // HEIC Detection & Conversion with Timeout
-            if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif') {
-                addLog('HEIC detected. Starting conversion (this may take a few seconds)...');
+            // HEIC Detection & Conversion (Server-Side)
+            const isHeic = file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif';
+            if (isHeic) {
+                addLog('HEIC detected. Starting server-side conversion...');
 
                 try {
-                    // Dynamic import
-                    const heic2any = (await import('heic2any')).default;
+                    const formData = new FormData();
+                    formData.append('file', file);
 
-                    // Race condition protection: Timeout after 15s
-                    const conversionPromise = heic2any({
-                        blob: file,
-                        toType: 'image/jpeg',
-                        quality: 0.9
-                    });
+                    const res = await convertHeicToJpg(formData);
 
-                    const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('HEIC conversion timed out')), 15000)
-                    );
+                    if (res.success && res.base64) {
+                        addLog('Server conversion successful. Processing result...');
 
-                    const convertedBlob = await Promise.race([conversionPromise, timeoutPromise]) as Blob | Blob[];
+                        // Convert Data URI to Blob directly
+                        const base64Data = res.base64.split(',')[1];
+                        const byteCharacters = atob(base64Data);
+                        const byteArrays = [];
 
-                    const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+                        for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                            const slice = byteCharacters.slice(offset, offset + 512);
+                            const byteNumbers = new Array(slice.length);
+                            for (let i = 0; i < slice.length; i++) {
+                                byteNumbers[i] = slice.charCodeAt(i);
+                            }
+                            const byteArray = new Uint8Array(byteNumbers);
+                            byteArrays.push(byteArray);
+                        }
 
-                    file = new File([blob], file.name.replace(/\.(heic|HEIC|heif|HEIF)$/i, '.jpg'), {
-                        type: 'image/jpeg',
-                        lastModified: Date.now()
-                    });
+                        const blob = new Blob(byteArrays, { type: 'image/jpeg' });
 
-                    addLog(`HEIC Converted Successfully. New Size: ${(file.size / 1024).toFixed(1)} KB`);
+                        file = new File([blob], file.name.replace(/\.(heic|HEIC|heif|HEIF)$/i, '.jpg'), {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        });
+
+                        addLog(`HEIC Converted Successfully. New Size: ${(file.size / 1024).toFixed(1)} KB`);
+
+                    } else {
+                        throw new Error(res.error || "Server conversion returned no data");
+                    }
 
                 } catch (heicError: any) {
                     console.error('HEIC Conversion failed:', heicError);
