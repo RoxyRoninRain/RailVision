@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Settings, PenTool, LogOut, Shield, Menu, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { seedDefaultStyles } from '@/app/actions';
+import SignOutButton from '@/components/SignOutButton';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -60,9 +61,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 </nav>
 
                 <div className="p-6 border-t border-gray-800">
-                    <button className="flex items-center gap-2 text-gray-500 hover:text-red-400 transition-colors text-sm font-mono uppercase">
+                    <SignOutButton className="flex items-center gap-2 text-gray-500 hover:text-red-400 transition-colors text-sm font-mono uppercase w-full">
                         <LogOut size={16} /> Sign Out
-                    </button>
+                    </SignOutButton>
                     <p className="mt-4 text-[10px] text-gray-700 font-mono">
                         v2.5.0 • Mississippi Metal
                     </p>
@@ -114,9 +115,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </nav>
 
                         <div className="mt-auto border-t border-gray-800 pt-6">
-                            <button className="w-full flex items-center justify-center gap-2 text-red-400 hover:bg-red-900/20 p-4 rounded-xl transition-colors text-sm font-mono uppercase font-bold">
+                            <SignOutButton className="w-full flex items-center justify-center gap-2 text-red-400 hover:bg-red-900/20 p-4 rounded-xl transition-colors text-sm font-mono uppercase font-bold">
                                 <LogOut size={20} /> Sign Out
-                            </button>
+                            </SignOutButton>
                         </div>
                     </motion.div>
                 )}
