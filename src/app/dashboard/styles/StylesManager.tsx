@@ -15,6 +15,7 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
     const [newDesc, setNewDesc] = useState('');
     const [newFile, setNewFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
     // Image Compression Helper
     const compressImage = async (file: File): Promise<File> => {
@@ -62,6 +63,7 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        setErrorMsg(null); // Clear previous errors
         if (e.target.files && e.target.files[0]) {
             let file = e.target.files[0];
 
@@ -87,13 +89,13 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
                 }
             } catch (err) {
                 console.error('HEIC conversion failed:', err);
-                alert('HEIC conversion failed. Please use a JPG or PNG.');
+                setErrorMsg('HEIC conversion failed. Please use a JPG or PNG.');
                 return;
             }
 
             // Validate basic type (Post-conversion check)
             if (!file.type.startsWith('image/')) {
-                alert('Please upload an image file (JPG, PNG).');
+                setErrorMsg('Please upload an image file (JPG, PNG).');
                 return;
             }
 
@@ -119,7 +121,11 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!newFile || !newName) return;
+        setErrorMsg(null);
+        if (!newFile || !newName) {
+            setErrorMsg('Please provide a name and an image.');
+            return;
+        }
 
         setIsSubmitting(true);
         const formData = new FormData();
@@ -127,18 +133,24 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
         formData.append('description', newDesc);
         formData.append('file', newFile);
 
-        const res = await createStyle(formData);
+        try {
+            const res = await createStyle(formData);
 
-        if (res.error) {
-            alert(res.error); // Simple error handling for now
+            if (res.error) {
+                console.error('Create Style Error:', res.error);
+                setErrorMsg(res.error);
+                setIsSubmitting(false);
+            } else {
+                // Success! Reload page or optimistically update?
+                // Since we don't return the new item from createStyle (it just returns success),
+                // and we rely on publicUrl which is generated... 
+                // Ideally server action returns the new item. 
+                // For now, let's just reload the page to be safe and simple.
+                window.location.reload();
+            }
+        } catch (err: any) {
+            setErrorMsg('Unexpected error: ' + (err.message || String(err)));
             setIsSubmitting(false);
-        } else {
-            // Success! Reload page or optimistically update?
-            // Since we don't return the new item from createStyle (it just returns success),
-            // and we rely on publicUrl which is generated... 
-            // Ideally server action returns the new item. 
-            // For now, let's just reload the page to be safe and simple.
-            window.location.reload();
         }
     };
 
@@ -223,6 +235,16 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
                             </button>
 
                             <h3 className="text-xl font-bold text-white uppercase mb-6">Add New Style</h3>
+
+                            {errorMsg && (
+                                <div className="mb-6 p-4 bg-red-900/40 border border-red-500/50 text-red-200 text-sm rounded-lg flex items-start gap-3">
+                                    <div className="shrink-0 pt-0.5">⚠️</div>
+                                    <div>
+                                        <div className="font-bold mb-1">Upload Failed</div>
+                                        {errorMsg}
+                                    </div>
+                                </div>
+                            )}
 
                             <form onSubmit={handleSubmit} className="space-y-4">
                                 <div>
