@@ -263,6 +263,34 @@ export async function getAllSystemPrompts() {
     return data;
 }
 
+export async function diagnoseConnection() {
+    const report: string[] = [];
+
+    // 1. Env Var Check
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    report.push(`Service Key Present: ${!!key ? 'YES (Length: ' + key.length + ')' : 'NO'}`);
+
+    // 2. Auth Check (Standard Client)
+    const supabase = await createClient();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    report.push(`Auth User: ${user ? 'YES (' + user.email + ')' : 'NO'} - ${authError ? authError.message : 'OK'}`);
+
+    // 3. Admin Client Check
+    const adminClient = createAdminClient();
+    report.push(`Admin Client Created: ${!!adminClient ? 'YES' : 'NO'}`);
+
+    if (adminClient) {
+        const { count, error } = await adminClient.from('system_prompts').select('*', { count: 'exact', head: true });
+        report.push(`Admin Query: ${error ? 'ERROR ' + error.message : 'SUCCESS (Count: ' + count + ')'}`);
+    } else {
+        // Fallback Query Check
+        const { count, error } = await supabase.from('system_prompts').select('*', { count: 'exact', head: true });
+        report.push(`Fallback Query: ${error ? 'ERROR ' + error.message : 'SUCCESS (Count: ' + count + ')'}`);
+    }
+
+    return report.join('\n');
+}
+
 export async function testDesignGeneration(formData: FormData) {
     console.log('[DEBUG] testDesignGeneration called via Admin Dashboard');
 

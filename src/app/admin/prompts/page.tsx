@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllSystemPrompts, updateSystemPrompt, createSystemPrompt, setActivePrompt, testDesignGeneration, SystemPrompt } from '@/app/admin/actions';
+import { getAllSystemPrompts, updateSystemPrompt, createSystemPrompt, setActivePrompt, testDesignGeneration, diagnoseConnection, SystemPrompt } from '@/app/admin/actions';
 import { Save, ArrowLeft, Bot, RefreshCw, CheckCircle, AlertTriangle, Plus, Play, Power, X, Upload, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -39,7 +39,10 @@ export default function PromptsPage() {
         setLoading(true);
         getAllSystemPrompts()
             .then(data => {
-                if (data.length === 0) setDebugError("No prompts returned from API. Check RLS or DB.");
+                if (data.length === 0) {
+                    setDebugError("No prompts returned. Diagnosing...");
+                    diagnoseConnection().then(report => setDebugError("DIAGNOSTIC REPORT:\n" + report));
+                }
                 if (data.length > 0) {
                     setPrompts(data);
                     const active = data.find(p => p.is_active);
@@ -198,11 +201,11 @@ export default function PromptsPage() {
 
             <main className="flex-1 flex overflow-hidden">
                 {debugError && (
-                    <div className="absolute top-4 right-4 z-50 bg-red-600 text-white p-4 rounded shadow-xl font-mono text-xs max-w-sm">
+                    <div className="absolute top-4 right-4 z-50 bg-red-600 text-white p-4 rounded shadow-xl font-mono text-xs max-w-lg whitespace-pre-wrap">
                         <strong className="block mb-1">DEBUG ERROR:</strong>
                         {debugError}
                         <br />
-                        <span className="opacity-50 mt-2 block">Try refreshing or check browser console-</span>
+                        <span className="opacity-50 mt-2 block">Take a screenshot of this.</span>
                     </div>
                 )}
 
