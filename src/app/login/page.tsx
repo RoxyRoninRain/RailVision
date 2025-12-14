@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import { Loader2, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
@@ -17,6 +17,43 @@ export default function LoginPage() {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
+
+    // [HOTFIX] Handle Implicit Flow (Hash Fragment) from Invites
+    // When the server-side callback fails (missing code), it redirects here.
+    // However, the browser preserves the #access_token hash. We can use it to log in.
+    useEffect(() => {
+        const handleHash = async () => {
+            const hash = window.location.hash;
+            if (hash && hash.includes('access_token')) {
+                console.log('[LOGIN] Detected Access Token in Hash. Attempting recovery...');
+                setLoading(true);
+                setError(null); // Clear server-side errors
+
+                // Parse hash manually
+                const params = new URLSearchParams(hash.substring(1)); // remove #
+                const access_token = params.get('access_token');
+                const refresh_token = params.get('refresh_token');
+
+                if (access_token && refresh_token) {
+                    const { error } = await supabase.auth.setSession({
+                        access_token,
+                        refresh_token
+                    });
+
+                    if (!error) {
+                        console.log('[LOGIN] Hash Recovery Success. Redirecting to Onboarding...');
+                        router.push('/onboarding');
+                    } else {
+                        console.error('[LOGIN] Hash Recovery Failed:', error);
+                        setError('Failed to process invite link. Please try again.');
+                        setLoading(false);
+                    }
+                }
+            }
+        };
+
+        handleHash();
+    }, [supabase, router]);
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
