@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, PenTool, LogOut, Shield, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Settings, PenTool, LogOut, Shield, Menu, X, Code2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { seedDefaultStyles } from '@/app/actions';
 import SignOutButton from '@/components/SignOutButton';
@@ -26,6 +26,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'Leads Pipeline', href: '/dashboard/leads', icon: LayoutDashboard },
         { name: 'Visualizer Styles', href: '/dashboard/styles', icon: PenTool },
         { name: 'Shop Settings', href: '/dashboard/settings', icon: Settings },
+        { name: 'Widget Integration', href: '/dashboard/widget', icon: Code2 },
         { name: 'Visualizer Tool', href: '/', icon: PenTool },
     ];
 

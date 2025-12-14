@@ -43,7 +43,7 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", "railvision_leads.csv");
+        link.setAttribute("download", "railify_leads.csv");
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

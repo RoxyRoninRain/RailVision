@@ -13,7 +13,7 @@ const config: Config = {
                 foreground: "var(--foreground)",
                 primary: {
                     DEFAULT: "var(--primary)",
-                    foreground: "#000000",
+                    foreground: "#ffffff",
                 },
                 secondary: {
                     DEFAULT: "var(--secondary)",
@@ -23,12 +23,6 @@ const config: Config = {
                     DEFAULT: "var(--accent)",
                     foreground: "#ffffff",
                 },
-                industrial: {
-                    steel: "#2f2f2f",
-                    gold: "#FFD700",
-                    rust: "#FF4500",
-                    dark: "#0a0a0a",
-                }
             },
             fontFamily: {
                 mono: ["var(--font-mono)", "monospace"],

@@ -6,13 +6,13 @@
   --background: #0a0a0a;
   --foreground: #ededed;
 
-  /* Industrial Theme Palette */
-  --primary: #FFD700;
-  /* Industrial Yellow/Gold */
-  --secondary: #2f2f2f;
-  /* Dark Steel */
-  --accent: #FF4500;
-  /* Rust Orange */
+  /* Modern Violet Theme Palette */
+  --primary: #7C3AED;
+  /* Vivid Violet */
+  --secondary: #4338CA;
+  /* Indigo */
+  --accent: #A855F7;
+  /* Lighter Purple */
 
   --font-mono: 'Courier New', monospace;
   /* Fallback until Geist Mono loads */

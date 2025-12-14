@@ -34,6 +34,7 @@ export interface Profile {
     tool_background_color?: string | null;
     logo_size?: number | null;
     watermark_logo_url?: string | null;
+    website?: string | null;
 }
 
 export async function generateDesign(formData: FormData) {
@@ -251,7 +252,7 @@ export async function getTenantProfile(organizationId: string) {
     // Public fetch of branding details
     const { data, error } = await supabase
         .from('profiles')
-        .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url')
+        .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url, website, subscription_status')
         .eq('id', organizationId)
         .single();
 
@@ -283,7 +284,7 @@ export async function inviteTenant(email: string) {
 
     // 1. Try sending actual email
     const { data: inviteData, error: inviteError } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/onboarding'
+        redirectTo: 'https://railify.app/auth/callback?next=/onboarding'
     });
 
     if (inviteError) {
@@ -307,7 +308,7 @@ export async function inviteTenant(email: string) {
             type: 'invite',
             email: email,
             options: {
-                redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/onboarding'
+                redirectTo: 'https://railify.app/auth/callback?next=/onboarding'
             }
         });
 
@@ -623,6 +624,7 @@ export async function updateProfile(formData: FormData) {
     const logo_size = formData.get('logo_size') ? parseInt(formData.get('logo_size') as string) : null;
     const logo_url = formData.get('logo_url') as string;
     const watermark_logo_url = formData.get('watermark_logo_url') as string;
+    const website = formData.get('website') as string;
 
     const updates: any = {};
     if (shop_name) updates.shop_name = shop_name;
@@ -633,6 +635,7 @@ export async function updateProfile(formData: FormData) {
     if (logo_size) updates.logo_size = logo_size;
     if (logo_url) updates.logo_url = logo_url;
     if (watermark_logo_url) updates.watermark_logo_url = watermark_logo_url;
+    if (website) updates.website = website;
 
     const upsertData: any = {
         id: user.id,

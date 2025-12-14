@@ -73,7 +73,7 @@ export default function TenantsPage() {
     };
 
     const handleCopyWidget = () => {
-        const url = `https://railvision-six.vercel.app/?org=${selectedTenant?.organization_id}`;
+        const url = `https://railify.app/?org=${selectedTenant?.organization_id}`;
         const code = `<iframe src="${url}" width="100%" height="800" frameborder="0" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);"></iframe>`;
         navigator.clipboard.writeText(code);
         setCopied(true);
@@ -264,7 +264,7 @@ export default function TenantsPage() {
 
                             <div className="bg-black border border-gray-800 p-4 rounded mb-6 group relative">
                                 <code className="font-mono text-xs text-gray-300 block bg-transparent resize-none h-24 overflow-y-auto outline-none selection:bg-red-900/50">
-                                    {`<iframe src="https://railvision-six.vercel.app/?org=${selectedTenant.organization_id}" width="100%" height="800" frameborder="0" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);"></iframe>`}
+                                    {`<iframe src="https://railify.app/?org=${selectedTenant.organization_id}" width="100%" height="800" frameborder="0" style="border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);"></iframe>`}
                                 </code>
                                 <button
                                     onClick={handleCopyWidget}

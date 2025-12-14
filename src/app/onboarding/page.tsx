@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, ArrowRight, Check, Upload, Palette, Lock } from 'lucide-react';
 import { uploadLogo, updateProfile } from '@/app/actions';
 
-export default function OnboardingPage() {
-    const [step, setStep] = useState(1);
+function OnboardingContent() {
+    const searchParams = useSearchParams();
+    const shouldSkipPassword = searchParams.get('skip_password') === 'true';
+
+    const [step, setStep] = useState(shouldSkipPassword ? 2 : 1);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const router = useRouter();
@@ -23,7 +26,7 @@ export default function OnboardingPage() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     // Step 3: Styling
-    const [primaryColor, setPrimaryColor] = useState('#22c55e'); // Default green
+    const [primaryColor, setPrimaryColor] = useState('#7C3AED'); // Default Violet
 
     const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,9 +72,7 @@ export default function OnboardingPage() {
                 if (res.error) throw new Error(res.error);
             }
 
-            // 2. Update Profile Name (we'll save color in next step but can do partial update here if we want)
-            // For now just moving to next step, will save shop details in final step or here?
-            // Let's save shop name now.
+            // 2. Update Profile Name
             if (shopName) {
                 const formData = new FormData();
                 formData.append('shop_name', shopName);
@@ -124,7 +125,7 @@ export default function OnboardingPage() {
                 <div className="flex justify-between mb-8 px-4">
                     {[1, 2, 3].map((i) => (
                         <div key={i} className="flex flex-col items-center gap-2">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step >= i ? 'bg-[var(--primary)] text-black' : 'bg-zinc-800 text-gray-500'
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${step >= i ? 'bg-primary text-white' : 'bg-zinc-800 text-gray-500'
                                 }`}>
                                 {step > i ? <Check size={14} /> : i}
                             </div>
@@ -145,7 +146,7 @@ export default function OnboardingPage() {
                                 exit={{ opacity: 0, x: -20 }}
                             >
                                 <div className="text-center mb-6">
-                                    <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--primary)]">
+                                    <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
                                         <Lock size={20} />
                                     </div>
                                     <h2 className="text-2xl font-bold mb-2">Secure Account</h2>
@@ -158,7 +159,7 @@ export default function OnboardingPage() {
                                             type="password"
                                             value={password}
                                             onChange={(e) => setPassword(e.target.value)}
-                                            className="w-full bg-black border border-gray-700 p-3 rounded-lg focus:outline-none focus:border-[var(--primary)] transition-colors"
+                                            className="w-full bg-black border border-gray-700 p-3 rounded-lg focus:outline-none focus:border-primary transition-colors"
                                             required
                                         />
                                     </div>
@@ -168,14 +169,14 @@ export default function OnboardingPage() {
                                             type="password"
                                             value={confirmPassword}
                                             onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full bg-black border border-gray-700 p-3 rounded-lg focus:outline-none focus:border-[var(--primary)] transition-colors"
+                                            className="w-full bg-black border border-gray-700 p-3 rounded-lg focus:outline-none focus:border-primary transition-colors"
                                             required
                                         />
                                     </div>
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="w-full bg-[var(--primary)] text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2"
+                                        className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
                                     >
                                         {loading ? <Loader2 className="animate-spin" /> : <>Continue <ArrowRight size={16} /></>}
                                     </button>
@@ -191,7 +192,7 @@ export default function OnboardingPage() {
                                 exit={{ opacity: 0, x: -20 }}
                             >
                                 <div className="text-center mb-6">
-                                    <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--primary)]">
+                                    <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
                                         <Upload size={20} />
                                     </div>
                                     <h2 className="text-2xl font-bold mb-2">Brand Identity</h2>
@@ -204,7 +205,7 @@ export default function OnboardingPage() {
                                             type="text"
                                             value={shopName}
                                             onChange={(e) => setShopName(e.target.value)}
-                                            className="w-full bg-black border border-gray-700 p-3 rounded-lg focus:outline-none focus:border-[var(--primary)] transition-colors"
+                                            className="w-full bg-black border border-gray-700 p-3 rounded-lg focus:outline-none focus:border-primary transition-colors"
                                             placeholder="e.g. Acme Ironworks"
                                             required
                                         />
@@ -228,7 +229,7 @@ export default function OnboardingPage() {
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="w-full bg-[var(--primary)] text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2"
+                                        className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
                                     >
                                         {loading ? <Loader2 className="animate-spin" /> : <>Continue <ArrowRight size={16} /></>}
                                     </button>
@@ -244,7 +245,7 @@ export default function OnboardingPage() {
                                 exit={{ opacity: 0, x: -20 }}
                             >
                                 <div className="text-center mb-6">
-                                    <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 text-[var(--primary)]">
+                                    <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 text-primary">
                                         <Palette size={20} />
                                     </div>
                                     <h2 className="text-2xl font-bold mb-2">Your Look</h2>
@@ -273,7 +274,7 @@ export default function OnboardingPage() {
                                     <button
                                         type="submit"
                                         disabled={loading}
-                                        className="w-full bg-[var(--primary)] text-black font-bold py-3 rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2"
+                                        className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
                                     >
                                         {loading ? <Loader2 className="animate-spin" /> : <>Finish Setup <Check size={16} /></>}
                                     </button>
@@ -290,5 +291,13 @@ export default function OnboardingPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function OnboardingPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-[#050505] text-white flex items-center justify-center">Loading...</div>}>
+            <OnboardingContent />
+        </Suspense>
     );
 }
