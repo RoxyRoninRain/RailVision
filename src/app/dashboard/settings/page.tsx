@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getProfile, updateProfile, uploadLogo, Profile } from '@/app/actions';
-import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck } from 'lucide-react';
+import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 
 export default function SettingsPage() {
@@ -10,8 +10,10 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploadingLogo, setUploadingLogo] = useState(false);
+    const [uploadingWatermark, setUploadingWatermark] = useState(false);
     const [message, setMessage] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const watermarkInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         getProfile().then(data => {
@@ -63,6 +65,27 @@ export default function SettingsPage() {
             setMessage('Error uploading logo: ' + (res.error || 'Unknown error'));
         }
         setUploadingLogo(false);
+    };
+
+    const handleWatermarkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setUploadingWatermark(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        // We use the same uploadLogo action as it puts files in 'logos' bucket
+        // Ideally we'd have uploadWatermark but reuse is fine if path logic is same
+        const res = await uploadLogo(formData);
+
+        if (res.success && res.url && profile) {
+            setProfile({ ...profile, watermark_logo_url: res.url });
+            setMessage('Watermark uploaded successfully!');
+        } else {
+            setMessage('Error uploading watermark: ' + (res.error || 'Unknown error'));
+        }
+        setUploadingWatermark(false);
     };
 
     if (loading) return <div className="p-8 text-white font-mono animate-pulse">Loading command center...</div>;
@@ -133,7 +156,7 @@ export default function SettingsPage() {
                     {/* Watermark Logo Card */}
                     <div className="bg-[#111] p-6 rounded-lg border border-gray-800 shadow-2xl relative overflow-hidden group">
                         <h2 className="text-xl font-mono font-bold text-white mb-6 flex items-center gap-2">
-                            <Image as ImageIcon className="text-gray-400" size={20} />
+                            <ImageIcon className="text-gray-400" size={20} />
                             Watermark Logo
                         </h2>
 
@@ -219,7 +242,6 @@ export default function SettingsPage() {
                                             className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
                                             placeholder="e.g. Acme Ironworks LLC"
                                         />
-                                            />
                                     </div>
 
                                     <div>
@@ -347,6 +369,5 @@ export default function SettingsPage() {
                 </div>
             </div>
         </div>
-        </div >
     );
 }
