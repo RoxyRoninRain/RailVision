@@ -46,6 +46,10 @@ RailVision (rebranded to **Railify**) is a B2B SaaS platform for metal fabricati
     - Prompts are stored in the `system_prompts` table.
     - Key prompt: `gemini-handrail-main`.
     - Modify the "System Instruction" (Persona/Role) and "User Template" (Task) here to improve output quality.
+    
+### 4. Analytics
+- **Generations Tracking**: Every AI generation is logged in the `generations` table with `image_url` (base64/path), `prompt_used`, and `style_id`.
+- **Admin Stats**: The Admin Dashboard connects to this table to show accurate usage metrics.
 
 ## Instructions for the Next Agent
 

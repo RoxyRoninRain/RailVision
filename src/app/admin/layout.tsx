@@ -21,9 +21,9 @@ export default async function AdminLayout({
     }
 
     return (
-        <div className="min-h-screen bg-black text-white flex">
+        <div className="h-screen bg-black text-white flex overflow-hidden">
             {/* Sidebar */}
-            <aside className="w-64 border-r border-gray-800 p-6 flex flex-col gap-6">
+            <aside className="w-64 border-r border-gray-800 p-6 flex flex-col gap-6 overflow-y-auto">
                 <div className="text-[var(--primary)] font-mono text-xl font-bold">SUPER ADMIN</div>
                 <nav className="flex flex-col gap-2 flex-1">
                     <a href="/admin/stats" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Global Stats</a>

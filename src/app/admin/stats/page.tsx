@@ -2,16 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { getAdminStats } from '@/app/actions';
+import { getGlobalStats, GlobalStats } from '@/app/admin/actions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { TrendingUp, Users, DollarSign, Activity } from 'lucide-react';
 
 export default function AdminStatsPage() {
     const [data, setData] = useState<{ organization_id: string, count: number }[]>([]);
+    const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        getAdminStats().then(stats => {
+        Promise.all([
+            getAdminStats(),
+            getGlobalStats()
+        ]).then(([stats, globals]) => {
             setData(stats);
+            setGlobalStats(globals);
             setLoading(false);
         });
     }, []);
@@ -69,9 +75,9 @@ export default function AdminStatsPage() {
                 />
                 <MetricCard
                     label="AI Generations"
-                    value={(totalLeads * 3).toString()}
+                    value={globalStats?.totalGenerations?.toString() || '0'}
                     icon={<Activity size={20} className="text-orange-500" />}
-                    trend="~3 per lead"
+                    trend="Actual Usage"
                 />
             </div>
 
@@ -142,12 +148,12 @@ export default function AdminStatsPage() {
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
-                    <div className="mt-4 space-y-2">
-                        {chartData.slice(0, 5).map((entry, index) => (
-                            <div key={index} className="flex items-center justify-between text-xs font-mono text-gray-500">
+                    <div className="mt-4 space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                        {chartData.map((entry, index) => (
+                            <div key={index} className="flex items-center justify-between text-xs font-mono text-gray-500 p-2 hover:bg-white/5 rounded">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
-                                    <span>{entry.name}</span>
+                                    <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[index % COLORS.length] }} />
+                                    <span className="truncate max-w-[120px]" title={entry.name}>{entry.name}</span>
                                 </div>
                                 <span className="text-white">{entry.count}</span>
                             </div>

@@ -123,6 +123,28 @@ export async function generateDesign(formData: FormData) {
 
         if (result.success && result.image) {
             console.log('[DEBUG] Image generated successfully with Nano Banana');
+
+            // --- TRACKING START (Added for Admin Stats) ---
+            try {
+                // Determine Org ID if logged in (for attribution)
+                const supabase = await createClient();
+                const { data: { user } } = await supabase.auth.getUser();
+
+                await supabase.from('generations').insert({
+                    organization_id: user ? user.id : null,
+                    // If result.image is huge base64, we might truncate or not store it in 'image_url' 
+                    // unless 'generations' table expects large text. 
+                    // Best practice: Store generated image to Supabase Storage, then link. 
+                    // For now, logging usage is key. We'll store 'Base64 Data' string placeholder or prompt snippet.
+                    image_url: result.image.startsWith('data:') ? 'Base64 Image Data' : result.image,
+                    prompt_used: promptConfig ? 'Dynamic Prompt' : 'Default Prompt',
+                    style_id: style
+                });
+            } catch (err) {
+                console.warn('[Tracking] Failed to log generation:', err);
+            }
+            // --- TRACKING END ---
+
             return { success: true, data: result.image };
         } else {
             throw new Error(result.error || 'Unknown Nano Banana error');

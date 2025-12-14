@@ -7,6 +7,7 @@ export interface GlobalStats {
     totalLeads: number;
     activeTenants: number;
     conversionRate: number; // Percentage 0-100
+    totalGenerations: number;
 }
 
 export async function getGlobalStats(): Promise<GlobalStats> {
@@ -15,7 +16,7 @@ export async function getGlobalStats(): Promise<GlobalStats> {
     // Fallback if no admin key (local dev without service key)
     if (!supabase) {
         console.warn('Admin client missing in getGlobalStats. Returning mock data.');
-        return { totalLeads: 0, activeTenants: 0, conversionRate: 0 };
+        return { totalLeads: 0, activeTenants: 0, conversionRate: 0, totalGenerations: 0 };
     }
 
     // 1. Total Leads
@@ -51,10 +52,16 @@ export async function getGlobalStats(): Promise<GlobalStats> {
         ? ((closedLeads / totalLeads) * 100)
         : 0;
 
+    // 4. Total Generations
+    const { count: genCount, error: genError } = await supabase
+        .from('generations')
+        .select('*', { count: 'exact', head: true });
+
     return {
         totalLeads: totalLeads || 0,
         activeTenants: activeTenants,
-        conversionRate: parseFloat(rate.toFixed(1))
+        conversionRate: parseFloat(rate.toFixed(1)),
+        totalGenerations: genCount || 0
     };
 }
 
