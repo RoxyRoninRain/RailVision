@@ -130,3 +130,19 @@ export async function updateSystemPrompt(key: string, updates: Partial<SystemPro
     if (error) return { error: error.message };
     return { success: true };
 }
+
+export async function getAllSystemPrompts() {
+    const supabase = createAdminClient();
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+        .from('system_prompts')
+        .select('*')
+        .order('key', { ascending: true });
+
+    if (error) {
+        console.error('Failed to fetch all prompts:', error);
+        return [];
+    }
+    return data;
+}

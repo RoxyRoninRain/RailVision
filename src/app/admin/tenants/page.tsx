@@ -180,12 +180,20 @@ export default function TenantsPage() {
                         <h2 className="text-2xl font-bold text-white mb-2">Tenant Directory</h2>
                         <p className="text-gray-500 text-sm">Manage registered shops and access their dashboards.</p>
                     </div>
-                    <button
-                        onClick={() => setShowInviteModal(true)}
-                        className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-[0_0_20px_rgba(220,38,38,0.3)]"
-                    >
-                        <Plus className="w-4 h-4" /> Onboard Tenant
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <Link
+                            href="/admin/prompts"
+                            className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2 border border-zinc-700"
+                        >
+                            <Bot className="w-4 h-4" /> AI Prompts
+                        </Link>
+                        <button
+                            onClick={() => setShowInviteModal(true)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-[0_0_20px_rgba(220,38,38,0.3)]"
+                        >
+                            <Plus className="w-4 h-4" /> Onboard Tenant
+                        </button>
+                    </div>
                 </div>
 
                 {/* 3. TENANT TABLE */}
