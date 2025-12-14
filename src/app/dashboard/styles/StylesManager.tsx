@@ -183,8 +183,17 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
         e.preventDefault();
         setErrorMsg(null);
         setSuccessMsg(null);
+
+        // DEBUG LOGGING FOR SUBMIT
+        addLog(`Submitting Form... Name: "${newName}", File: ${newFile ? newFile.name : 'NULL'}`);
+
         if (!newFile || !newName) {
-            setErrorMsg('Please provide a name and an image.');
+            const missing = [];
+            if (!newFile) missing.push('File');
+            if (!newName) missing.push('Name');
+            const msg = `Please provide: ${missing.join(' and ')}`;
+            addLog(`Validation Error: ${msg}`);
+            setErrorMsg(msg);
             return;
         }
 
@@ -199,9 +208,11 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
 
             if (res.error) {
                 console.error('Create Style Error:', res.error);
+                addLog(`Server returned error: ${res.error}`);
                 setErrorMsg(res.error);
                 setIsSubmitting(false);
             } else {
+                addLog('Upload Success! Reloading...');
                 setSuccessMsg('Style created successfully! updating...');
                 // Slight delay so user sees success message
                 setTimeout(() => {
@@ -209,6 +220,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
                 }, 1500);
             }
         } catch (err: any) {
+            addLog(`Exception: ${err.message}`);
             setErrorMsg('Unexpected error: ' + (err.message || String(err)));
             setIsSubmitting(false);
         }
