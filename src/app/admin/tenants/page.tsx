@@ -167,7 +167,7 @@ export default function TenantsPage() {
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-[#111] text-gray-400 border-b border-white/5">
                             <tr>
-                                <th className="p-4 pl-6 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Shop ID / Organization</th>
+                                <th className="p-4 pl-6 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Shop Name / ID</th>
                                 <th className="p-4 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Metrics</th>
                                 <th className="p-4 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Status</th>
                                 <th className="p-4 pr-6 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500 text-right">Controls</th>
@@ -179,10 +179,13 @@ export default function TenantsPage() {
                                     <td className="p-4 pl-6">
                                         <div className="flex items-center gap-3">
                                             <div className="w-8 h-8 rounded bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-500 font-bold text-xs group-hover:border-red-900 group-hover:text-red-500 transition-colors">
-                                                {stat.organization_id.substring(0, 1).toUpperCase()}
+                                                {stat.shop_name ? stat.shop_name.substring(0, 1).toUpperCase() : '?'}
                                             </div>
                                             <div>
-                                                <div className="font-mono text-xs text-gray-300 group-hover:text-white transition-colors">{stat.organization_id}</div>
+                                                <Link href={`/admin/tenants/${stat.organization_id}`} className="font-bold text-white leading-tight hover:text-red-500 transition-colors block">
+                                                    {stat.shop_name || 'Unnamed Shop'}
+                                                </Link>
+                                                <div className="font-mono text-[10px] text-gray-500 group-hover:text-gray-400 transition-colors">{stat.organization_id}</div>
                                             </div>
                                         </div>
                                     </td>
@@ -203,7 +206,7 @@ export default function TenantsPage() {
                                                 href={`/admin/tenants/${stat.organization_id}`}
                                                 className="text-[10px] font-mono text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 px-2 py-1 rounded transition-colors flex items-center gap-1"
                                             >
-                                                <Eye className="w-3 h-3" /> SHADOW
+                                                <Activity className="w-3 h-3" /> DETAILS
                                             </Link>
                                             <button
                                                 onClick={() => { setSelectedTenant(stat); setShowWidgetModal(true); }}

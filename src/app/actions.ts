@@ -754,7 +754,7 @@ export async function getAdminStats() {
     // 4. Fetch ALL profiles to ensure we show tenants with 0 leads
     const { data: profiles, error: profilesError } = await dbClient
         .from('profiles')
-        .select('id'); // We just need IDs to map. Or could verify existence.
+        .select('id, shop_name, email');
 
     if (profilesError) {
         console.error('Admin Stats Profile Fetch Error:', profilesError);
@@ -785,11 +785,20 @@ export async function getAdminStats() {
         genCounts[org] = (genCounts[org] || 0) + 1;
     });
 
-    return Array.from(allOrgIds).map(orgId => ({
-        organization_id: orgId,
-        count: leadCounts[orgId] || 0,
-        generation_count: genCounts[orgId] || 0
-    }));
+    // 8. Map and Filter
+    const stats = Array.from(allOrgIds).map(orgId => {
+        const profile = profiles?.find(p => p.id === orgId);
+        return {
+            organization_id: orgId,
+            shop_name: profile?.shop_name || 'Unknown Shop', // New Field
+            email: profile?.email || '', // New Field
+            count: leadCounts[orgId] || 0,
+            generation_count: genCounts[orgId] || 0
+        };
+    });
+
+    // Filter out Admin Account (User Request)
+    return stats.filter(s => s.email !== 'admin@railify.com');
 }
 
 export async function updateLeadStatus(leadId: string, status: 'New' | 'Contacted' | 'Closed') {
