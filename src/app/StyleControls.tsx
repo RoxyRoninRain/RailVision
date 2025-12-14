@@ -94,13 +94,7 @@ export default function StyleControls({
                             {/* Background decoration */}
                             <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-gradient-to-tl from-white/5 to-transparent rounded-full blur-2xl group-hover:from-white/10 transition-colors" />
 
-                            {logo && (
-                                <img
-                                    src={logo}
-                                    className="absolute bottom-3 right-3 w-16 opacity-30 pointer-events-none grayscale group-hover:grayscale-0 group-hover:opacity-60 transition-all z-20"
-                                    alt="Watermark"
-                                />
-                            )}
+
                         </div>
                     ))}
                 </div>

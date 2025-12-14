@@ -420,18 +420,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             }}
         >
             {/* Header */}
-            <header className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-center pointer-events-none">
-                <div className="pointer-events-auto flex items-center gap-4">
-                    <div className="cursor-pointer" onClick={() => window.location.reload()}>
-                        {logo ? (
-                            <img src={logo} alt={shopName || "Logo"} style={{ height: logoSize }} className="w-auto object-contain" />
-                        ) : (
-                            <h1 className="text-2xl font-black text-[var(--primary)] uppercase tracking-tighter">
-                                {shopName || "Railify"}
-                            </h1>
-                        )}
-                    </div>
-                </div>
+            <header className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-end items-center pointer-events-none">
                 {/* Steps */}
                 <div className="flex gap-2 pointer-events-auto">
                     {[1, 2, 3].map(s => (
