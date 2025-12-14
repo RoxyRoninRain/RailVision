@@ -122,12 +122,12 @@ export async function getTenantDetails(tenantId: string) {
 
 // RESTORED: System Prompt Fetcher used by src/app/actions.ts
 export async function getSystemPrompt(key: string) {
-    const supabase = createAdminClient();
+    let supabase = createAdminClient();
 
     // Graceful fallback if no admin client (e.g. Supabase Service Key missing locally)
     if (!supabase) {
-        console.warn('getSystemPrompt: Admin client missing. Returning null.');
-        return null;
+        console.warn('getSystemPrompt: Admin client missing. Falling back to standard client.');
+        supabase = await createClient();
     }
 
     const { data, error } = await supabase
@@ -146,8 +146,11 @@ export async function getSystemPrompt(key: string) {
 }
 
 export async function getActiveSystemPrompt() {
-    const supabase = createAdminClient();
-    if (!supabase) return null;
+    let supabase = createAdminClient();
+    if (!supabase) {
+        // Fallback for local dev without service key
+        supabase = await createClient();
+    }
 
     const { data, error } = await supabase
         .from('system_prompts')
@@ -241,8 +244,11 @@ export async function updateSystemPrompt(key: string, updates: Partial<SystemPro
 }
 
 export async function getAllSystemPrompts() {
-    const supabase = createAdminClient();
-    if (!supabase) return [];
+    let supabase = createAdminClient();
+    if (!supabase) {
+        console.warn('Admin Client unavailable (missing service key?), falling back to standard client.');
+        supabase = await createClient();
+    }
 
     const { data, error } = await supabase
         .from('system_prompts')
