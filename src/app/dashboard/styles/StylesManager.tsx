@@ -123,9 +123,21 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
             }
 
             // Validate basic type (Post-conversion check)
-            if (!file.type.startsWith('image/')) {
+            // Fix: iOS sometimes sends empty type or application/octet-stream
+            const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+            const ext = file.name.split('.').pop()?.toLowerCase() || '';
+
+            if (!file.type.startsWith('image/') && !validExtensions.includes(ext)) {
+                addLog(`File Rejected: Invalid Type (${file.type}) and Extension (${ext})`);
                 setErrorMsg('Please upload an image file (JPG, PNG).');
                 return;
+            }
+
+            // If type is empty but extension is valid, force type to prevent downstream issues
+            if (!file.type && validExtensions.includes(ext)) {
+                addLog('Fixing missing file type based on extension...');
+                const fixedType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+                file = new File([file.slice(0, file.size, fixedType)], file.name, { type: fixedType, lastModified: Date.now() });
             }
 
             // Iterative Compression Strategy
@@ -159,6 +171,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
 
                 // Final Safety Check
                 if (currentFile.size > 4.5 * 1024 * 1024) {
+                    addLog(`File Rejected: Too Large (${(currentFile.size / 1024 / 1024).toFixed(1)}MB)`);
                     setErrorMsg(`Image is too large (${(currentFile.size / 1024 / 1024).toFixed(1)}MB) even after compression. Please upload a smaller file.`);
                     return;
                 }
@@ -169,6 +182,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
             } catch (err) {
                 console.error('Compression failed:', err);
                 if (file.size > 4.5 * 1024 * 1024) {
+                    addLog('File Rejected: Compression failed & Too Large');
                     setErrorMsg('Compression failed and original file is too large (>4.5MB).');
                     return;
                 }
@@ -405,8 +419,8 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
 
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting}
-                                    className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase tracking-widest rounded hover:brightness-110 transition-all mt-4 flex justify-center items-center gap-2"
+                                    disabled={isSubmitting || !newFile}
+                                    className={`w-full py-4 font-bold uppercase tracking-widest rounded transition-all mt-4 flex justify-center items-center gap-2 ${isSubmitting || !newFile ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[var(--primary)] text-black hover:brightness-110'}`}
                                 >
                                     {isSubmitting ? <Loader2 className="animate-spin" /> : 'Create Style'}
                                 </button>
