@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getAdminStats, inviteTenant, testResendConnectivity } from '@/app/actions';
 import { getGlobalStats } from '@/app/admin/actions'; // New import
-import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check, Users, TrendingUp, Activity, Eye } from 'lucide-react';
+import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check, Users, TrendingUp, Activity, Eye, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
