@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAdminStats, inviteTenant, testResendConnectivity } from '@/app/actions';
+import { getAdminStats, inviteTenant } from '@/app/actions';
 import { getGlobalStats } from '@/app/admin/actions'; // New import
-import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check, Users, TrendingUp, Activity, Eye, Bot } from 'lucide-react';
+import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check, Users, TrendingUp, Activity, Eye } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
@@ -24,12 +24,6 @@ export default function TenantsPage() {
 
     // Widget Copy
     const [copied, setCopied] = useState(false);
-
-    // Troubleshooting
-    const [showTroubleshoot, setShowTroubleshoot] = useState(false);
-    const [debugKey, setDebugKey] = useState('');
-    const [debugSender, setDebugSender] = useState('onboarding@resend.dev');
-    const [debugStatus, setDebugStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
 
     // Pagination
     const [currentPage, setCurrentPage] = useState(1);
@@ -75,26 +69,6 @@ export default function TenantsPage() {
             console.error('System Error during invite:', error);
             setInviteStatus('error');
             setErrorMessage(error.message || 'System error');
-        }
-    };
-
-    const handleDebugEmail = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!debugKey || !inviteEmail) {
-            setErrorMessage('Enter API Key and ensure Invite Email is filled above (as recipient).');
-            setDebugStatus('error');
-            return;
-        }
-
-        setDebugStatus('testing');
-        const res = await testResendConnectivity(debugKey, debugSender, inviteEmail);
-
-        if (res.success) {
-            setDebugStatus('success');
-        } else {
-            console.error(res.error);
-            setDebugStatus('error');
-            setErrorMessage(typeof res.error === 'string' ? res.error : JSON.stringify(res.error));
         }
     };
 
@@ -180,20 +154,12 @@ export default function TenantsPage() {
                         <h2 className="text-2xl font-bold text-white mb-2">Tenant Directory</h2>
                         <p className="text-gray-500 text-sm">Manage registered shops and access their dashboards.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Link
-                            href="/admin/prompts"
-                            className="bg-zinc-800 hover:bg-zinc-700 text-white px-4 py-2.5 rounded text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2 border border-zinc-700"
-                        >
-                            <Bot className="w-4 h-4" /> AI Prompts
-                        </Link>
-                        <button
-                            onClick={() => setShowInviteModal(true)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-[0_0_20px_rgba(220,38,38,0.3)]"
-                        >
-                            <Plus className="w-4 h-4" /> Onboard Tenant
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => setShowInviteModal(true)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded text-sm font-bold uppercase tracking-wider transition-colors flex items-center gap-2 shadow-[0_0_20px_rgba(220,38,38,0.3)]"
+                    >
+                        <Plus className="w-4 h-4" /> Onboard Tenant
+                    </button>
                 </div>
 
                 {/* 3. TENANT TABLE */}
@@ -375,55 +341,6 @@ export default function TenantsPage() {
                                     </div>
                                 )}
                             </form>
-
-                            {/* TROUBLESHOOTING SECTION */}
-                            <div className="mt-6 pt-6 border-t border-gray-800">
-                                <button
-                                    onClick={() => setShowTroubleshoot(!showTroubleshoot)}
-                                    className="text-[10px] text-gray-500 hover:text-gray-300 uppercase font-mono tracking-widest flex items-center gap-2"
-                                >
-                                    <Shield size={12} /> Troubleshoot Email Connection
-                                </button>
-
-                                {showTroubleshoot && (
-                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="overflow-hidden mt-3 space-y-3">
-                                        <p className="text-xs text-gray-500">
-                                            Test your Resend API Key directly. If this works, your Key is good but Supabase SMTP settings might be wrong.
-                                        </p>
-                                        <input
-                                            className="w-full bg-black border border-gray-800 p-2 rounded text-xs text-white family-mono"
-                                            placeholder="re_123456789..."
-                                            value={debugKey}
-                                            onChange={e => setDebugKey(e.target.value)}
-                                        />
-                                        <div className="flex gap-2">
-                                            <input
-                                                className="flex-1 bg-black border border-gray-800 p-2 rounded text-xs text-white family-mono"
-                                                placeholder="Sender (e.g. onboard@...)"
-                                                value={debugSender}
-                                                onChange={e => setDebugSender(e.target.value)}
-                                            />
-                                            <button
-                                                onClick={handleDebugEmail}
-                                                disabled={debugStatus === 'testing'}
-                                                className="bg-zinc-800 hover:bg-zinc-700 text-white text-xs px-3 py-2 rounded uppercase font-bold"
-                                            >
-                                                {debugStatus === 'testing' ? 'Testing...' : 'Test Key'}
-                                            </button>
-                                        </div>
-                                        {debugStatus === 'success' && (
-                                            <div className="p-2 bg-green-900/20 text-green-400 text-xs border border-green-900/40 rounded">
-                                                <strong>Success!</strong> Email sent reliably via API. The Key is valid. <br />Check Supabase SMTP: ensure Port is 465 and User is 'resend'.
-                                            </div>
-                                        )}
-                                        {debugStatus === 'error' && (
-                                            <div className="p-2 bg-red-900/20 text-red-400 text-xs border border-red-900/40 rounded break-all">
-                                                <strong>Error:</strong> {errorMessage}
-                                            </div>
-                                        )}
-                                    </motion.div>
-                                )}
-                            </div>
                         </motion.div>
                     </motion.div>
                 )}

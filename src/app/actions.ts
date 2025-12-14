@@ -224,67 +224,69 @@ export async function inviteTenant(email: string) {
 
     if (!adminSupabase) {
         console.warn('SUPABASE_SERVICE_ROLE_KEY missing. Falling back to mock.');
-        return { success: true, message: `[SIMULATION] Email sent to ${email} (Key missing)`, isSimulation: true, inviteLink: 'http://localhost:3000/onboarding' };
+        // Add debug info to message
+        const keyLen = process.env.SUPABASE_SERVICE_ROLE_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY.length : 0;
+        console.log(`Debug Check: Env Var Length = ${keyLen}`);
+        return { success: true, message: `[SIMULATION] Email sent to ${email} (Key missing, Len: ${keyLen})`, isSimulation: true, inviteLink: undefined };
     }
 
-    console.log('[ADMIN] Generating Invite Link for:', email);
 
-    // 1. Generate Invite Link (Bypassing Supabase SMTP)
-    const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
-        type: 'invite',
-        email,
-        options: {
-            redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/onboarding'
-        }
+    console.log('[ADMIN] Attempting invite via SMTP for:', email);
+
+    // 1. Try sending actual email
+    const { data: inviteData, error: inviteError } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
+        redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/onboarding'
     });
 
-    if (linkError) {
-        console.error('[ADMIN] Generate Link Failed:', linkError);
-        if (linkError.status === 422 && linkError.message.includes('registered')) {
-            return { success: false, error: 'User is already registered.' };
+    if (inviteError) {
+        console.error('[ADMIN] SMTP Invite Failed:', JSON.stringify(inviteError));
+
+        // SPECIAL HANDLING: User already exists
+        if (inviteError.message.includes('already registered') || inviteError.status === 422) {
+            // Try generating a link for existing user? Or just report it.
+            // Usually for existing users you just want to let them know.
+            return {
+                success: false,
+                error: `User already exists. (${inviteError.message})`,
+                fullError: inviteError
+            };
         }
-        return { success: false, error: linkError.message };
-    }
 
-    const { action_link } = linkData.properties;
+        // 2. FALLBACK: Generate Manual Link if SMTP fails (e.g. Rate Limit, Config Error)
+        console.warn('[ADMIN] Falling back to Manual Link generation due to:', inviteError.message);
 
-    // 2. Send via Resend Direct
-    try {
-        const resendKey = process.env.RESEND_API_KEY;
-        if (resendKey) {
-            const { Resend } = await import('resend');
-            const resend = new Resend(resendKey);
-
-            const { error: emailError } = await resend.emails.send({
-                from: 'onboarding@resend.dev',
-                to: email,
-                subject: 'Welcome to Railify',
-                html: `
-                    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 8px;">
-                        <h2 style="color: #111;">Welcome to Railify</h2>
-                        <p>You have been invited to join the platform as a Shop Owner.</p>
-                        <p style="margin: 24px 0;">
-                            <a href="${action_link}" style="display: inline-block; background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Accept Invitation</a>
-                        </p>
-                        <p style="color: #888; font-size: 14px;">Or copy this link: ${action_link}</p>
-                    </div>
-                 `
-            });
-
-            if (emailError) {
-                console.error('Resend Direct Error:', emailError);
-                return { success: true, inviteLink: action_link, message: 'Email failed. Manual Link generated.' };
+        const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
+            type: 'invite',
+            email: email,
+            options: {
+                redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/onboarding'
             }
+        });
 
-            return { success: true, message: 'Invitation sent via Resend Direct.' };
-        } else {
-            console.warn('RESEND_API_KEY missing');
-            return { success: true, inviteLink: action_link, message: 'Resend Key missing. Manual Link generated.' };
+        if (linkError) {
+            console.error('[ADMIN] Manual Link Generation Failed:', linkError);
+            return {
+                success: false,
+                error: `Detailed Error: ${inviteError.message} | Link Gen Error: ${linkError.message}`,
+                fullError: { invite: inviteError, link: linkError }
+            };
         }
-    } catch (err: any) {
-        console.error('Resend Exception:', err);
-        return { success: true, inviteLink: action_link, message: 'Email system error. Manual Link generated.' };
+
+        return {
+            success: true,
+            message: `Email Service Failed (${inviteError.name}: ${inviteError.message || inviteError.status}). Manual Link Generated.`,
+            isSimulation: false,
+            inviteLink: linkData.properties?.action_link
+        };
     }
+
+    console.log('[ADMIN] Invite sent to:', email);
+    return {
+        success: true,
+        message: `Invitation email sent to ${email} successfully.`,
+        isSimulation: false,
+        inviteLink: undefined
+    };
 }
 
 export interface PortfolioItem {
@@ -307,6 +309,12 @@ export async function createStyle(formData: FormData) {
     const file = formData.get('file') as File;
 
     if (!file || !name) return { error: 'Missing required fields' };
+
+    // File Size Validation (Max 4.5MB for Vercel Server Actions)
+    const MAX_SIZE = 4.5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+        return { error: `File too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Limit is 4.5MB.` };
+    }
 
     // 1. Upload Image
     const fileExt = file.name.split('.').pop();

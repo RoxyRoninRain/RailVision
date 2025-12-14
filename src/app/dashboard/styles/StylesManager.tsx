@@ -16,9 +16,76 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
     const [newFile, setNewFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Image Compression Helper
+    const compressImage = async (file: File): Promise<File> => {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.src = URL.createObjectURL(file);
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Max dimensions (e.g. 1500px)
+                const MAX_SIZE = 1500;
+                if (width > height) {
+                    if (width > MAX_SIZE) {
+                        height *= MAX_SIZE / width;
+                        width = MAX_SIZE;
+                    }
+                } else {
+                    if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height;
+                        height = MAX_SIZE;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx?.drawImage(img, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        reject(new Error('Compression failed'));
+                        return;
+                    }
+                    const newFile = new File([blob], file.name, {
+                        type: 'image/jpeg',
+                        lastModified: Date.now(),
+                    });
+                    resolve(newFile);
+                }, 'image/jpeg', 0.85); // 85% quality
+            };
+            img.onerror = (err) => reject(err);
+        });
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
+            let file = e.target.files[0];
+
+            // Validate basic type
+            if (!file.type.startsWith('image/')) {
+                alert('Please upload an image file (JPG, PNG).');
+                return;
+            }
+
+            // Client-side Resize/Compression if > 1MB or large IDK
+            try {
+                if (file.size > 1 * 1024 * 1024) { // If > 1MB, try to compress
+                    console.log(`Compressing image: ${file.size / 1024 / 1024}MB`);
+                    const compressed = await compressImage(file);
+                    console.log(`Compressed to: ${compressed.size / 1024 / 1024}MB`);
+                    // If compression actually made it bigger (rare but possible with low qual orig), keep orig
+                    if (compressed.size < file.size) {
+                        file = compressed;
+                    }
+                }
+            } catch (err) {
+                console.error('Compression failed, using original', err);
+            }
+
             setNewFile(file);
             setPreview(URL.createObjectURL(file));
         }
