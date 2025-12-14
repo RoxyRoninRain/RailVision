@@ -333,10 +333,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             ctx.drawImage(img, 0, 0);
 
             // Draw Watermark (Logo) if available
-            if (logo) {
+            const finalWatermark = watermarkLogo || logo;
+
+            if (finalWatermark) {
                 const logoImg = new Image();
                 logoImg.crossOrigin = "anonymous";
-                logoImg.src = logo;
+                logoImg.src = finalWatermark;
                 // We need to wait for logo? For simplicity assume cached or try sync
                 // In real app, promise-all the loads. here we try:
                 // If logo fails to load instantly, we might skip it. 
