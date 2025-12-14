@@ -60,33 +60,46 @@ export async function generateDesign(formData: FormData) {
             styleInput = { base64StyleImage: styleBase64 };
             console.log('[DEBUG] Using CUSTOM Style Image for Nano Banana fusion');
         } else {
-            // Check if it's a known preset and load the local image
-            const presetMap: Record<string, string> = {
-                'Industrial': 'industrial.png',
-                'Modern': 'modern.png',
-                'Rustic': 'rustic.png'
-            };
+            // Priority 2: Check for style_url (Preset or DB-loaded style)
+            const styleUrl = formData.get('style_url') as string;
 
-            const presetFile = presetMap[style];
-            if (presetFile) {
+            if (styleUrl) {
                 try {
-                    const fs = await import('fs'); // Dynamic import to avoid build issues if mixed env
-                    const path = await import('path');
-                    const filePath = path.join(process.cwd(), 'public', 'styles', presetFile);
+                    let styleBuffer: Buffer | null = null;
 
-                    if (fs.existsSync(filePath)) {
-                        const fileBuffer = fs.readFileSync(filePath);
-                        const styleBase64 = fileBuffer.toString('base64');
-                        styleInput = { base64StyleImage: styleBase64 };
-                        console.log(`[DEBUG] Using PRESET Style Image (${style}) for Nano Banana fusion`);
-                    } else {
-                        console.warn(`[DEBUG] Preset file not found: ${filePath}, falling back to text`);
+                    if (styleUrl.startsWith('http')) {
+                        console.log(`[DEBUG] Fetching remote style image: ${styleUrl}`);
+                        const response = await fetch(styleUrl);
+                        if (!response.ok) throw new Error(`Failed to fetch style image: ${response.statusText}`);
+                        const arrayBuffer = await response.arrayBuffer();
+                        styleBuffer = Buffer.from(arrayBuffer);
+                    } else if (styleUrl.startsWith('/')) {
+                        console.log(`[DEBUG] Loading local style image: ${styleUrl}`);
+                        const fs = await import('fs');
+                        const path = await import('path');
+                        const filePath = path.join(process.cwd(), 'public', styleUrl);
+                        if (fs.existsSync(filePath)) {
+                            styleBuffer = fs.readFileSync(filePath);
+                        } else {
+                            console.warn(`[DEBUG] Local file not found: ${filePath}`);
+                        }
                     }
+
+                    if (styleBuffer) {
+                        const styleBase64 = styleBuffer.toString('base64');
+                        styleInput = { base64StyleImage: styleBase64 };
+                        console.log(`[DEBUG] Successfully loaded style image for Nano Banana fusion`);
+                    } else {
+                        console.warn('[DEBUG] Could not load style image from URL, falling back to text.');
+                        // Fallback logic for legacy hardcoded names if URL failed? 
+                        // No, if URL failed, text is the only option.
+                    }
+
                 } catch (err) {
-                    console.error('[DEBUG] Failed to load preset image:', err);
+                    console.error('[DEBUG] Error processing style URL:', err);
                 }
             } else {
-                console.log('[DEBUG] Using Style Text for Nano Banana generation:', style);
+                console.log('[DEBUG] No style visuals found. Using Style Text only:', style);
             }
         }
 

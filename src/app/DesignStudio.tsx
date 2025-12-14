@@ -187,14 +187,22 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             // Handle Style Source
             if (styleSource === 'preset') {
                 formData.append('styleId', styleList[selectedStyleIndex].id);
-                formData.append('style', styleList[selectedStyleIndex].name); // Key must match 'style' in actions.ts
+                formData.append('style', styleList[selectedStyleIndex].name);
+                // CRITICAL FIX: Send the image URL so the server can use the actual visual reference
+                // instead of relying on the text name (which fails for custom uploads).
+                if (styleList[selectedStyleIndex].image_url) {
+                    formData.append('style_url', styleList[selectedStyleIndex].image_url);
+                }
             } else if (styleSource === 'upload' && customStyleFile) {
-                formData.append('style_image', customStyleFile); // Key must match 'style_image' in actions.ts
+                formData.append('style_image', customStyleFile);
                 formData.append('style', 'Custom Style');
             } else {
                 // Fallback to first style if custom selected but no file
                 formData.append('styleId', styleList[0].id);
                 formData.append('style', styleList[0].name);
+                if (styleList[0].image_url) {
+                    formData.append('style_url', styleList[0].image_url);
+                }
             }
 
             formData.append('prompt', "High quality architectural photorealistic render"); // Basic prompt, server handles rest
