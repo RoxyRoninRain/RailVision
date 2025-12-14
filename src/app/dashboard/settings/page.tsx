@@ -89,11 +89,11 @@ export default function SettingsPage() {
                             <div className="flex flex-col items-center justify-center p-6 bg-black/50 rounded-lg border border-dashed border-gray-700 hover:border-[var(--primary)] transition-colors relative">
                                 <div className="w-32 h-32 relative mb-4 rounded-full overflow-hidden bg-gray-900 border-2 border-gray-800 flex items-center justify-center group-hover:border-[var(--primary)] transition-colors">
                                     {profile?.logo_url ? (
-                                        <Image
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img
                                             src={profile.logo_url}
                                             alt="Shop Logo"
-                                            fill
-                                            className="object-cover"
+                                            className="w-full h-full object-cover"
                                         />
                                     ) : (
                                         <Building className="text-gray-600" size={48} />

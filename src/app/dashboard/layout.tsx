@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="p-6 border-b border-gray-800 flex items-center gap-2">
                     <Shield className="text-[var(--primary)]" />
                     <span className="font-mono font-bold tracking-tighter text-lg uppercase">
-                        RailVision <span className="text-[var(--primary)] text-xs align-top">PRO</span>
+                        Railify <span className="text-[var(--primary)] text-xs align-top">PRO</span>
                     </span>
                 </div>
 
@@ -74,7 +74,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div className="md:hidden fixed top-0 w-full bg-[#050505] border-b border-gray-800 z-20 p-4 flex justify-between items-center text-[var(--primary)] shadow-lg">
                 <div className="flex items-center gap-2">
                     <Shield className="text-[var(--primary)] w-6 h-6" />
-                    <span className="font-mono font-bold tracking-tighter uppercase">RailVision PRO</span>
+                    <span className="font-mono font-bold tracking-tighter uppercase">Railify PRO</span>
                 </div>
                 <button
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

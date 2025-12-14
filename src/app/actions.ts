@@ -617,19 +617,22 @@ export async function updateProfile(formData: FormData) {
     const address = formData.get('address') as string;
     const primary_color = formData.get('primary_color') as string;
 
-    const updates: any = {
-        updated_at: new Date().toISOString(),
-    };
-
+    const updates: any = {};
     if (shop_name) updates.shop_name = shop_name;
     if (phone) updates.phone = phone;
     if (address) updates.address = address;
     if (primary_color) updates.primary_color = primary_color;
 
+    const upsertData: any = {
+        id: user.id,
+        email: user.email,
+        ...updates,
+        updated_at: new Date().toISOString(),
+    };
+
     const { error } = await supabase
         .from('profiles')
-        .update(updates)
-        .eq('id', user.id);
+        .upsert(upsertData);
 
     if (error) {
         return { error: error.message };
@@ -660,7 +663,10 @@ export async function uploadLogo(formData: FormData) {
 
     const { error: uploadError } = await supabase.storage
         .from('logos')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, file, {
+            upsert: true,
+            contentType: file.type
+        });
 
     if (uploadError) {
         return { error: uploadError.message };
