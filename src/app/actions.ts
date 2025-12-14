@@ -3,7 +3,7 @@
 import { InputSanitizer } from '@/components/security/InputSanitizer';
 
 import { createClient } from '@/lib/supabase/server';
-import { supabase as adminSupabase } from '@/lib/supabase'; // Keep admin/anon client for specific uses if needed, but prefer server client for actions
+import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
 
 // TYPES
@@ -454,7 +454,7 @@ export async function deleteStyle(styleId: string) {
         .single();
 
     if (style) {
-        // Extract path from URL if needed, or just delete row
+        // Extract path from URL if needed, or just delete row.
         // For now, just delete row. Storage cleanup can be a separate cron or trigger.
     }
 
@@ -721,7 +721,18 @@ export async function getAdminStats() {
         return [];
     }
 
-    const { data, error } = await supabase
+    // 2. Use Admin Client to bypass RLS
+    const adminSupabase = createAdminClient();
+
+    // If Service Key is missing, we can't bypass RLS.
+    // The query below will return 0 rows for other tenants if using standard 'supabase' client.
+    const dbClient = adminSupabase || supabase;
+
+    if (!adminSupabase) {
+        console.warn('[AdminStats] SUPABASE_SERVICE_ROLE_KEY missing. Admin View restricted by RLS (will likely see 0 tenants).');
+    }
+
+    const { data, error } = await dbClient
         .from('leads')
         .select('organization_id, id');
 
@@ -730,14 +741,17 @@ export async function getAdminStats() {
         return [];
     }
 
-    // Aggregate by organization_id
+    // Group by organization_id
     const stats: Record<string, number> = {};
     data.forEach((lead: any) => {
-        const org = lead.organization_id || 'Unknown';
-        stats[org] = (stats[org] || 0) + 1;
+        const orgId = lead.organization_id || 'Unknown';
+        stats[orgId] = (stats[orgId] || 0) + 1;
     });
 
-    return Object.entries(stats).map(([org, count]) => ({ organization_id: org, count }));
+    return Object.entries(stats).map(([organization_id, count]) => ({
+        organization_id,
+        count
+    }));
 }
 
 export async function updateLeadStatus(leadId: string, status: 'New' | 'Contacted' | 'Closed') {
