@@ -407,7 +407,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 <div className="pointer-events-auto flex items-center gap-4">
                     <div className="cursor-pointer" onClick={() => window.location.reload()}>
                         {logo ? (
-                            <img src={logo} alt={shopName || "Logo"} className="h-12 w-auto object-contain" />
+                            <img src={logo} alt={shopName || "Logo"} className="h-20 w-auto object-contain" />
                         ) : (
                             <h1 className="text-2xl font-black text-[var(--primary)] uppercase tracking-tighter">
                                 {shopName || "Railify"}
