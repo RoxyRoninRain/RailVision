@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllSystemPrompts, updateSystemPrompt, SystemPrompt } from '@/app/admin/actions';
-import { Save, ArrowLeft, Bot, RefreshCw, CheckCircle, AlertTriangle } from 'lucide-react';
+import { getAllSystemPrompts, updateSystemPrompt, createSystemPrompt, setActivePrompt, testDesignGeneration, SystemPrompt } from '@/app/admin/actions';
+import { Save, ArrowLeft, Bot, RefreshCw, CheckCircle, AlertTriangle, Plus, Play, Power, X, Upload, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,6 +17,21 @@ export default function PromptsPage() {
     const [editInstruction, setEditInstruction] = useState('');
     const [editTemplate, setEditTemplate] = useState('');
 
+    // Create State
+    const [showCreate, setShowCreate] = useState(false);
+    const [newKey, setNewKey] = useState('');
+
+    // Test State
+    const [showTestModal, setShowTestModal] = useState(false);
+    const [testTarget, setTestTarget] = useState<File | null>(null);
+    const [testStyle, setTestStyle] = useState<File | null>(null);
+    const [testResult, setTestResult] = useState<string | null>(null);
+    const [isTesting, setIsTesting] = useState(false);
+
+    // Preview URLs for inputs
+    const [targetPreview, setTargetPreview] = useState<string | null>(null);
+    const [stylePreview, setStylePreview] = useState<string | null>(null);
+
     useEffect(() => {
         loadPrompts();
     }, []);
@@ -25,8 +40,10 @@ export default function PromptsPage() {
         setLoading(true);
         const data = await getAllSystemPrompts();
         setPrompts(data || []);
-        if (data && data.length > 0) {
-            selectPrompt(data[0]);
+        if (data && data.length > 0 && !selectedPrompt) {
+            // Select active one by default if available, else first
+            const active = data.find(p => p.is_active);
+            selectPrompt(active || data[0]);
         }
         setLoading(false);
     };
@@ -63,6 +80,87 @@ export default function PromptsPage() {
         setSaving(false);
     };
 
+    const handleCreate = async () => {
+        if (!newKey.trim()) return;
+        setSaving(true);
+        const res = await createSystemPrompt(newKey, "Your Instructions Here...", "[Input]");
+        if (res.success) {
+            await loadPrompts();
+            setShowCreate(false);
+            setNewKey('');
+        } else {
+            alert('Failed to create: ' + res.error);
+        }
+        setSaving(false);
+    };
+
+    const handleActivate = async (key: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!confirm(`Are you sure you want to make "${key}" the LIVE active prompt for all users?`)) return;
+
+        setSaving(true);
+        const res = await setActivePrompt(key);
+        if (res.success) {
+            // Refresh list to update ID active flags
+            const data = await getAllSystemPrompts();
+            setPrompts(data || []);
+            // Update selected if needed
+            if (selectedPrompt?.key === key) {
+                setSelectedPrompt(prev => prev ? { ...prev, is_active: true } : null);
+            }
+        } else {
+            alert('Failed to activate: ' + res.error);
+        }
+        setSaving(false);
+    };
+
+    // --- TESTING LOGIC ---
+    const handleOpenTest = () => {
+        setShowTestModal(true);
+        setTestResult(null);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'target' | 'style') => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const url = URL.createObjectURL(file);
+
+        if (type === 'target') {
+            setTestTarget(file);
+            setTargetPreview(url);
+        } else {
+            setTestStyle(file);
+            setStylePreview(url);
+        }
+    };
+
+    const runTest = async () => {
+        if (!testTarget || !testStyle) {
+            alert("Please upload both a target scene and a style reference.");
+            return;
+        }
+
+        setIsTesting(true);
+        setTestResult(null);
+
+        const formData = new FormData();
+        formData.append('image', testTarget);
+        formData.append('style_image', testStyle);
+        // Pass the CURRENT edits, allowing live testing before save
+        formData.append('system_instruction', editInstruction);
+        formData.append('user_template', editTemplate);
+
+        const res = await testDesignGeneration(formData);
+
+        if (res.success && res.image) {
+            setTestResult(res.image);
+        } else {
+            alert("Test Failed: " + (res.error || "Unknown"));
+        }
+        setIsTesting(false);
+    };
+
     if (loading) return (
         <div className="min-h-screen bg-[#050505] flex items-center justify-center">
             <div className="text-red-500 font-mono animate-pulse tracking-widest">LOADING NEURAL CONFIG...</div>
@@ -87,8 +185,7 @@ export default function PromptsPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-4 text-xs font-mono text-gray-500">
-                        <span>MODEL: GEMINI-PRO-1.5</span>
-                        <span>STATUS: ACTIVE</span>
+                        <span>MODEL: GEMINI-PRO-3.0</span>
                     </div>
                 </div>
             </header>
@@ -96,21 +193,67 @@ export default function PromptsPage() {
             <main className="flex-1 flex overflow-hidden">
                 {/* SIDEBAR: PROMPT LIST */}
                 <div className="w-80 border-r border-white/10 bg-[#0a0a0a] flex flex-col">
-                    <div className="p-4 border-b border-white/5">
+                    <div className="p-4 border-b border-white/5 flex items-center justify-between">
                         <h2 className="text-xs font-mono text-gray-500 uppercase tracking-widest">Available Prompts</h2>
+                        <button onClick={() => setShowCreate(!showCreate)} className="p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-colors">
+                            <Plus size={16} />
+                        </button>
                     </div>
+
+                    {showCreate && (
+                        <div className="p-3 bg-red-900/10 border-b border-red-900/20">
+                            <input
+                                className="w-full bg-[#050505] border border-white/10 p-2 text-xs text-white rounded mb-2 focus:border-red-500 outline-none"
+                                placeholder="New Prompt Key (e.g. experimental-v1)"
+                                value={newKey}
+                                onChange={e => setNewKey(e.target.value)}
+                            />
+                            <button
+                                onClick={handleCreate}
+                                disabled={saving}
+                                className="w-full bg-red-600 hover:bg-red-500 text-white text-xs font-bold py-1 rounded uppercase tracking-wider"
+                            >
+                                {saving ? 'Creating...' : 'Create'}
+                            </button>
+                        </div>
+                    )}
+
                     <div className="flex-1 overflow-y-auto p-2 space-y-1">
                         {prompts.map(prompt => (
                             <button
                                 key={prompt.key}
                                 onClick={() => selectPrompt(prompt)}
-                                className={`w-full text-left p-3 rounded text-sm font-mono transition-colors border ${selectedPrompt?.key === prompt.key
-                                        ? 'bg-red-900/10 border-red-900/40 text-white'
-                                        : 'bg-transparent border-transparent text-gray-400 hover:bg-white/5 hover:text-gray-200'
+                                className={`w-full text-left p-3 rounded group relative transition-all border ${selectedPrompt?.key === prompt.key
+                                    ? 'bg-red-900/10 border-red-900/40 text-white shadow-[0_0_15px_rgba(220,38,38,0.15)]'
+                                    : 'bg-transparent border-transparent text-gray-400 hover:bg-white/5 hover:text-gray-200'
                                     }`}
                             >
-                                <div className="font-bold truncate">{prompt.key}</div>
-                                <div className="text-[10px] opacity-60 truncate mt-1">Last updated: {prompt.created_at ? new Date(prompt.created_at).toLocaleDateString() : 'N/A'}</div>
+                                <div className="flex items-center justify-between">
+                                    <div className="font-bold truncate text-sm font-mono">{prompt.key}</div>
+                                    {prompt.is_active && (
+                                        <div className="flex items-center gap-1 bg-green-900/30 text-green-400 px-1.5 py-0.5 rounded text-[10px] font-mono border border-green-800/50 uppercase tracking-wider">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                                            LIVE
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="text-[10px] opacity-60 truncate mt-1">
+                                    {prompt.created_at ? new Date(prompt.created_at).toLocaleDateString() : 'N/A'}
+                                </div>
+
+                                {/* Hover Actions */}
+                                {!prompt.is_active && (
+                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div
+                                            role="button"
+                                            onClick={(e) => handleActivate(prompt.key, e)}
+                                            className="p-1.5 bg-zinc-800 hover:bg-green-700 text-gray-400 hover:text-white rounded-full"
+                                            title="Make Live Check"
+                                        >
+                                            <Power size={12} />
+                                        </div>
+                                    </div>
+                                )}
                             </button>
                         ))}
                     </div>
@@ -149,6 +292,15 @@ export default function PromptsPage() {
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
+
+                                    <button
+                                        onClick={handleOpenTest}
+                                        className="bg-zinc-800 hover:bg-zinc-700 text-white px-3 py-2 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-colors border border-white/10"
+                                    >
+                                        <Play size={12} className="text-blue-400" />
+                                        Test Prompt
+                                    </button>
+
                                     <button
                                         onClick={handleSave}
                                         disabled={saving}
@@ -200,6 +352,110 @@ export default function PromptsPage() {
                     )}
                 </div>
             </main>
+
+            {/* TEST SANDBOX MODAL */}
+            {showTestModal && (
+                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-[#111] border border-white/10 w-full max-w-4xl max-h-[90vh] rounded-lg shadow-2xl flex flex-col overflow-hidden">
+
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#161616]">
+                            <div className="flex items-center gap-3">
+                                <Bot className="text-blue-500" size={20} />
+                                <h3 className="font-bold font-mono text-white">PROMPT TEST SANDBOX</h3>
+                            </div>
+                            <button onClick={() => setShowTestModal(false)} className="text-gray-400 hover:text-white transition-colors">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+                                {/* Inputs */}
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="text-xs font-mono text-gray-400 uppercase mb-2 block">1. Target Scene (Stairs)</label>
+                                        <div className="relative border border-dashed border-white/20 rounded-lg h-40 bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer group overflow-hidden">
+                                            <input type="file" onChange={e => handleFileChange(e, 'target')} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
+                                            {targetPreview ? (
+                                                <img src={targetPreview} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-2 text-gray-500 group-hover:text-gray-300">
+                                                    <Upload size={24} />
+                                                    <span className="text-xs">Upload Photo</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-mono text-gray-400 uppercase mb-2 block">2. Style Reference (Handrail)</label>
+                                        <div className="relative border border-dashed border-white/20 rounded-lg h-40 bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center cursor-pointer group overflow-hidden">
+                                            <input type="file" onChange={e => handleFileChange(e, 'style')} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
+                                            {stylePreview ? (
+                                                <img src={stylePreview} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="flex flex-col items-center gap-2 text-gray-500 group-hover:text-gray-300">
+                                                    <ImageIcon size={24} />
+                                                    <span className="text-xs">Upload Style</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="p-3 bg-blue-900/10 border border-blue-900/30 rounded text-[10px] text-blue-300 font-mono">
+                                        <h4 className="font-bold flex items-center gap-2 mb-1"><Bot size={12} /> Live Override</h4>
+                                        This test will runs using your CURRENT edits in the editor, NOT what is saved in the database.
+                                    </div>
+
+                                    <button
+                                        onClick={runTest}
+                                        disabled={isTesting || !testTarget || !testStyle}
+                                        className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-500 text-white font-bold py-3 rounded uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all"
+                                    >
+                                        {isTesting ? <RefreshCw className="animate-spin" size={16} /> : <Play size={16} />}
+                                        {isTesting ? 'Generating...' : 'Run Neural Generation'}
+                                    </button>
+                                </div>
+
+                                {/* Results */}
+                                <div className="flex flex-col h-full min-h-[300px] border border-white/10 rounded-lg bg-[#000] relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 p-2 bg-black/50 backdrop-blur text-[10px] font-mono text-gray-400 border-b border-r border-white/10 rounded-br-lg z-10">
+                                        OUTPUT PREVIEW
+                                    </div>
+
+                                    {isTesting ? (
+                                        <div className="flex-1 flex flex-col items-center justify-center gap-4">
+                                            <div className="w-12 h-12 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                                            <p className="text-xs font-mono text-blue-400 animate-pulse">Processing tensors...</p>
+                                        </div>
+                                    ) : testResult ? (
+                                        <div className="relative w-full h-full group">
+                                            <img src={testResult} className="w-full h-full object-contain" />
+                                            <a
+                                                href={testResult}
+                                                download="test-generation.png"
+                                                className="absolute bottom-4 right-4 bg-white text-black px-3 py-1 rounded text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                Download
+                                            </a>
+                                        </div>
+                                    ) : (
+                                        <div className="flex-1 flex items-center justify-center text-gray-700 font-mono text-xs">
+                                            Awaiting Input...
+                                        </div>
+                                    )}
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 }

@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { generateDesignWithNanoBanana } from '@/lib/vertex';
+import { InputSanitizer } from '@/components/security/InputSanitizer';
 
 export interface GlobalStats {
     totalLeads: number;
@@ -9,6 +11,8 @@ export interface GlobalStats {
     conversionRate: number; // Percentage 0-100
     totalGenerations: number;
     estimatedApiCost: number;
+    uniqueIps: number;
+    topStyles: { name: string, count: number }[];
 }
 
 export async function getGlobalStats(): Promise<GlobalStats> {
@@ -17,7 +21,7 @@ export async function getGlobalStats(): Promise<GlobalStats> {
     // Fallback if no admin key (local dev without service key)
     if (!supabase) {
         console.warn('Admin client missing in getGlobalStats. Returning mock data.');
-        return { totalLeads: 0, activeTenants: 0, conversionRate: 0, totalGenerations: 0, estimatedApiCost: 0 };
+        return { totalLeads: 0, activeTenants: 0, conversionRate: 0, totalGenerations: 0, estimatedApiCost: 0, uniqueIps: 0, topStyles: [] };
     }
 
     // 1. Total Leads
@@ -62,12 +66,32 @@ export async function getGlobalStats(): Promise<GlobalStats> {
     // Estimate: $0.04 per image (input + output)
     const estimatedCost = parseFloat((genCountVal * 0.04).toFixed(2));
 
+    // 5. Stylistic & IP Analytics
+    const { data: genData } = await supabase
+        .from('generations')
+        .select('style_id, ip_address');
+
+    const styleCounts: Record<string, number> = {};
+    const uniqueIps = new Set<string>();
+
+    genData?.forEach(g => {
+        if (g.style_id) styleCounts[g.style_id] = (styleCounts[g.style_id] || 0) + 1;
+        if (g.ip_address) uniqueIps.add(g.ip_address);
+    });
+
+    const topStyles = Object.entries(styleCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
     return {
         totalLeads: totalLeads || 0,
         activeTenants: activeTenants,
         conversionRate: parseFloat(rate.toFixed(1)),
         totalGenerations: genCountVal,
-        estimatedApiCost: estimatedCost
+        estimatedApiCost: estimatedCost,
+        uniqueIps: uniqueIps.size,
+        topStyles
     };
 }
 
@@ -121,6 +145,26 @@ export async function getSystemPrompt(key: string) {
     return data;
 }
 
+export async function getActiveSystemPrompt() {
+    const supabase = createAdminClient();
+    if (!supabase) return null;
+
+    const { data, error } = await supabase
+        .from('system_prompts')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false }) // Fallback tiebreaker
+        .limit(1)
+        .single();
+
+    if (error) {
+        // Fallback to main if no active one found (shouldn't happen due to default)
+        return getSystemPrompt('gemini-handrail-main');
+    }
+
+    return data;
+}
+
 export interface SystemPrompt {
     id?: string;
     key: string;
@@ -128,6 +172,58 @@ export interface SystemPrompt {
     user_template: string;
     description?: string;
     created_at?: string;
+    is_active?: boolean;
+}
+
+export async function createSystemPrompt(key: string, instruction: string, template: string) {
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    // Check if key exists
+    const { data: existing } = await supabase
+        .from('system_prompts')
+        .select('key')
+        .eq('key', key)
+        .single();
+
+    if (existing) return { error: 'Prompt with this key already exists.' };
+
+    const { error } = await supabase
+        .from('system_prompts')
+        .insert({
+            key,
+            system_instruction: instruction,
+            user_template: template,
+            is_active: false // Default to inactive
+        });
+
+    if (error) return { error: error.message };
+    return { success: true };
+}
+
+export async function setActivePrompt(key: string) {
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    // Transaction-like update: Set all to false, then target to true.
+    // Supabase doesn't support transactions via client easily without RPC, 
+    // so we'll do it sequentially. Race condition possible but low risk for admin tool.
+
+    const { error: resetError } = await supabase
+        .from('system_prompts')
+        .update({ is_active: false })
+        .neq('key', key); // Optimization: Don't disable the one we're enabling if it was already (though we overwrite it next)
+
+    if (resetError) return { error: 'Failed to reset prompts: ' + resetError.message };
+
+    const { error: setError } = await supabase
+        .from('system_prompts')
+        .update({ is_active: true })
+        .eq('key', key);
+
+    if (setError) return { error: 'Failed to activate prompt: ' + setError.message };
+
+    return { success: true };
 }
 
 export async function updateSystemPrompt(key: string, updates: Partial<SystemPrompt>) {
@@ -151,11 +247,55 @@ export async function getAllSystemPrompts() {
     const { data, error } = await supabase
         .from('system_prompts')
         .select('*')
-        .order('key', { ascending: true });
+        .order('is_active', { ascending: false }) // Active first
+        .order('created_at', { ascending: false }); // Newest next
 
     if (error) {
         console.error('Failed to fetch all prompts:', error);
         return [];
     }
     return data;
+}
+
+export async function testDesignGeneration(formData: FormData) {
+    console.log('[DEBUG] testDesignGeneration called via Admin Dashboard');
+
+    // 1. Extract Inputs
+    const imageFile = formData.get('image') as File;
+    const styleFile = formData.get('style_image') as File;
+    const systemInstruction = formData.get('system_instruction') as string;
+    const userTemplate = formData.get('user_template') as string;
+
+    if (!imageFile || !styleFile) {
+        return { error: 'Both Source Image and Style Image are required for testing.' };
+    }
+
+    try {
+        // 2. Prepare Base64
+        const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
+        const base64Image = imageBuffer.toString('base64');
+
+        const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
+        const base64Style = styleBuffer.toString('base64');
+        const styleInput = { base64StyleImage: base64Style };
+
+        // 3. Prepare Config
+        const promptConfig = {
+            systemInstruction: systemInstruction,
+            userTemplate: userTemplate
+        };
+
+        // 4. Call Vertex
+        const result = await generateDesignWithNanoBanana(base64Image, styleInput, promptConfig);
+
+        if (result.success && result.image) {
+            return { success: true, image: result.image };
+        } else {
+            return { error: result.error || 'Unknown Generation Error' };
+        }
+
+    } catch (error: any) {
+        console.error('Test Generation Failed:', error);
+        return { error: error.message };
+    }
 }

@@ -2,6 +2,8 @@
 
 import { InputSanitizer } from '@/components/security/InputSanitizer';
 
+
+import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
@@ -105,8 +107,8 @@ export async function generateDesign(formData: FormData) {
 
         // Use Nano Banana Pro (Gemini 3.0)
         // 1. Fetch dynamic prompt configuration
-        const { getSystemPrompt } = await import('@/app/admin/actions');
-        const promptData = await getSystemPrompt('gemini-handrail-main');
+        const { getActiveSystemPrompt } = await import('@/app/admin/actions');
+        const promptData = await getActiveSystemPrompt();
 
         let promptConfig = undefined;
         if (promptData) {
@@ -114,7 +116,7 @@ export async function generateDesign(formData: FormData) {
                 systemInstruction: promptData.system_instruction,
                 userTemplate: promptData.user_template
             };
-            console.log('[DEBUG] Using dynamic prompt from DB:', promptData.key);
+            console.log('[DEBUG] Using active dynamic prompt from DB:', promptData.key);
         } else {
             console.log('[DEBUG] Using default fallback prompt (DB fetch failed or empty)');
         }
@@ -130,6 +132,11 @@ export async function generateDesign(formData: FormData) {
                 const supabase = await createClient();
                 const { data: { user } } = await supabase.auth.getUser();
 
+                // Capture Analytics
+                const headersList = await headers();
+                const ip = headersList.get('x-forwarded-for') || 'unknown';
+                const userAgent = headersList.get('user-agent') || 'unknown';
+
                 await supabase.from('generations').insert({
                     organization_id: user ? user.id : null,
                     // If result.image is huge base64, we might truncate or not store it in 'image_url' 
@@ -138,8 +145,11 @@ export async function generateDesign(formData: FormData) {
                     // For now, logging usage is key. We'll store 'Base64 Data' string placeholder or prompt snippet.
                     image_url: result.image.startsWith('data:') ? 'Base64 Image Data' : result.image,
                     prompt_used: promptConfig ? 'Dynamic Prompt' : 'Default Prompt',
-                    style_id: style
+                    style_id: style,
+                    ip_address: ip,
+                    user_agent: userAgent
                 });
+                console.log('[DEBUG] Generation tracked in DB with IP:', ip);
             } catch (err) {
                 console.warn('[Tracking] Failed to log generation:', err);
             }
@@ -741,16 +751,44 @@ export async function getAdminStats() {
         return [];
     }
 
-    // Group by organization_id
-    const stats: Record<string, number> = {};
+    // 4. Fetch ALL profiles to ensure we show tenants with 0 leads
+    const { data: profiles, error: profilesError } = await dbClient
+        .from('profiles')
+        .select('id'); // We just need IDs to map. Or could verify existence.
+
+    if (profilesError) {
+        console.error('Admin Stats Profile Fetch Error:', profilesError);
+    }
+
+    // 5. Group leads by organization_id
+    const leadCounts: Record<string, number> = {};
     data.forEach((lead: any) => {
         const orgId = lead.organization_id || 'Unknown';
-        stats[orgId] = (stats[orgId] || 0) + 1;
+        leadCounts[orgId] = (leadCounts[orgId] || 0) + 1;
     });
 
-    return Object.entries(stats).map(([organization_id, count]) => ({
-        organization_id,
-        count
+    // 6. Merge Profiles with Lead Counts
+    // We want to return an entry for every profile, plus any 'Unknown' organzations found in leads
+    const allOrgIds = new Set([
+        ...(profiles?.map(p => p.id) || []),
+        ...Object.keys(leadCounts)
+    ]);
+
+    // 7. Get Tenant Generation Counts
+    const { data: genData } = await dbClient
+        .from('generations')
+        .select('organization_id');
+
+    const genCounts: Record<string, number> = {};
+    genData?.forEach((g: any) => {
+        const org = g.organization_id || 'Unknown';
+        genCounts[org] = (genCounts[org] || 0) + 1;
+    });
+
+    return Array.from(allOrgIds).map(orgId => ({
+        organization_id: orgId,
+        count: leadCounts[orgId] || 0,
+        generation_count: genCounts[orgId] || 0
     }));
 }
 
@@ -772,6 +810,32 @@ export async function updateLeadStatus(leadId: string, status: 'New' | 'Contacte
     }
 
     return { success: true };
+}
+
+// --- Stats Actions ---
+export async function getTenantStatsLegacy() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { totalGenerations: 0, topStyle: 'None' };
+
+    const { data, error } = await supabase
+        .from('leads')
+        .select('style_name');
+
+    if (error || !data) return { totalGenerations: 0, topStyle: 'None' };
+
+    const totalGenerations = data.length;
+
+    // Calculate Top Style
+    const styleCounts: Record<string, number> = {};
+    data.forEach(l => {
+        const s = l.style_name || 'Unknown';
+        styleCounts[s] = (styleCounts[s] || 0) + 1;
+    });
+
+    const topStyle = Object.entries(styleCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'None';
+
+    return { totalGenerations, topStyle };
 }
 
 export async function getTenantLogo() {
@@ -831,4 +895,36 @@ export async function testResendConnectivity(apiKey: string, fromEmail: string, 
         console.error('Test Resend Connectivity Error:', err);
         return { success: false, error: err.message || 'Unknown error' };
     }
+}
+
+export async function getTenantStats() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return null;
+
+    // 1. Total Generations
+    const { count: totalGenerations } = await supabase
+        .from('generations')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', user.id);
+
+    // 2. Top Style
+    const { data: styleData } = await supabase
+        .from('generations')
+        .select('style_id')
+        .eq('organization_id', user.id);
+
+    const styleCounts: Record<string, number> = {};
+    styleData?.forEach((g: any) => {
+        if (g.style_id) styleCounts[g.style_id] = (styleCounts[g.style_id] || 0) + 1;
+    });
+
+    const topStyle = Object.entries(styleCounts)
+        .sort((a, b) => b[1] - a[1])[0];
+
+    return {
+        totalGenerations: totalGenerations || 0,
+        topStyle: topStyle ? topStyle[0] : 'None'
+    };
 }

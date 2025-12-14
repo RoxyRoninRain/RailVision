@@ -187,7 +187,10 @@ export default function TenantsPage() {
                                         </div>
                                     </td>
                                     <td className="p-4">
-                                        <span className="font-mono text-sm text-white">{stat.count}</span> <span className="text-xs text-gray-600">leads</span>
+                                        <div className="flex flex-col gap-1">
+                                            <div><span className="font-mono text-sm text-white">{stat.count}</span> <span className="text-xs text-gray-600">leads</span></div>
+                                            <div><span className="font-mono text-sm text-purple-400">{stat.generation_count || 0}</span> <span className="text-xs text-purple-900/50">designs</span></div>
+                                        </div>
                                     </td>
                                     <td className="p-4">
                                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium bg-green-900/10 text-green-500 border border-green-900/20">

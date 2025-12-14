@@ -85,9 +85,44 @@ export default function AdminStatsPage() {
                     icon={<DollarSign size={20} className="text-red-500" />}
                     trend="$0.04 / gen"
                 />
+                <MetricCard
+                    label="Active Users (IP)"
+                    value={globalStats?.uniqueIps?.toString() || '0'}
+                    icon={<Users size={20} className="text-purple-500" />}
+                    trend="Unique Devices"
+                />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* 1. TOP STYLES */}
+                <div className="bg-[#111] border border-white/5 rounded-lg p-6">
+                    <h3 className="text-lg font-bold text-white mb-4 font-mono uppercase tracking-wider flex items-center gap-2">
+                        <Activity size={16} className="text-purple-500" /> Most Popular Styles
+                    </h3>
+                    <div className="space-y-4 max-h-64 overflow-y-auto pr-2">
+                        {(globalStats?.topStyles?.length || 0) > 0 ? globalStats?.topStyles.map((style: any, i: number) => (
+                            <div key={style.name} className="flex items-center justify-between group">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-xs font-mono text-gray-600 w-4">0{i + 1}</span>
+                                    <span className="text-sm text-gray-300 font-mono group-hover:text-white transition-colors capitalize">{style.name.replace('-', ' ')}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-24 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-purple-600 rounded-full"
+                                            style={{ width: `${(style.count / (globalStats?.totalGenerations || 1)) * 100}%` }}
+                                        />
+                                    </div>
+                                    <span className="text-xs font-bold text-white w-8 text-right">{style.count}</span>
+                                </div>
+                            </div>
+                        )) : (
+                            <div className="text-center py-8 text-gray-600 font-mono text-xs">NO STYLE DATA YET</div>
+                        )}
+                    </div>
+                </div>
+
+                {/* 2. MARKET SHARE (Existing) */}
                 {/* Main Bar Chart */}
                 <div className="lg:col-span-2 bg-[#0a0a0a] p-6 rounded-lg border border-gray-800 shadow-2xl relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-4 opacity-50">
