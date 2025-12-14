@@ -2,7 +2,9 @@ import { getTenantStyles, PortfolioItem } from '@/app/actions';
 import StylesManager from './StylesManager';
 
 export default async function Page() {
-    const styles = await getTenantStyles() as PortfolioItem[]; // Cast since we know the shape matches but Supabase returns any[] usually
+    const stylesResult = await getTenantStyles();
+    const initialStyles = stylesResult.data || [];
+    const serverError = stylesResult.error;
 
-    return <StylesManager initialStyles={styles || []} />;
+    return <StylesManager initialStyles={initialStyles} serverError={serverError} />;
 }

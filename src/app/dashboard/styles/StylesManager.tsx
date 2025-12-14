@@ -5,7 +5,7 @@ import { PortfolioItem, createStyle, deleteStyle } from '@/app/actions'; // Ensu
 import { Plus, Trash2, Loader2, Image as ImageIcon, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export default function StylesManager({ initialStyles }: { initialStyles: PortfolioItem[] }) {
+export default function StylesManager({ initialStyles, serverError }: { initialStyles: PortfolioItem[], serverError?: string | null }) {
     const [styles, setStyles] = useState<PortfolioItem[]>(initialStyles);
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -183,6 +183,14 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
                     <Plus size={18} /> Add New Style
                 </button>
             </div>
+
+            {serverError && (
+                <div className="p-4 bg-red-900/50 border border-red-500 rounded-lg text-red-200 mb-6">
+                    <p className="font-bold flex items-center gap-2">⚠️ System Error: Unable to load styles</p>
+                    <p className="text-sm font-mono mt-1 opacity-80">{serverError}</p>
+                    <p className="text-xs mt-2">Please run the "Force Fix" SQL script in your Supabase Dashboard.</p>
+                </div>
+            )}
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

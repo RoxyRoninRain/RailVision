@@ -378,8 +378,8 @@ export async function deleteStyle(styleId: string) {
     return { success: true };
 }
 
+// Enhanced fetch for debugging
 export async function getTenantStyles(tenantId?: string) {
-    // If no tenantId provided, try to get current user's styles
     const supabase = await createClient();
     let targetTenantId = tenantId;
 
@@ -388,7 +388,7 @@ export async function getTenantStyles(tenantId?: string) {
         if (user) targetTenantId = user.id;
     }
 
-    if (!targetTenantId) return [];
+    if (!targetTenantId) return { data: [], error: 'No tenant ID found' };
 
     const { data, error } = await supabase
         .from('portfolio')
@@ -398,10 +398,10 @@ export async function getTenantStyles(tenantId?: string) {
 
     if (error) {
         console.error('Get Tenant Styles Error:', error);
-        return [];
+        return { data: [], error: error.message };
     }
 
-    return data;
+    return { data, error: null };
 }
 
 export async function getStyles(tenantId?: string) {
