@@ -225,6 +225,8 @@ export default function SettingsPage() {
                 <div className="lg:col-span-2">
                     <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
                         <form onSubmit={handleSubmit} className="space-y-8">
+                            <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
+                            <input type="hidden" name="watermark_logo_url" value={profile?.watermark_logo_url || ''} />
                             <div className="space-y-6">
                                 <h3 className="text-lg font-mono text-gray-500 border-b border-gray-800 pb-2 uppercase tracking-wider">
                                     Business Details
