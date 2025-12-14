@@ -37,6 +37,8 @@ export default function SettingsPage() {
                     shop_name: formData.get('shop_name') as string,
                     phone: formData.get('phone') as string,
                     address: formData.get('address') as string,
+                    primary_color: formData.get('primary_color') as string,
+                    tool_background_color: formData.get('tool_background_color') as string,
                 });
             }
         } else {
@@ -209,7 +211,7 @@ export default function SettingsPage() {
                                             />
                                         </div>
 
-                                        <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
+                                        <div className="col-span-1 border-t border-gray-800 pt-6 mt-2">
                                             <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
                                                 <div className="w-3 h-3 rounded-full bg-[var(--primary)]"></div> Brand Color
                                             </label>
@@ -223,6 +225,24 @@ export default function SettingsPage() {
                                                 <div className="text-gray-500 text-sm">
                                                     <p className="mb-1">Select your primary brand color.</p>
                                                     <p className="text-xs opacity-60">Default: #FFD700 (Industrial Gold)</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="col-span-1 border-t border-gray-800 pt-6 mt-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full bg-gray-500"></div> Tool Background
+                                            </label>
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="color"
+                                                    name="tool_background_color"
+                                                    defaultValue={profile?.tool_background_color || '#050505'}
+                                                    className="w-16 h-16 p-1 bg-black border border-gray-800 rounded cursor-pointer hover:border-gray-500 transition-colors"
+                                                />
+                                                <div className="text-gray-500 text-sm">
+                                                    <p className="mb-1">Background for the visualizer.</p>
+                                                    <p className="text-xs opacity-60">Default: #050505 (Dark)</p>
                                                 </div>
                                             </div>
                                         </div>

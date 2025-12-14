@@ -31,6 +31,7 @@ export interface Profile {
     phone?: string | null;
     address?: string | null;
     primary_color?: string | null;
+    tool_background_color?: string | null;
 }
 
 export async function generateDesign(formData: FormData) {
@@ -248,7 +249,7 @@ export async function getTenantProfile(organizationId: string) {
     // Public fetch of branding details
     const { data, error } = await supabase
         .from('profiles')
-        .select('shop_name, logo_url, phone, address, primary_color')
+        .select('shop_name, logo_url, phone, address, primary_color, tool_background_color')
         .eq('id', organizationId)
         .single();
 
@@ -616,12 +617,14 @@ export async function updateProfile(formData: FormData) {
     const phone = formData.get('phone') as string;
     const address = formData.get('address') as string;
     const primary_color = formData.get('primary_color') as string;
+    const tool_background_color = formData.get('tool_background_color') as string;
 
     const updates: any = {};
     if (shop_name) updates.shop_name = shop_name;
     if (phone) updates.phone = phone;
     if (address) updates.address = address;
     if (primary_color) updates.primary_color = primary_color;
+    if (tool_background_color) updates.tool_background_color = tool_background_color;
 
     const upsertData: any = {
         id: user.id,

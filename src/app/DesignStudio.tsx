@@ -26,6 +26,7 @@ interface TenantProfile {
     phone?: string | null;
     address?: string | null;
     primary_color?: string | null;
+    tool_background_color?: string | null;
 }
 
 interface DesignStudioProps {
@@ -53,6 +54,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     // Branding
     const [logo, setLogo] = useState<string | null>(tenantProfile?.logo_url || null);
     const [primaryColor, setPrimaryColor] = useState(tenantProfile?.primary_color || '#FFD700');
+    const [toolBackgroundColor, setToolBackgroundColor] = useState(tenantProfile?.tool_background_color || '#050505');
 
     // Processing
     const [result, setResult] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     useEffect(() => {
         if (tenantProfile?.logo_url) setLogo(tenantProfile.logo_url);
         if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
+        if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
     }, [tenantProfile]);
 
     const primaryRgb = hexToRgb(primaryColor);
@@ -389,8 +392,9 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     // --- RENDER ---
     return (
         <main
-            className="fixed inset-0 z-50 bg-[#050505] text-white flex flex-col font-sans selection:bg-[var(--primary)] selection:text-black overflow-hidden"
+            className="fixed inset-0 z-50 text-white flex flex-col font-sans selection:bg-[var(--primary)] selection:text-black overflow-hidden"
             style={{
+                backgroundColor: toolBackgroundColor,
                 // @ts-ignore
                 '--primary': primaryColor,
                 '--primary-rgb': primaryRgb
@@ -432,7 +436,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                             animate="center"
                             exit="exit"
                             transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
-                            className="w-full h-full flex flex-col items-center justify-center p-6 bg-[#050505]"
+                            className="w-full h-full flex flex-col items-center justify-center p-6"
                         >
                             <div className="max-w-2xl w-full text-center space-y-12">
                                 <div className="space-y-4">
@@ -706,7 +710,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                             initial="enter"
                             animate="center"
                             exit="exit"
-                            className="w-full h-full bg-[#050505] flex items-center justify-center"
+                            className="w-full h-full flex items-center justify-center"
                         >
                             {isGenerating ? (
                                 <div className="text-center">
