@@ -17,6 +17,12 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
     const [preview, setPreview] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
+    const [logs, setLogs] = useState<string[]>([]);
+
+    const addLog = (msg: string) => {
+        console.log(msg);
+        setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
+    };
 
     // Auto-Seed Defaults
     useEffect(() => {
@@ -80,20 +86,20 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
             let file = e.target.files[0];
 
             // DEBUG LOGGING
-            console.log('--- FILE SELECTED ---');
-            console.log('Name:', file.name);
-            console.log('Type:', file.type);
-            console.log('Size:', file.size, 'bytes');
-            console.log('Last Modified:', file.lastModified);
+            addLog('--- FILE SELECTED ---');
+            addLog(`Name: ${file.name}`);
+            addLog(`Type: ${file.type}`);
+            addLog(`Size: ${file.size} bytes`);
+            addLog(`Last Modified: ${file.lastModified}`);
 
             // Check for weird iOS/Android Portrait types
-            if (!file.type) console.warn('WARNING: File has no type!');
+            if (!file.type) addLog('WARNING: File has no type!');
 
 
             // HEIC Detection & Conversion
             try {
                 if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif') {
-                    console.log('HEIC detected, converting to JPEG...');
+                    addLog('HEIC detected, converting to JPEG...');
                     const heic2any = (await import('heic2any')).default;
                     const convertedBlob = await heic2any({
                         blob: file,
@@ -253,6 +259,15 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
             )}
 
             {/* Grid - Change to Masonry-like columns or just responsive heights */}
+            {/* Debug Console */}
+            <div className="bg-black/80 p-4 rounded-lg font-mono text-xs text-green-400 max-h-40 overflow-y-auto border border-green-900/50">
+                <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1">Debug Console (Share this if upload fails)</div>
+                {logs.length === 0 && <div className="text-gray-600 italic">Ready...</div>}
+                {logs.map((log, i) => (
+                    <div key={i}>{log}</div>
+                ))}
+            </div>
+
             <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
                 {styles.length === 0 && !isAdding && (
                     <div className="col-span-full text-center py-12 border border-dashed border-gray-800 rounded-xl bg-white/5">

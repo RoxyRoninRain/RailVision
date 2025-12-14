@@ -1,6 +1,8 @@
 import DesignStudio from './DesignStudio';
 import { getStyles, getPublicStyles, getTenantLogo } from './actions';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Page({
   searchParams,
 }: {
