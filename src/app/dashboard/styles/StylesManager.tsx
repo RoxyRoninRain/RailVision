@@ -65,7 +65,33 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
         if (e.target.files && e.target.files[0]) {
             let file = e.target.files[0];
 
-            // Validate basic type
+            // HEIC Detection & Conversion
+            try {
+                if (file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif') {
+                    console.log('HEIC detected, converting to JPEG...');
+                    const heic2any = (await import('heic2any')).default;
+                    const convertedBlob = await heic2any({
+                        blob: file,
+                        toType: 'image/jpeg',
+                        quality: 0.9
+                    });
+
+                    // heic2any can return Blob or Blob[]
+                    const blob = Array.isArray(convertedBlob) ? convertedBlob[0] : convertedBlob;
+
+                    file = new File([blob], file.name.replace(/\.(heic|HEIC|heif|HEIF)$/, '.jpg'), {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+                    console.log('HEIC conversion successful.');
+                }
+            } catch (err) {
+                console.error('HEIC conversion failed:', err);
+                alert('HEIC conversion failed. Please use a JPG or PNG.');
+                return;
+            }
+
+            // Validate basic type (Post-conversion check)
             if (!file.type.startsWith('image/')) {
                 alert('Please upload an image file (JPG, PNG).');
                 return;
