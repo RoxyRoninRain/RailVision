@@ -17,7 +17,6 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
     const [preview, setPreview] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
     // Image Compression Helper
     const compressImage = async (file: File): Promise<File> => {
