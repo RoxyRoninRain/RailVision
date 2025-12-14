@@ -16,6 +16,8 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
     const [newFile, setNewFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
+    const [successMsg, setSuccessMsg] = useState<string | null>(null);
+    const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
     // Image Compression Helper
     const compressImage = async (file: File): Promise<File> => {
@@ -122,6 +124,7 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setErrorMsg(null);
+        setSuccessMsg(null);
         if (!newFile || !newName) {
             setErrorMsg('Please provide a name and an image.');
             return;
@@ -141,12 +144,11 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
                 setErrorMsg(res.error);
                 setIsSubmitting(false);
             } else {
-                // Success! Reload page or optimistically update?
-                // Since we don't return the new item from createStyle (it just returns success),
-                // and we rely on publicUrl which is generated... 
-                // Ideally server action returns the new item. 
-                // For now, let's just reload the page to be safe and simple.
-                window.location.reload();
+                setSuccessMsg('Style created successfully! updating...');
+                // Slight delay so user sees success message
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
             }
         } catch (err: any) {
             setErrorMsg('Unexpected error: ' + (err.message || String(err)));
@@ -234,7 +236,13 @@ export default function StylesManager({ initialStyles }: { initialStyles: Portfo
                                 <X size={20} />
                             </button>
 
-                            <h3 className="text-xl font-bold text-white uppercase mb-6">Add New Style</h3>
+                            <h3 className="text-xl font-bold text-white uppercase mb-6">Add New Style <span className="text-xs text-[var(--primary)] ml-2 border border-[var(--primary)] px-1 rounded">v2.1</span></h3>
+
+                            {successMsg && (
+                                <div className="mb-6 p-4 bg-green-900/40 border border-green-500/50 text-green-200 text-sm rounded-lg flex items-center gap-3">
+                                    <div className="font-bold">✓ {successMsg}</div>
+                                </div>
+                            )}
 
                             {errorMsg && (
                                 <div className="mb-6 p-4 bg-red-900/40 border border-red-500/50 text-red-200 text-sm rounded-lg flex items-start gap-3">
