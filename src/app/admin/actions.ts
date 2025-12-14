@@ -254,7 +254,7 @@ export async function getAllSystemPrompts() {
         .from('system_prompts')
         .select('*')
         .order('is_active', { ascending: false }) // Active first
-        .order('created_at', { ascending: false }); // Newest next
+        .order('updated_at', { ascending: false }); // Newest next
 
     if (error) {
         console.error('Failed to fetch all prompts:', error);

@@ -40,8 +40,8 @@ export default function PromptsPage() {
         getAllSystemPrompts()
             .then(data => {
                 if (data.length === 0) {
-                    setDebugError("No prompts returned. Diagnosing...");
-                    diagnoseConnection().then(report => setDebugError("DIAGNOSTIC REPORT:\n" + report));
+                    setDebugError("No prompts returned. (Check RLS or DB 'updated_at' column)");
+                    // diagnoseConnection().then(report => setDebugError("DIAGNOSTIC REPORT:\n" + report));
                 }
                 if (data.length > 0) {
                     setPrompts(data);
