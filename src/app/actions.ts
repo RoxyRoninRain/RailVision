@@ -232,37 +232,49 @@ export async function inviteTenant(email: string) {
 
 
     console.log('[ADMIN] Attempting invite via SMTP for:', email);
+
     // 1. Try sending actual email
     const { data: inviteData, error: inviteError } = await adminSupabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/dashboard/leads'
+        redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/onboarding'
     });
 
     if (inviteError) {
-        console.error('[ADMIN] SMTP Invite Failed:', inviteError.message);
+        console.error('[ADMIN] SMTP Invite Failed:', JSON.stringify(inviteError));
 
-        // If user already exists, don't generate a new link, just error out
-        if (inviteError.message.includes('already registered')) {
-            return { success: false, error: 'User is already registered.' };
+        // SPECIAL HANDLING: User already exists
+        if (inviteError.message.includes('already registered') || inviteError.status === 422) {
+            // Try generating a link for existing user? Or just report it.
+            // Usually for existing users you just want to let them know.
+            return {
+                success: false,
+                error: `User already exists. (${inviteError.message})`,
+                fullError: inviteError
+            };
         }
 
-        // 2. FALLBACK: Generate Manual Link if SMTP fails
-        console.warn('[ADMIN] Falling back to Manual Link generation...');
+        // 2. FALLBACK: Generate Manual Link if SMTP fails (e.g. Rate Limit, Config Error)
+        console.warn('[ADMIN] Falling back to Manual Link generation due to:', inviteError.message);
+
         const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
             type: 'invite',
             email: email,
             options: {
-                redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/dashboard/leads'
+                redirectTo: 'https://railvision-six.vercel.app/auth/callback?next=/onboarding'
             }
         });
 
         if (linkError) {
             console.error('[ADMIN] Manual Link Generation Failed:', linkError);
-            return { success: false, error: `Both Email and Manual generation failed. (${inviteError.message})` };
+            return {
+                success: false,
+                error: `Detailed Error: ${inviteError.message} | Link Gen Error: ${linkError.message}`,
+                fullError: { invite: inviteError, link: linkError }
+            };
         }
 
         return {
             success: true,
-            message: `Email failed (${inviteError.message}), but Manual Link generated.`,
+            message: `Email Service Failed (${inviteError.name}: ${inviteError.message || inviteError.status}). Manual Link Generated.`,
             isSimulation: false,
             inviteLink: linkData.properties?.action_link
         };
@@ -271,7 +283,7 @@ export async function inviteTenant(email: string) {
     console.log('[ADMIN] Invite sent to:', email);
     return {
         success: true,
-        message: `Invitation sent to ${email}`,
+        message: `Invitation email sent to ${email} successfully.`,
         isSimulation: false,
         inviteLink: undefined
     };
