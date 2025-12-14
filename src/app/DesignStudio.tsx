@@ -59,7 +59,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [shopName, setShopName] = useState<string | null>(tenantProfile?.shop_name || null);
     const [primaryColor, setPrimaryColor] = useState(tenantProfile?.primary_color || '#FFD700');
     const [toolBackgroundColor, setToolBackgroundColor] = useState(tenantProfile?.tool_background_color || '#050505');
-    const [logoSize, setLogoSize] = useState(tenantProfile?.logo_size || 80);
+
 
     // Processing
     const [result, setResult] = useState<string | null>(null);
@@ -93,7 +93,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         if (tenantProfile?.shop_name) setShopName(tenantProfile.shop_name);
         if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
         if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
-        if (tenantProfile?.logo_size) setLogoSize(tenantProfile.logo_size);
+
     }, [tenantProfile]);
 
     const primaryRgb = hexToRgb(primaryColor);
@@ -607,7 +607,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                                         customStyleFile={customStyleFile}
                                                         setCustomStyleFile={setCustomStyleFile}
                                                         error={error}
-                                                        logo={logo}
+
                                                     />
                                                 </motion.div>
                                             </>

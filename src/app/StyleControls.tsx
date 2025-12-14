@@ -11,7 +11,7 @@ export default function StyleControls({
     customStyleFile,
     setCustomStyleFile,
     error,
-    logo
+
 }: {
     styleSource: 'preset' | 'upload',
     setStyleSource: (s: 'preset' | 'upload') => void,
@@ -21,7 +21,7 @@ export default function StyleControls({
     customStyleFile: File | null,
     setCustomStyleFile: (f: File | null) => void,
     error: string | null,
-    logo?: string | null
+
 }) {
     // Shared compression helper or pass it down
     const handleStyleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
