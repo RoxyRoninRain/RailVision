@@ -9,6 +9,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
     const [styles, setStyles] = useState<PortfolioItem[]>(initialStyles);
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     // Form State
     const [newName, setNewName] = useState('');
@@ -83,6 +84,8 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         setErrorMsg(null); // Clear previous errors
         if (e.target.files && e.target.files[0]) {
+            setIsProcessing(true);
+            setNewFile(null); // Clear previous file state to prevent submitting stale/partial data
             let file = e.target.files[0];
 
             // DEBUG LOGGING
@@ -130,6 +133,7 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
             if (!file.type.startsWith('image/') && !validExtensions.includes(ext)) {
                 addLog(`File Rejected: Invalid Type (${file.type}) and Extension (${ext})`);
                 setErrorMsg('Please upload an image file (JPG, PNG).');
+                setIsProcessing(false);
                 return;
             }
 
@@ -190,6 +194,9 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
 
             setNewFile(file);
             setPreview(URL.createObjectURL(file));
+            setIsProcessing(false);
+        } else {
+            setIsProcessing(false);
         }
     };
 
@@ -419,10 +426,10 @@ export default function StylesManager({ initialStyles, serverError }: { initialS
 
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting || !newFile}
-                                    className={`w-full py-4 font-bold uppercase tracking-widest rounded transition-all mt-4 flex justify-center items-center gap-2 ${isSubmitting || !newFile ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[var(--primary)] text-black hover:brightness-110'}`}
+                                    disabled={isSubmitting || isProcessing || !newFile}
+                                    className={`w-full py-4 font-bold uppercase tracking-widest rounded transition-all mt-4 flex justify-center items-center gap-2 ${isSubmitting || isProcessing || !newFile ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[var(--primary)] text-black hover:brightness-110'}`}
                                 >
-                                    {isSubmitting ? <Loader2 className="animate-spin" /> : 'Create Style'}
+                                    {isProcessing ? <><Loader2 className="animate-spin" /> Processing Image...</> : (isSubmitting ? <Loader2 className="animate-spin" /> : 'Create Style')}
                                 </button>
                             </form>
                         </motion.div>
