@@ -28,6 +28,7 @@ interface TenantProfile {
     primary_color?: string | null;
     tool_background_color?: string | null;
     logo_size?: number | null;
+    watermark_logo_url?: string | null;
 }
 
 interface DesignStudioProps {
@@ -54,6 +55,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
     // Branding
     const [logo, setLogo] = useState<string | null>(tenantProfile?.logo_url || null);
+    const [watermarkLogo, setWatermarkLogo] = useState<string | null>(tenantProfile?.watermark_logo_url || tenantProfile?.logo_url || null);
     const [shopName, setShopName] = useState<string | null>(tenantProfile?.shop_name || null);
     const [primaryColor, setPrimaryColor] = useState(tenantProfile?.primary_color || '#FFD700');
     const [toolBackgroundColor, setToolBackgroundColor] = useState(tenantProfile?.tool_background_color || '#050505');
@@ -82,6 +84,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     // Effects
     useEffect(() => {
         if (tenantProfile?.logo_url) setLogo(tenantProfile.logo_url);
+        if (tenantProfile?.watermark_logo_url) {
+            setWatermarkLogo(tenantProfile.watermark_logo_url);
+        } else if (tenantProfile?.logo_url) {
+            // Fallback to main logo if no specific watermark is set
+            setWatermarkLogo(tenantProfile.logo_url);
+        }
         if (tenantProfile?.shop_name) setShopName(tenantProfile.shop_name);
         if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
         if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
@@ -748,19 +756,19 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                         {result && <img src={result} className="w-full h-full object-contain" />}
 
                                         {/* Dynamic Watermark */}
-                                        {logo && result && (
-                                            <img src={logo} className="absolute bottom-8 right-8 w-32 md:w-48 opacity-90 drop-shadow-xl" />
+                                        {(watermarkLogo || logo) && result && (
+                                            <img src={watermarkLogo || logo as string} className="absolute bottom-8 right-8 w-32 md:w-48 opacity-90 drop-shadow-xl" />
                                         )}
 
-                                        {/* Back Button */}
-                                        <button onClick={() => paginate(-1)} className="absolute top-28 left-8 bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md border border-white/10 hover:bg-white hover:text-black transition-all flex items-center gap-2 text-sm uppercase font-bold tracking-widest">
-                                            <ChevronLeft className="w-4 h-4" /> Adjust Style
-                                        </button>
-
-                                        {/* Reset Button */}
-                                        <button onClick={() => { setFile(null); setPreview(null); setResult(null); setStep(1); }} className="absolute top-28 right-8 bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md border border-white/10 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-sm uppercase font-bold tracking-widest">
-                                            <RefreshCw className="w-4 h-4" /> Start Over
-                                        </button>
+                                        {/* Controls - Grouped Top Right to avoid left-side branding */}
+                                        <div className="absolute top-4 right-4 flex items-center gap-3">
+                                            <button onClick={() => paginate(-1)} className="bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md border border-white/10 hover:bg-white hover:text-black transition-all flex items-center gap-2 text-sm uppercase font-bold tracking-widest">
+                                                <ChevronLeft className="w-4 h-4" /> Adjust
+                                            </button>
+                                            <button onClick={() => { setFile(null); setPreview(null); setResult(null); setStep(1); }} className="bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md border border-white/10 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-sm uppercase font-bold tracking-widest">
+                                                <RefreshCw className="w-4 h-4" /> Restart
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* Action Bar */}
