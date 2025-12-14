@@ -289,9 +289,141 @@ export async function inviteTenant(email: string) {
     };
 }
 
-export async function getStyles() {
-    // In a real production app, you would upload these images to Supabase Storage and link them in the 'portfolio' table.
-    // For this demo, we return the generated local assets directly.
+export interface PortfolioItem {
+    id: string;
+    name: string;
+    description: string;
+    image_url: string;
+    tenant_id: string;
+    created_at: string;
+}
+
+export async function createStyle(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+
+    const name = formData.get('name') as string;
+    const description = formData.get('description') as string;
+    const file = formData.get('file') as File;
+
+    if (!file || !name) return { error: 'Missing required fields' };
+
+    // 1. Upload Image
+    const fileExt = file.name.split('.').pop();
+    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('portfolio')
+        .upload(filePath, file);
+
+    if (uploadError) {
+        return { error: 'Upload failed: ' + uploadError.message };
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+        .from('portfolio')
+        .getPublicUrl(filePath);
+
+    // 2. Insert to DB
+    const { error: dbError } = await supabase
+        .from('portfolio')
+        .insert({
+            tenant_id: user.id,
+            name,
+            description,
+            image_url: publicUrl
+        });
+
+    if (dbError) {
+        return { error: dbError.message };
+    }
+
+    return { success: true };
+}
+
+export async function deleteStyle(styleId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+
+    // Get style to find image path (optional cleanup, but good practice)
+    const { data: style } = await supabase
+        .from('portfolio')
+        .select('image_url')
+        .eq('id', styleId)
+        .eq('tenant_id', user.id)
+        .single();
+
+    if (style) {
+        // Extract path from URL if needed, or just delete row
+        // For now, just delete row. Storage cleanup can be a separate cron or trigger.
+    }
+
+    const { error } = await supabase
+        .from('portfolio')
+        .delete()
+        .eq('id', styleId)
+        .eq('tenant_id', user.id);
+
+    if (error) return { error: error.message };
+    return { success: true };
+}
+
+export async function getTenantStyles(tenantId?: string) {
+    // If no tenantId provided, try to get current user's styles
+    const supabase = await createClient();
+    let targetTenantId = tenantId;
+
+    if (!targetTenantId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) targetTenantId = user.id;
+    }
+
+    if (!targetTenantId) return [];
+
+    const { data, error } = await supabase
+        .from('portfolio')
+        .select('*')
+        .eq('tenant_id', targetTenantId)
+        .order('created_at', { ascending: false });
+
+    if (error) {
+        console.error('Get Tenant Styles Error:', error);
+        return [];
+    }
+
+    return data;
+}
+
+export async function getStyles(tenantId?: string) {
+    // If tenantId is present, fetch their styles.
+    // If they have NO styles, or if no tenantId, return defaults? 
+    // Spec: "IF a tenant_id is present... fetch that tenant's styles... ELSE show the default system styles."
+
+    let customStyles: PortfolioItem[] = [];
+
+    if (tenantId) {
+        // We can use a public client or server client depending on RLS.
+        // Since getStyles is used in public visualizer, we likely need public access.
+        // But createClient() in server actions usually has full access or user context.
+        // For public visualizer (unauthenticated visitor), createClient() follows RLS for anon.
+        // We need to ensure 'portfolio' table has PUBLIC SELECT policy for tenant_id rows.
+        const supabase = await createClient();
+        const { data } = await supabase
+            .from('portfolio')
+            .select('id, name, description, image_url') // Select minimal fields to match 'style' interface
+            .eq('tenant_id', tenantId);
+
+        if (data && data.length > 0) {
+            // Map to ensure it matches the format
+            return data as any[];
+        }
+    }
+
+    // Default System Styles available to everyone
     return [
         { id: '1', name: 'Industrial', description: 'Raw steel and exposed elements', image_url: '/styles/industrial.png' },
         { id: '2', name: 'Modern', description: 'Clean lines and glass', image_url: '/styles/modern.png' },
