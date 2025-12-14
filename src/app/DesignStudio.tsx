@@ -11,6 +11,7 @@ import {
 import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
 import StyleControls from './StyleControls';
+import { DownloadGateModal } from '@/components/DownloadGateModal';
 
 interface style {
     id: string;
@@ -44,6 +45,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [selectedStyleIndex, setSelectedStyleIndex] = useState(0);
     const [customStyleFile, setCustomStyleFile] = useState<File | null>(null);
     const [styleSource, setStyleSource] = useState<'preset' | 'upload'>('preset');
+
+    // Gate State
+    const [showGate, setShowGate] = useState(false);
+    const [isGateUnlocked, setIsGateUnlocked] = useState(false); // Valid for session
 
     // Branding
     const [logo, setLogo] = useState<string | null>(tenantProfile?.logo_url || null);
@@ -254,7 +259,48 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         }
     };
 
-    const handleDownload = () => {
+
+    // --- DOWNLOAD HANDLERS ---
+    const handleDownloadClick = () => {
+        if (!result) return;
+        if (isGateUnlocked) {
+            executeDownload();
+        } else {
+            setShowGate(true);
+        }
+    };
+
+    const handleGateSubmit = async (data: { name: string; email: string }) => {
+        // Save Lead (Soft)
+        const formData = new FormData();
+        formData.append('customer_name', data.name);
+        formData.append('email', data.email);
+        formData.append('style_name', styleList[selectedStyleIndex]?.name || 'Custom');
+        formData.append('status', 'New'); // Or 'Soft Lead' if supported
+        if (orgId) formData.append('organization_id', orgId);
+        if (result) formData.append('generated_design_url', result); // Optional: save image link
+
+        // Fire and forget submission to not block user too long, 
+        // or await if we want strict confirm. Awaiting is safer.
+        try {
+            await submitLead(formData);
+        } catch (e) {
+            console.warn("Lead soft-save failed", e);
+        }
+
+        setIsGateUnlocked(true);
+        // Modal will close itself after success animation, we wait 1s in modal, 
+        // but here we just need to ensure download starts when modal calls onSuccess (or we trigger it here)
+        // Actually modal logic says: setSuccess -> wait 1s -> onClose.
+        // We should trigger download *after* unlocking.
+        // Let's pass a callback or just trigger it here.
+        setTimeout(() => {
+            executeDownload();
+            setShowGate(false);
+        }, 1000);
+    };
+
+    const executeDownload = () => {
         if (!result) return;
 
         const canvas = document.createElement('canvas');
@@ -695,7 +741,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                         <button onClick={() => setQuoteOpen(true)} className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded hover:bg-gray-200 transition-colors text-sm md:text-base">
                                             Request Quote
                                         </button>
-                                        <button onClick={handleDownload} className="px-8 py-4 bg-[var(--primary)] text-black font-black uppercase tracking-widest rounded hover:brightness-110 transition-colors shadow-[0_0_20px_-5px_var(--primary)] flex items-center gap-2 text-sm md:text-base">
+                                        <button onClick={handleDownloadClick} className="px-8 py-4 bg-[var(--primary)] text-black font-black uppercase tracking-widest rounded hover:brightness-110 transition-colors shadow-[0_0_20px_-5px_var(--primary)] flex items-center gap-2 text-sm md:text-base">
                                             <Download className="w-5 h-5" /> Download High-Res
                                         </button>
                                     </div>
@@ -778,6 +824,13 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Email Gate Modal */}
+            <DownloadGateModal
+                isOpen={showGate}
+                onClose={() => setShowGate(false)}
+                onSubmit={handleGateSubmit}
+            />
 
         </main>
     );
