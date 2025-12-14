@@ -8,6 +8,7 @@ export interface GlobalStats {
     activeTenants: number;
     conversionRate: number; // Percentage 0-100
     totalGenerations: number;
+    estimatedApiCost: number;
 }
 
 export async function getGlobalStats(): Promise<GlobalStats> {
@@ -16,7 +17,7 @@ export async function getGlobalStats(): Promise<GlobalStats> {
     // Fallback if no admin key (local dev without service key)
     if (!supabase) {
         console.warn('Admin client missing in getGlobalStats. Returning mock data.');
-        return { totalLeads: 0, activeTenants: 0, conversionRate: 0, totalGenerations: 0 };
+        return { totalLeads: 0, activeTenants: 0, conversionRate: 0, totalGenerations: 0, estimatedApiCost: 0 };
     }
 
     // 1. Total Leads
@@ -57,11 +58,16 @@ export async function getGlobalStats(): Promise<GlobalStats> {
         .from('generations')
         .select('*', { count: 'exact', head: true });
 
+    const genCountVal = genCount || 0;
+    // Estimate: $0.04 per image (input + output)
+    const estimatedCost = parseFloat((genCountVal * 0.04).toFixed(2));
+
     return {
         totalLeads: totalLeads || 0,
         activeTenants: activeTenants,
         conversionRate: parseFloat(rate.toFixed(1)),
-        totalGenerations: genCount || 0
+        totalGenerations: genCountVal,
+        estimatedApiCost: estimatedCost
     };
 }
 

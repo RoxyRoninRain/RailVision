@@ -79,6 +79,12 @@ export default function AdminStatsPage() {
                     icon={<Activity size={20} className="text-orange-500" />}
                     trend="Actual Usage"
                 />
+                <MetricCard
+                    label="Est. API Costs"
+                    value={`$${globalStats?.estimatedApiCost?.toFixed(2) || '0.00'}`}
+                    icon={<DollarSign size={20} className="text-red-500" />}
+                    trend="$0.04 / gen"
+                />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
