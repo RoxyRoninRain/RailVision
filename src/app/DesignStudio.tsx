@@ -485,7 +485,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             <div>
                                                 <p className="text-xs text-gray-500 uppercase tracking-wider">Current Style</p>
                                                 <p className="text-[var(--primary)] font-bold uppercase truncate max-w-[150px]">
-                                                    {styleSource === 'upload' ? 'Custom Ref' : styleList[selectedStyleIndex]?.name}
+                                                    {styleSource === 'upload' ? 'Custom Ref' : (styleList[selectedStyleIndex]?.name || 'No Style')}
                                                 </p>
                                             </div>
                                             <Settings className="w-5 h-5 text-gray-400" />
@@ -547,29 +547,43 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
                                         {/* Carousel Container */}
                                         <div className="relative aspect-square w-full max-w-[400px] mx-auto bg-[#111] rounded-2xl overflow-hidden border border-[#222] group shadow-2xl mb-8">
-                                            <AnimatePresence mode='wait'>
-                                                <motion.img
-                                                    key={styleList[selectedStyleIndex].id}
-                                                    src={styleList[selectedStyleIndex].image_url || '/styles/industrial.png'}
-                                                    initial={{ opacity: 0, scale: 1.1 }}
-                                                    animate={{ opacity: 1, scale: 1 }}
-                                                    exit={{ opacity: 0 }}
-                                                    transition={{ duration: 0.4 }}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </AnimatePresence>
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent flex flex-col justify-end p-8">
-                                                <h4 className="text-white text-4xl font-black uppercase italic mb-2">{styleList[selectedStyleIndex].name}</h4>
-                                                <p className="text-gray-300 text-sm max-w-md">{styleList[selectedStyleIndex].description}</p>
-                                            </div>
+                                            {styleList.length > 0 ? (
+                                                <>
+                                                    <AnimatePresence mode='wait'>
+                                                        <motion.img
+                                                            key={styleList[selectedStyleIndex].id}
+                                                            src={styleList[selectedStyleIndex].image_url || '/styles/industrial.png'}
+                                                            initial={{ opacity: 0, scale: 1.1 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            exit={{ opacity: 0 }}
+                                                            transition={{ duration: 0.4 }}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </AnimatePresence>
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent flex flex-col justify-end p-8">
+                                                        <h4 className="text-white text-4xl font-black uppercase italic mb-2">{styleList[selectedStyleIndex].name}</h4>
+                                                        <p className="text-gray-300 text-sm max-w-md">{styleList[selectedStyleIndex].description}</p>
+                                                    </div>
 
-                                            {/* Arrows */}
-                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-[var(--primary)] hover:text-black text-white p-3 rounded-full backdrop-blur-md transition-all border border-white/10">
-                                                <ChevronLeft className="w-6 h-6" />
-                                            </button>
-                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev + 1) % styleList.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-[var(--primary)] hover:text-black text-white p-3 rounded-full backdrop-blur-md transition-all border border-white/10">
-                                                <ChevronRight className="w-6 h-6" />
-                                            </button>
+                                                    {/* Arrows */}
+                                                    {styleList.length > 1 && (
+                                                        <>
+                                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length); }} className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-[var(--primary)] hover:text-black text-white p-3 rounded-full backdrop-blur-md transition-all border border-white/10">
+                                                                <ChevronLeft className="w-6 h-6" />
+                                                            </button>
+                                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev + 1) % styleList.length); }} className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-[var(--primary)] hover:text-black text-white p-3 rounded-full backdrop-blur-md transition-all border border-white/10">
+                                                                <ChevronRight className="w-6 h-6" />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="flex flex-col items-center justify-center h-full p-8 text-center text-gray-500">
+                                                    <ImageIcon className="w-16 h-16 mb-4 opacity-50" />
+                                                    <p className="font-bold uppercase tracking-wider">No Active Styles</p>
+                                                    <p className="text-xs mt-2">Please upload a custom style or check your settings.</p>
+                                                </div>
+                                            )}
                                         </div>
 
                                         <button
