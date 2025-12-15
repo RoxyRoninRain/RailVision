@@ -583,6 +583,8 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                                     selectedStyleIndex={selectedStyleIndex}
                                                     setSelectedStyleIndex={(i) => { setSelectedStyleIndex(i); setShowStyleSheet(false); }}
                                                     customStyleFile={customStyleFile}
+                                                    setCustomStyleFile={setCustomStyleFile}
+                                                    error={error}
                                                 />
                                             </motion.div>
                                         )}
