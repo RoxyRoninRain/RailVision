@@ -23,7 +23,7 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
             <Link href="#features" className="hover:text-white transition-colors">Features</Link>
-            <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link>
+            {/* <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link> */}
           </div>
 
           <div className="flex items-center gap-4">
@@ -42,10 +42,10 @@ export default function LandingPage() {
         <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-secondary/10 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-primary mb-8 animate-fade-in-up">
+          {/* <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-primary mb-8 animate-fade-in-up">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
             New: SVG Watermark Support Available
-          </div>
+          </div> */}
 
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 leading-[1.1]">
             <span className="block text-transparent bg-clip-text bg-gradient-to-b from-white to-white/50">Close More Deals with</span>
@@ -75,7 +75,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="relative w-full max-w-5xl mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black h-[800px]">
+          <div className="relative w-full max-w-5xl mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-black h-[600px] max-h-[70vh]">
             {/* 
                 Lead Tracking Enabled: Linked to Admin Tenant ID
             */}
@@ -96,10 +96,10 @@ export default function LandingPage() {
             <p className="text-xl text-gray-400 max-w-2xl">Stop sending PDFs back and forth. Give your customers the power to design, while you control the specs.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[300px]">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[250px]">
 
             {/* Feature 1: Visualizer */}
-            <div className="md:col-span-2 row-span-1 bg-[#111] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-primary/50 transition-colors">
+            <div className="md:col-span-2 row-span-1 bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-primary/50 transition-colors">
               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] group-hover:bg-primary/20 transition-all" />
               <div className="relative z-10 h-full flex flex-col justify-between">
                 <div>
@@ -116,7 +116,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 2: White Label */}
-            <div className="row-span-1 bg-[#111] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-secondary/50 transition-colors">
+            <div className="row-span-1 bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-secondary/50 transition-colors">
               <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-secondary/10 to-transparent" />
               <div className="relative z-10">
                 <div className="w-12 h-12 bg-secondary/20 rounded-xl flex items-center justify-center text-secondary mb-4">
@@ -128,7 +128,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 3: Embed */}
-            <div className="row-span-1 bg-[#111] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-accent/50 transition-colors">
+            <div className="row-span-1 bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-accent/50 transition-colors">
               <div className="relative z-10">
                 <div className="w-12 h-12 bg-accent/20 rounded-xl flex items-center justify-center text-accent mb-4">
                   <Code2 size={24} />
@@ -139,7 +139,7 @@ export default function LandingPage() {
             </div>
 
             {/* Feature 4: Lead Gen */}
-            <div className="md:col-span-2 row-span-1 bg-[#111] border border-white/10 rounded-3xl p-8 relative overflow-hidden group hover:border-orange-500/50 transition-colors">
+            <div className="md:col-span-2 row-span-1 bg-[#111] border border-white/10 rounded-2xl p-6 relative overflow-hidden group hover:border-orange-500/50 transition-colors">
               <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-[80px]" />
               <div className="relative z-10 h-full flex flex-col justify-between">
                 <div>
@@ -156,85 +156,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- PRICING SECTION --- */}
+      {/* --- PRICING SECTION REMOVED --- */}
+      {/* 
       <section id="pricing" className="py-24 px-6 bg-[#080808]">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold mb-4">Simple, Transparent Pricing</h2>
-            <p className="text-gray-400">Start with a 14-day free trial. Cancel anytime.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-
-            {/* Starter */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 flex flex-col">
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-gray-400 mb-2">Starter</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-white">$49</span>
-                  <span className="text-gray-500">/mo</span>
-                </div>
-                <p className="text-gray-500 text-sm mt-4">Perfect for small local shops.</p>
-              </div>
-              <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> 50 AI Generations / mo</li>
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Basic Lead Capture</li>
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Standard Styles</li>
-                <li className="flex gap-3"><Check size={18} className="text-gray-700 shrink-0" /> <span className="text-gray-600 line-through">Custom Branding</span></li>
-              </ul>
-              <Link href="/signup?plan=starter" className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-center font-medium transition-colors">
-                Start Free Trial
-              </Link>
-            </div>
-
-            {/* Pro (Highlighted) */}
-            <div className="bg-[#111] border border-primary rounded-2xl p-8 flex flex-col relative shadow-[0_0_50px_-12px_rgba(124,58,237,0.2)] scale-105 z-10">
-              <div className="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
-                MOST POPULAR
-              </div>
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-primary mb-2">Professional</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-white">$99</span>
-                  <span className="text-gray-500">/mo</span>
-                </div>
-                <p className="text-gray-500 text-sm mt-4">For growing fabricators who want to look big.</p>
-              </div>
-              <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Unlimited AI Generations</li>
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Advanced Lead Analytics</li>
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Custom Logo & Colors</li>
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> New SVG Watermark Support</li>
-              </ul>
-              <Link href="/signup?plan=pro" className="w-full py-3 bg-primary hover:bg-primary/90 text-white rounded-lg text-center font-bold transition-colors">
-                Get Started
-              </Link>
-            </div>
-
-            {/* Enterprise */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 flex flex-col">
-              <div className="mb-8">
-                <h3 className="text-xl font-bold text-gray-400 mb-2">Agency</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-white">$249</span>
-                  <span className="text-gray-500">/mo</span>
-                </div>
-                <p className="text-gray-500 text-sm mt-4">Manage multiple brands or locations.</p>
-              </div>
-              <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> All Pro Features</li>
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Multi-Tenant Dashboard</li>
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> API Access</li>
-                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Priority Support</li>
-              </ul>
-              <Link href="/signup?plan=agency" className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-center font-medium transition-colors">
-                Contact Sales
-              </Link>
-            </div>
-
-          </div>
-        </div>
-      </section>
+        ... (Pricing content commented out or removed) ...
+      </section> 
+      */}
 
       {/* --- FOOTER --- */}
       <footer className="py-12 border-t border-white/5 bg-black text-gray-500 text-sm">
@@ -256,7 +183,7 @@ export default function LandingPage() {
             <h4 className="font-bold text-white mb-4">Product</h4>
             <ul className="space-y-2">
               <li><Link href="#features" className="hover:text-primary">Features</Link></li>
-              <li><Link href="#pricing" className="hover:text-primary">Pricing</Link></li>
+              {/* <li><Link href="#pricing" className="hover:text-primary">Pricing</Link></li> */}
             </ul>
           </div>
           <div>
