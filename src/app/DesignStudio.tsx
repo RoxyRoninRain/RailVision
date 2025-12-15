@@ -54,17 +54,19 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [showGate, setShowGate] = useState(false);
     const [isGateUnlocked, setIsGateUnlocked] = useState(false); // Valid for session
 
+    // Feature Flags based on Tier
+    const isShowroom = tenantProfile?.tier === 'showroom';
+    const isWidget = tenantProfile?.tier === 'widget';
+    const isWhiteLabel = isShowroom;
+    const isCustomBranding = isShowroom || isWidget; // Tier 2 & 3 only
+
     // Branding
     const [logo, setLogo] = useState<string | null>(tenantProfile?.logo_url || null);
     const [watermarkLogo, setWatermarkLogo] = useState<string | null>(tenantProfile?.watermark_logo_url || tenantProfile?.logo_url || null);
     const [shopName, setShopName] = useState<string | null>(tenantProfile?.shop_name || null);
-    const [primaryColor, setPrimaryColor] = useState(tenantProfile?.primary_color || '#FFD700');
-    const [toolBackgroundColor, setToolBackgroundColor] = useState(tenantProfile?.tool_background_color || '#050505');
-
-    // Feature Flags based on Tier
-    const isShowroom = tenantProfile?.tier === 'showroom';
-    const isWhiteLabel = isShowroom; // Only Showroom gets white label
-
+    // Default to Railify Violet (#7C3AED) if custom branding not allowed or not set
+    const [primaryColor, setPrimaryColor] = useState((isCustomBranding && tenantProfile?.primary_color) || '#7C3AED');
+    const [toolBackgroundColor, setToolBackgroundColor] = useState((isCustomBranding && tenantProfile?.tool_background_color) || '#050505');
 
 
     // Processing
@@ -97,10 +99,18 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             setWatermarkLogo(tenantProfile.logo_url);
         }
         if (tenantProfile?.shop_name) setShopName(tenantProfile.shop_name);
-        if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
-        if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
 
-    }, [tenantProfile]);
+        // Enforce Feature Flag on Color Updates
+        if (isCustomBranding) {
+            if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
+            if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
+        } else {
+            // Reset to defaults if downgrading or restricted
+            setPrimaryColor('#7C3AED');
+            setToolBackgroundColor('#050505');
+        }
+
+    }, [tenantProfile, isCustomBranding]);
 
     const primaryRgb = hexToRgb(primaryColor);
 
