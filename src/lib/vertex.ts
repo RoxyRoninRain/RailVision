@@ -44,42 +44,6 @@ export const getGeminiModel = () => {
     return vertexAI.getGenerativeModel({ model: 'gemini-1.0-pro' });
 };
 
-export async function analyzeStyleWithGemini(base64Image: string): Promise<string> {
-    try {
-        console.log('[GEMINI] Analyzing style image...');
-        // Use Global client for Gemini 3 Preview
-        const model = vertexAIGlobal.getGenerativeModel({ model: 'gemini-3-pro-image-preview' });
-
-        const request = {
-            contents: [{
-                role: 'user',
-                parts: [
-                    {
-                        text: "Act as an architectural expert. Analyze the handrail and staircase style in this image. Describe the materials (e.g., matte black steel, oak, glass), the geometric form (e.g., minimal, industrial, ornate), and the overall vibe. Keep it concise but detailed enough to be used as a style reference for a renovation."
-                    },
-                    {
-                        inlineData: {
-                            mimeType: 'image/jpeg',
-                            data: base64Image
-                        }
-                    }
-                ]
-            }]
-        };
-
-        const result = await model.generateContent(request);
-        const response = await result.response;
-        // @ts-ignore
-        const text = response.candidates?.[0].content.parts[0].text;
-
-        console.log('[GEMINI] Analysis complete:', text?.substring(0, 50) + '...');
-        return text || 'Industrial, modern, sleek metal handrail'; // Fallback
-    } catch (error) {
-        console.error('[GEMINI ERROR]', error);
-        return 'Industrial, modern design'; // Fallback
-    }
-}
-
 // Update return type
 export async function generateDesignWithNanoBanana(
     base64TargetImage: string,
@@ -136,10 +100,19 @@ Command:
 3. GENERATE the renovation: Replace the existing handrail in the Source Image with the Handrail Style from the Reference Image.
 4. CONSTRAINT: You must STRICTLY preserve the original stair geometry and lighting of the Source Image.`;
 
-        // If specific style text is provided (less common now), append it
-        if (typeof styleInput === 'string') {
+        // VARIABLE REPLACEMENT: {{style}}
+        // If the user uses {{style}} in their prompt, we replace it with the style description.
+        // If not, we append the style description at the end.
+        const styleText = typeof styleInput === 'string' ? styleInput : "the attached Style Reference Image";
+
+        if (promptText.includes('{{style}}')) {
+            promptText = promptText.replace('{{style}}', styleText);
+        } else if (typeof styleInput === 'string') {
+            // Append if not used as variable
             promptText += `\n\nTarget Style: "${styleInput}"`;
         }
+
+
 
         parts.push({ text: promptText });
 

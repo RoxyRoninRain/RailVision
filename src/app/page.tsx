@@ -156,12 +156,140 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- PRICING SECTION REMOVED --- */}
-      {/* 
+      {/* --- PRICING SECTION --- */}
       <section id="pricing" className="py-24 px-6 bg-[#080808]">
-        ... (Pricing content commented out or removed) ...
-      </section> 
-      */}
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">Simple Pricing, High ROI</h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              One closed deal pays for your entire year. Stop guessing and start selling.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Salesmate */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 flex flex-col hover:border-white/20 transition-colors">
+              <div className="mb-8">
+                <h3 className="text-xl font-bold mb-2">The Salesmate</h3>
+                <div className="flex items-baseline gap-1 mb-4">
+                  <span className="text-4xl font-bold text-white">$49</span>
+                  <span className="text-gray-500">/mo</span>
+                </div>
+                <p className="text-sm text-gray-400 h-10">Best for: Enhancing existing sales. Generate and show visuals to active leads.</p>
+              </div>
+
+              <div className="flex-1 space-y-4 mb-8">
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                  <span>50 Visualizations / mo</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                  <span>Internal Dashboard</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                  <span>5 Custom Styles</span>
+                </div>
+              </div>
+
+              <Link href="/signup?tier=salesmate" className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl transition-all text-center">
+                Get Started
+              </Link>
+            </div>
+
+            {/* The Widget */}
+            <div className="bg-[#111] border border-primary/50 relative rounded-2xl p-8 flex flex-col shadow-[0_0_50px_rgba(var(--primary-rgb),0.1)]">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-primary text-black text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                Most Popular
+              </div>
+              <div className="mb-8">
+                <h3 className="text-xl font-bold mb-2 text-primary">The Widget</h3>
+                <div className="flex items-baseline gap-1 mb-4">
+                  <span className="text-4xl font-bold text-white">$99</span>
+                  <span className="text-gray-500">/mo</span>
+                </div>
+                <p className="text-sm text-gray-400 h-10">Best for: Website Lead Gen. "The 24/7 Sales Rep"</p>
+              </div>
+
+              <div className="flex-1 space-y-4 mb-8">
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-primary" />
+                  </div>
+                  <span>100 Visualizations / mo</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-primary" />
+                  </div>
+                  <span className="font-bold text-white">Embeddable Widget</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-primary" />
+                  </div>
+                  <span>Lead Capture Gate</span>
+                </div>
+              </div>
+
+              <Link href="/signup?tier=widget" className="w-full py-4 bg-primary hover:bg-white text-black font-bold rounded-xl transition-all text-center">
+                Upgrade to Widget
+              </Link>
+            </div>
+
+            {/* The Showroom */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 flex flex-col hover:border-white/20 transition-colors">
+              <div className="mb-8">
+                <h3 className="text-xl font-bold mb-2">The Showroom</h3>
+                <div className="flex items-baseline gap-1 mb-4">
+                  <span className="text-4xl font-bold text-white">$300</span>
+                  <span className="text-gray-500">/mo</span>
+                </div>
+                <p className="text-sm text-gray-400 h-10">Best for: Established Brands. "The White-Glove Experience"</p>
+              </div>
+
+              <div className="flex-1 space-y-4 mb-8">
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                  <span>500 Visualizations / mo</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                  <span>White Label (No Railify Branding)</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                  <span>Rollover Credits</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-gray-300">
+                  <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Check size={12} className="text-white" />
+                  </div>
+                  <span>Custom Watermark</span>
+                </div>
+              </div>
+
+              <Link href="/signup?tier=showroom" className="w-full py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl transition-all text-center">
+                Contact Sales
+              </Link>
+            </div>
+
+          </div>
+        </div>
+      </section>
 
       {/* --- FOOTER --- */}
       <footer className="py-12 border-t border-white/5 bg-black text-gray-500 text-sm">

@@ -29,6 +29,7 @@ interface TenantProfile {
     tool_background_color?: string | null;
     logo_size?: number | null;
     watermark_logo_url?: string | null;
+    tier?: string | null; // Added tier
 }
 
 interface DesignStudioProps {
@@ -59,6 +60,11 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [shopName, setShopName] = useState<string | null>(tenantProfile?.shop_name || null);
     const [primaryColor, setPrimaryColor] = useState(tenantProfile?.primary_color || '#FFD700');
     const [toolBackgroundColor, setToolBackgroundColor] = useState(tenantProfile?.tool_background_color || '#050505');
+
+    // Feature Flags based on Tier
+    const isShowroom = tenantProfile?.tier === 'showroom';
+    const isWhiteLabel = isShowroom; // Only Showroom gets white label
+
 
 
     // Processing
@@ -369,11 +375,13 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 const drawHeight = logoSize / aspectRatio;
 
                 ctx.globalAlpha = logoOpacity;
-                // Bottom-Left
-                ctx.drawImage(railifyImg, padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
+                // Bottom-Left (Railify Logo) - Only if NOT White Label
+                if (!isWhiteLabel) {
+                    ctx.drawImage(railifyImg, padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
+                }
                 ctx.globalAlpha = 1.0;
-            } else {
-                // Fallback text for Railify if image missing (unlikely)
+            } else if (!isWhiteLabel) {
+                // Fallback text for Railify if image missing and not white label
                 ctx.font = `bold ${canvas.width * 0.02}px monospace`;
                 ctx.fillStyle = `rgba(255, 255, 255, ${logoOpacity})`;
                 ctx.textAlign = 'left';
@@ -713,10 +721,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 </AnimatePresence>
             </div>
 
-            {/* Footer Branding */}
-            <div className="fixed bottom-4 right-4 z-40 pointer-events-none opacity-30 text-[10px] font-mono text-white uppercase tracking-widest hidden md:block">
-                Software by Railify
-            </div>
+            {/* Footer Branding - Hidden if White Label */}
+            {!isWhiteLabel && (
+                <div className="fixed bottom-4 right-4 z-40 pointer-events-none opacity-30 text-[10px] font-mono text-white uppercase tracking-widest hidden md:block">
+                    Software by Railify
+                </div>
+            )}
 
             {/* Quote Modal */}
             <AnimatePresence>

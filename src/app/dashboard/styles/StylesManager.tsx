@@ -1,12 +1,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg } from '@/app/actions'; // Ensure these are exported from actions.ts
-import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff } from 'lucide-react';
+import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg } from '@/app/actions';
+import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PRICING_TIERS } from '@/config/pricing';
 
-export default function StylesManager({ initialStyles, serverError, logoUrl }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null }) {
+export default function StylesManager({ initialStyles, serverError, logoUrl, tier = 'salesmate' }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null, tier?: string }) {
     const [styles, setStyles] = useState<PortfolioItem[]>(initialStyles);
+
+    // Limits
+    // @ts-ignore
+    const tierConfig = Object.values(PRICING_TIERS).find(t => t.id === tier) || PRICING_TIERS.SALESMATE;
+    const maxStyles = tierConfig.maxStyleUploads || 5;
+    const isLimitReached = styles.length >= maxStyles;
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -238,6 +245,14 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
             addLog(`Validation Error: ${msg}`);
             setErrorMsg(msg);
             return;
+            addLog(`Validation Error: ${msg}`);
+            setErrorMsg(msg);
+            return;
+        }
+
+        if (isLimitReached) {
+            setErrorMsg(`Limit reached! Your plan (${tierConfig.name}) allows ${maxStyles} custom styles.`);
+            return;
         }
 
         setIsSubmitting(true);
@@ -297,11 +312,14 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                     <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Visualizer Styles</h2>
                     <p className="text-gray-500 font-mono text-sm mt-1">Manage the styles available in your public visualizer carousel.</p>
                 </div>
+
                 <button
                     onClick={() => setIsAdding(true)}
-                    className="flex items-center gap-2 bg-[var(--primary)] text-black px-4 py-2 rounded font-bold uppercase tracking-wider hover:brightness-110 transition-colors"
+                    disabled={isLimitReached}
+                    className={`flex items-center gap-2 px-4 py-2 rounded font-bold uppercase tracking-wider transition-colors ${isLimitReached ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[var(--primary)] text-black hover:brightness-110'}`}
                 >
-                    <Plus size={18} /> Add New Style
+                    {isLimitReached ? <Lock size={18} /> : <Plus size={18} />}
+                    {isLimitReached ? 'Limit Reached' : 'Add New Style'}
                 </button>
             </div>
 
@@ -360,7 +378,10 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                             </div>
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-6 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
                                 <h4 className="text-xl font-bold text-white uppercase">{style.name}</h4>
-                                <p className="text-gray-400 text-xs mb-4 line-clamp-2">{style.description}</p>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <p className="text-gray-400 text-xs line-clamp-2 flex-grow">{style.description}</p>
+
+                                </div>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleToggleStatus(style.id, style.is_active !== false); }}
                                     className="flex items-center gap-2 text-white/80 hover:text-white text-xs uppercase font-bold bg-black/50 px-3 py-2 rounded backdrop-blur-sm mb-2"

@@ -13,6 +13,7 @@ export default async function Page() {
             <StylesManager
                 initialStyles={initialStyles || []}
                 logoUrl={profile?.watermark_logo_url || profile?.logo_url || undefined}
+                tier={profile?.tier || 'salesmate'}
             />
         </div>
     );
