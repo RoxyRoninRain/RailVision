@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowRight, Check, Sparkles, Building2, Store, HandCoins, ChevronRight, Zap, ShieldCheck, Palette, Code2 } from 'lucide-react';
 
 export default function LandingPage() {
@@ -9,8 +10,15 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 w-full z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-xl">R</div>
-            <span className="font-bold text-xl tracking-tight">Railify</span>
+            <div className="relative w-32 h-10">
+              <Image
+                src="/logo.png"
+                alt="Railify Logo"
+                fill
+                className="object-contain object-left"
+                priority
+              />
+            </div>
           </div>
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
@@ -169,9 +177,9 @@ export default function LandingPage() {
                 <p className="text-gray-500 text-sm mt-4">Perfect for small local shops.</p>
               </div>
               <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> 50 AI Generations / mo</li>
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> Basic Lead Capture</li>
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> Standard Styles</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> 50 AI Generations / mo</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Basic Lead Capture</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Standard Styles</li>
                 <li className="flex gap-3"><Check size={18} className="text-gray-700 shrink-0" /> <span className="text-gray-600 line-through">Custom Branding</span></li>
               </ul>
               <Link href="/signup?plan=starter" className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-center font-medium transition-colors">
@@ -180,12 +188,12 @@ export default function LandingPage() {
             </div>
 
             {/* Pro (Highlighted) */}
-            <div className="bg-[#111] border border-green-500 rounded-2xl p-8 flex flex-col relative shadow-[0_0_50px_-12px_rgba(34,197,94,0.2)] scale-105 z-10">
-              <div className="absolute top-0 right-0 bg-green-500 text-black text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
+            <div className="bg-[#111] border border-primary rounded-2xl p-8 flex flex-col relative shadow-[0_0_50px_-12px_rgba(124,58,237,0.2)] scale-105 z-10">
+              <div className="absolute top-0 right-0 bg-primary text-white text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
                 MOST POPULAR
               </div>
               <div className="mb-8">
-                <h3 className="text-xl font-bold text-green-400 mb-2">Professional</h3>
+                <h3 className="text-xl font-bold text-primary mb-2">Professional</h3>
                 <div className="flex items-baseline gap-1">
                   <span className="text-4xl font-bold text-white">$99</span>
                   <span className="text-gray-500">/mo</span>
@@ -193,12 +201,12 @@ export default function LandingPage() {
                 <p className="text-gray-500 text-sm mt-4">For growing fabricators who want to look big.</p>
               </div>
               <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> Unlimited AI Generations</li>
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> Advanced Lead Analytics</li>
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> Custom Logo & Colors</li>
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> New SVG Watermark Support</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Unlimited AI Generations</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Advanced Lead Analytics</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Custom Logo & Colors</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> New SVG Watermark Support</li>
               </ul>
-              <Link href="/signup?plan=pro" className="w-full py-3 bg-green-500 hover:bg-green-400 text-black rounded-lg text-center font-bold transition-colors">
+              <Link href="/signup?plan=pro" className="w-full py-3 bg-primary hover:bg-primary/90 text-white rounded-lg text-center font-bold transition-colors">
                 Get Started
               </Link>
             </div>
@@ -214,10 +222,10 @@ export default function LandingPage() {
                 <p className="text-gray-500 text-sm mt-4">Manage multiple brands or locations.</p>
               </div>
               <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> All Pro Features</li>
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> Multi-Tenant Dashboard</li>
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> API Access</li>
-                <li className="flex gap-3"><Check size={18} className="text-green-500 shrink-0" /> Priority Support</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> All Pro Features</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Multi-Tenant Dashboard</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> API Access</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Priority Support</li>
               </ul>
               <Link href="/signup?plan=agency" className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-center font-medium transition-colors">
                 Contact Sales
@@ -233,31 +241,37 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 bg-green-900 rounded flex items-center justify-center text-green-500 font-bold text-xs">R</div>
-              <span className="font-bold text-white">Railify</span>
+              <div className="relative w-24 h-8">
+                <Image
+                  src="/logo.png"
+                  alt="Railify Logo"
+                  fill
+                  className="object-contain object-left"
+                />
+              </div>
             </div>
             <p>The #1 Handrail Visualization Platform.</p>
           </div>
           <div>
             <h4 className="font-bold text-white mb-4">Product</h4>
             <ul className="space-y-2">
-              <li><Link href="#features" className="hover:text-green-400">Features</Link></li>
-              <li><Link href="#pricing" className="hover:text-green-400">Pricing</Link></li>
+              <li><Link href="#features" className="hover:text-primary">Features</Link></li>
+              <li><Link href="#pricing" className="hover:text-primary">Pricing</Link></li>
             </ul>
           </div>
           <div>
             <h4 className="font-bold text-white mb-4">Resources</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="hover:text-green-400">Documentation</a></li>
-              <li><a href="#" className="hover:text-green-400">API</a></li>
-              <li><a href="#" className="hover:text-green-400">Support</a></li>
+              <li><a href="#" className="hover:text-primary">Documentation</a></li>
+              <li><a href="#" className="hover:text-primary">API</a></li>
+              <li><a href="#" className="hover:text-primary">Support</a></li>
             </ul>
           </div>
           <div>
             <h4 className="font-bold text-white mb-4">Legal</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="hover:text-green-400">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-green-400">Terms of Service</a></li>
+              <li><a href="#" className="hover:text-primary">Privacy Policy</a></li>
+              <li><a href="#" className="hover:text-primary">Terms of Service</a></li>
             </ul>
           </div>
         </div>

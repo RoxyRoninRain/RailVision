@@ -323,51 +323,79 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         const img = new Image();
         img.crossOrigin = "anonymous";
         img.src = result;
-        img.onload = () => {
+
+        img.onload = async () => {
             canvas.width = img.width;
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
 
-            // Draw Base Image
+            // 1. Draw Base Image
             ctx.drawImage(img, 0, 0);
 
-            // Draw Watermark (Logo) if available
-            const finalWatermark = watermarkLogo || logo;
+            const padding = canvas.width * 0.03;
+            const logoOpacity = 0.5; // "Light" watermark
 
-            if (finalWatermark) {
-                const logoImg = new Image();
-                logoImg.crossOrigin = "anonymous";
-                logoImg.src = finalWatermark;
-                // We need to wait for logo? For simplicity assume cached or try sync
-                // In real app, promise-all the loads. here we try:
-                // If logo fails to load instantly, we might skip it. 
-                // Better approach: Load it
-                logoImg.onload = () => {
-                    const logoSize = Math.max(canvas.width * 0.15, 100); // 15% width
-                    // Handle SVG with no intrinsic dimensions (0x0 or very small)
-                    const imgW = logoImg.width || 300;
-                    const imgH = logoImg.height || 300;
+            // Helper to load image
+            const loadImage = (src: string): Promise<HTMLImageElement | null> => {
+                return new Promise((resolve) => {
+                    const i = new Image();
+                    i.crossOrigin = "anonymous";
+                    i.src = src;
+                    i.onload = () => resolve(i);
+                    i.onerror = () => {
+                        console.warn(`Failed to load watermark: ${src}`);
+                        resolve(null);
+                    };
+                });
+            };
 
-                    const aspectRatio = imgW / imgH;
-                    const drawWidth = logoSize;
-                    const drawHeight = logoSize / aspectRatio;
-                    const padding = canvas.width * 0.03;
+            // 2. Load Watermark Images
+            const railifyLogoUrl = '/logo.png';
+            const tenantLogoUrl = watermarkLogo || logo;
 
-                    ctx.globalAlpha = 0.9;
-                    ctx.drawImage(logoImg, canvas.width - drawWidth - padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
-                    ctx.globalAlpha = 1.0;
-                    downloadCanvas(canvas);
-                };
-                logoImg.onerror = () => downloadCanvas(canvas); // Fallback
+            const [railifyImg, tenantImg] = await Promise.all([
+                loadImage(railifyLogoUrl),
+                tenantLogoUrl ? loadImage(tenantLogoUrl as string) : Promise.resolve(null)
+            ]);
+
+            // 3. Draw Railify Logo (Bottom-Left)
+            if (railifyImg) {
+                const logoSize = Math.max(canvas.width * 0.15, 100);
+                const imgW = railifyImg.width || 300;
+                const imgH = railifyImg.height || 300;
+                const aspectRatio = imgW / imgH;
+                const drawWidth = logoSize;
+                const drawHeight = logoSize / aspectRatio;
+
+                ctx.globalAlpha = logoOpacity;
+                // Bottom-Left
+                ctx.drawImage(railifyImg, padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
+                ctx.globalAlpha = 1.0;
             } else {
-                // Default Text Watermark
-                ctx.font = `bold ${canvas.width * 0.03}px monospace`;
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.textAlign = 'right';
-                ctx.fillText('POWERED BY RAILIFY', canvas.width - (canvas.width * 0.02), canvas.height - (canvas.width * 0.02));
-                downloadCanvas(canvas);
+                // Fallback text for Railify if image missing (unlikely)
+                ctx.font = `bold ${canvas.width * 0.02}px monospace`;
+                ctx.fillStyle = `rgba(255, 255, 255, ${logoOpacity})`;
+                ctx.textAlign = 'left';
+                ctx.fillText('RAILIFY', padding, canvas.height - padding);
             }
+
+            // 4. Draw Tenant Logo (Bottom-Right)
+            if (tenantImg) {
+                const logoSize = Math.max(canvas.width * 0.15, 100);
+                const imgW = tenantImg.width || 300;
+                const imgH = tenantImg.height || 300;
+                const aspectRatio = imgW / imgH;
+                const drawWidth = logoSize;
+                const drawHeight = logoSize / aspectRatio;
+
+                ctx.globalAlpha = logoOpacity;
+                // Bottom-Right
+                ctx.drawImage(tenantImg, canvas.width - drawWidth - padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
+                ctx.globalAlpha = 1.0;
+            }
+
+            downloadCanvas(canvas);
         };
     };
 

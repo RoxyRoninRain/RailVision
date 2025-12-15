@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Settings, PenTool, LogOut, Shield, Menu, X, Code2 } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -35,10 +36,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Sidebar (Desktop) */}
             <aside className="w-64 border-r border-gray-800 bg-[#050505] flex flex-col fixed h-full z-20 hidden md:flex">
                 <div className="p-6 border-b border-gray-800 flex items-center gap-2">
-                    <Shield className="text-[var(--primary)]" />
-                    <span className="font-mono font-bold tracking-tighter text-lg uppercase">
-                        Railify <span className="text-[var(--primary)] text-xs align-top">PRO</span>
-                    </span>
+                    <div className="relative w-full h-8">
+                        <Image
+                            src="/logo.png"
+                            alt="Railify PRO"
+                            fill
+                            className="object-contain object-left"
+                            priority
+                        />
+                    </div>
                 </div>
 
                 <nav className="flex-1 p-4 space-y-2">
@@ -74,8 +80,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Mobile Header */}
             <div className="md:hidden fixed top-0 w-full bg-[#050505] border-b border-gray-800 z-20 p-4 flex justify-between items-center text-[var(--primary)] shadow-lg">
                 <div className="flex items-center gap-2">
-                    <Shield className="text-[var(--primary)] w-6 h-6" />
-                    <span className="font-mono font-bold tracking-tighter uppercase">Railify PRO</span>
+                    <div className="relative w-32 h-8">
+                        <Image
+                            src="/logo.png"
+                            alt="Railify PRO"
+                            fill
+                            className="object-contain object-left"
+                            priority
+                        />
+                    </div>
                 </div>
                 <button
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
