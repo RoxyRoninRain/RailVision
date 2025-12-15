@@ -448,7 +448,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             }}
         >
             {/* Header */}
-            <header className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-end items-center pointer-events-none">
+            <header className="absolute top-0 left-0 right-0 z-50 p-6 flex justify-between items-center pointer-events-none">
+                {/* Disclaimer */}
+                <div className="text-[10px] md:text-xs text-white/30 font-mono uppercase tracking-widest select-none">
+                    AI Visualization · Results May Vary
+                </div>
+
                 {/* Steps */}
                 <div className="flex gap-2 pointer-events-auto">
                     {[1, 2, 3].map(s => (
