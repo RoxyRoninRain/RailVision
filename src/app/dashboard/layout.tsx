@@ -36,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Sidebar (Desktop) */}
             <aside className="w-64 border-r border-gray-800 bg-[#050505] flex flex-col fixed h-full z-20 hidden md:flex">
                 <div className="p-6 border-b border-gray-800 flex items-center gap-2">
-                    <div className="relative w-full h-8">
+                    <div className="relative w-full h-12">
                         <Image
                             src="/logo.png"
                             alt="Railify PRO"
@@ -80,7 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {/* Mobile Header */}
             <div className="md:hidden fixed top-0 w-full bg-[#050505] border-b border-gray-800 z-20 p-4 flex justify-between items-center text-[var(--primary)] shadow-lg">
                 <div className="flex items-center gap-2">
-                    <div className="relative w-32 h-8">
+                    <div className="relative w-40 h-10">
                         <Image
                             src="/logo.png"
                             alt="Railify PRO"

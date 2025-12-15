@@ -10,7 +10,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 w-full z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="relative w-32 h-10">
+            <div className="relative w-48 h-12">
               <Image
                 src="/logo.png"
                 alt="Railify Logo"
@@ -241,7 +241,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
             <div className="flex items-center gap-2 mb-4">
-              <div className="relative w-24 h-8">
+              <div className="relative w-32 h-10">
                 <Image
                   src="/logo.png"
                   alt="Railify Logo"
