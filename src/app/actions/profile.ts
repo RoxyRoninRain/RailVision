@@ -6,7 +6,15 @@ import { Profile } from './types';
 export async function getTenantProfile(organizationId: string) {
     if (!organizationId) return null;
 
-    const supabase = await createClient();
+    // Use Admin Client to bypass RLS for public branding access
+    // This is safe because we ONLY select public branding fields
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const supabase = createAdminClient();
+
+    if (!supabase) {
+        console.error('FATAL: Generic Tenant Profile Fetch Failed - No Admin Client');
+        return null;
+    }
 
     // Public fetch of branding details
     const { data, error } = await supabase

@@ -178,14 +178,27 @@ export async function getTenantStyles(tenantId?: string) {
 }
 
 export async function getPublicStyles(tenantId: string) {
-    const supabase = await createClient(); // Ideally strictly public client or admin client? 
-    // Wait, createClient() uses cookies. For public page, we might need no-auth client?
-    // Actually, createClient util likely uses standardized client. 
-    // But since this is public, we rely on the Anon Key and RLS "Public can view active styles".
+    // Use Admin Client to bypass RLS for public portfolio access
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const supabase = createAdminClient();
 
-    // We need to instantiate a client that Doesn't need auth if the user isn't logged in.
-    // Standard createClient() on server actions tries to get cookies.
-    // If no cookies, it's anon.
+    // Fallback if Admin Client fails (simulated env or missing key)
+    if (!supabase) {
+        console.warn('getPublicStyles: No Admin Client, falling back to anon client (may fail RLS)');
+        const standardClient = await createClient();
+        const { data, error } = await standardClient
+            .from('portfolio')
+            .select('id, name, description, image_url, gallery')
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+
+        if (error) {
+            console.error('Get Public Styles (Anon) Error:', error);
+            return [];
+        }
+        return data;
+    }
 
     const { data, error } = await supabase
         .from('portfolio')
