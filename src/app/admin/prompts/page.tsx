@@ -106,22 +106,36 @@ export default function PromptsPage() {
         setSaving(false);
     };
 
-    const handleActivate = async (key: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (!confirm(`Are you sure you want to make "${key}" the LIVE active prompt for all users?`)) return;
+    // --- ACTIVATION LOGIC ---
+    const [activationTarget, setActivationTarget] = useState<string | null>(null);
 
-        setSaving(true);
+    const handleActivateClick = (key: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setActivationTarget(key);
+    };
+
+    const confirmActivation = async () => {
+        if (!activationTarget) return;
+
+        const key = activationTarget;
+        setActivationTarget(null); // Close modal immediately (Optimistic UI)
+        setSaving(true); // Show global saving indicator
+
+        // Optimistic local update
+        setPrompts(prev => prev.map(p => ({
+            ...p,
+            is_active: p.key === key
+        })));
+        if (selectedPrompt?.key === key) {
+            setSelectedPrompt(prev => prev ? { ...prev, is_active: true } : null);
+        }
+
         const res = await setActivePrompt(key);
-        if (res.success) {
-            // Refresh list to update ID active flags
-            const data = await getAllSystemPrompts();
-            setPrompts(data || []);
-            // Update selected if needed
-            if (selectedPrompt?.key === key) {
-                setSelectedPrompt(prev => prev ? { ...prev, is_active: true } : null);
-            }
-        } else {
+
+        if (!res.success) {
             alert('Failed to activate: ' + res.error);
+            // Revert on failure
+            fetchPrompts();
         }
         setSaving(false);
     };
@@ -268,7 +282,7 @@ export default function PromptsPage() {
                                     <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <div
                                             role="button"
-                                            onClick={(e) => handleActivate(prompt.key, e)}
+                                            onClick={(e) => handleActivateClick(prompt.key, e)}
                                             className="p-1.5 bg-zinc-800 hover:bg-green-700 text-gray-400 hover:text-white rounded-full"
                                             title="Make Live Check"
                                         >
@@ -394,6 +408,41 @@ export default function PromptsPage() {
                     )}
                 </div>
             </main>
+
+            {/* ACTIVATION MODAL */}
+            {activationTarget && (
+                <div className="absolute inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-[#111] border border-green-900/50 w-full max-w-sm rounded-lg shadow-2xl p-6 relative">
+                        <button onClick={() => setActivationTarget(null)} className="absolute top-4 right-4 text-gray-500 hover:text-white">
+                            <X size={20} />
+                        </button>
+
+                        <div className="flex flex-col items-center text-center gap-4">
+                            <div className="w-16 h-16 bg-green-900/20 rounded-full flex items-center justify-center text-green-500 mb-2">
+                                <Power size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold text-white">Activate Prompt?</h3>
+                            <p className="text-gray-400 text-sm">
+                                Are you sure you want to make <span className="text-white font-mono font-bold">"{activationTarget}"</span> the LIVE active prompt regarding for all users?
+                            </p>
+                            <div className="flex gap-3 w-full mt-2">
+                                <button
+                                    onClick={() => setActivationTarget(null)}
+                                    className="flex-1 py-2 bg-zinc-800 hover:bg-zinc-700 rounded font-bold text-xs uppercase"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={confirmActivation}
+                                    className="flex-1 py-2 bg-green-600 hover:bg-green-500 text-white rounded font-bold text-xs uppercase shadow-lg shadow-green-900/20"
+                                >
+                                    Yes, Activate
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* TEST SANDBOX MODAL */}
             {showTestModal && (
