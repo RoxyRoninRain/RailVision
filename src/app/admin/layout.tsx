@@ -29,6 +29,7 @@ export default async function AdminLayout({
                     <a href="/admin/stats" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Global Stats</a>
                     <a href="/admin/tenants" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Tenants List</a>
                     <a href="/admin/prompts" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Prompt Settings</a>
+                    <a href="/admin/styles" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Style Library</a>
                 </nav>
 
                 <div className="border-t border-gray-800 pt-4">

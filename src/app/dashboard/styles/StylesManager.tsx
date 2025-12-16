@@ -14,8 +14,9 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
     // Form State
     const [newName, setNewName] = useState('');
     const [newDesc, setNewDesc] = useState('');
-    const [newFile, setNewFile] = useState<File | null>(null);
-    const [preview, setPreview] = useState<string | null>(null);
+
+    const [newFiles, setNewFiles] = useState<File[]>([]);
+    const [previews, setPreviews] = useState<string[]>([]);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -78,140 +79,96 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         setErrorMsg(null);
-        if (!e.target.files || !e.target.files[0]) return;
+        if (!e.target.files || e.target.files.length === 0) return;
 
         setIsProcessing(true);
-        setNewFile(null); // Clear previous file
+        // Don't clear previous files immediately if we want to support adding? 
+        // For simplicity, let's Replace the list on new selection, or Append?
+        // User probably expects "Select Files" to replace.
+        // Let's support clearing via UI later. For now, replace.
+        setNewFiles([]);
+        setPreviews([]);
+
+        const selectedFiles = Array.from(e.target.files);
+        const processedFiles: File[] = [];
+        const processedPreviews: string[] = [];
 
         try {
-            let file = e.target.files[0];
+            for (let file of selectedFiles) {
+                // DEBUG LOGGING
+                console.log(`--- PROCESSING FILE: ${file.name} ---`);
 
-            // DEBUG LOGGING
-            console.log('--- FILE SELECTED ---');
-            console.log(`Name: ${file.name}`);
-            console.log(`Type: ${file.type || 'Unknown'}`);
-            console.log(`Size: ${(file.size / 1024).toFixed(1)} KB`);
+                // Fix: iOS/Mobile missing type
+                const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
+                const ext = file.name.split('.').pop()?.toLowerCase() || '';
 
-            // Fix: iOS sometimes sends empty type or application/octet-stream
-            const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
-            const ext = file.name.split('.').pop()?.toLowerCase() || '';
+                if (!file.type.startsWith('image/') && !validExtensions.includes(ext)) {
+                    console.log(`Skipping Invalid File: ${file.name}`);
+                    continue; // Skip invalid
+                }
 
-            if (!file.type.startsWith('image/') && !validExtensions.includes(ext)) {
-                console.log(`File Rejected: Invalid Type (${file.type}) and Extension (${ext})`);
-                setErrorMsg('Please upload an image file (JPG, PNG).');
+                if (!file.type && validExtensions.includes(ext)) {
+                    const fixedType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
+                    file = new File([file.slice(0, file.size, fixedType)], file.name, { type: fixedType, lastModified: Date.now() });
+                }
+
+                // HEIC Conversion
+                const isHeic = file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif';
+                if (isHeic) {
+                    try {
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await convertHeicToJpg(formData);
+                        if (res.success && res.base64) {
+                            const base64Data = res.base64.split(',')[1];
+                            const byteCharacters = atob(base64Data);
+                            const byteArrays = [];
+                            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                                const slice = byteCharacters.slice(offset, offset + 512);
+                                const byteNumbers = new Array(slice.length);
+                                for (let i = 0; i < slice.length; i++) {
+                                    byteNumbers[i] = slice.charCodeAt(i);
+                                }
+                                byteArrays.push(new Uint8Array(byteNumbers));
+                            }
+                            const blob = new Blob(byteArrays, { type: 'image/jpeg' });
+                            file = new File([blob], file.name.replace(/\.(heic|HEIC|heif|HEIF)$/i, '.jpg'), { type: 'image/jpeg', lastModified: Date.now() });
+                        }
+                    } catch (err) {
+                        console.error('HEIC Error', err);
+                    }
+                }
+
+                // Compression
+                try {
+                    if (file.size > 1 * 1024 * 1024) { // 1MB threshold
+                        const compressed = await compressImage(file, 1500, 0.85);
+                        if (compressed.size < file.size) file = compressed;
+                    }
+                } catch (err) {
+                    console.error('Compression Error', err);
+                }
+
+                if (file.size > 4.5 * 1024 * 1024) {
+                    alert(`File ${file.name} is too large (>4.5MB). Skipping.`);
+                    continue;
+                }
+
+                processedFiles.push(file);
+                processedPreviews.push(URL.createObjectURL(file));
+            }
+
+            if (processedFiles.length === 0) {
+                setErrorMsg('No valid images selected.');
                 return;
             }
 
-            // If type is empty but extension is valid, force type to prevent downstream issues
-            if (!file.type && validExtensions.includes(ext)) {
-                console.log('Fixing missing file type based on extension...');
-                const fixedType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
-                file = new File([file.slice(0, file.size, fixedType)], file.name, { type: fixedType, lastModified: Date.now() });
-            }
-
-            // HEIC Detection & Conversion (Server-Side)
-            const isHeic = file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif';
-            if (isHeic) {
-                console.log('HEIC detected. Starting server-side conversion...');
-
-                try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    const res = await convertHeicToJpg(formData);
-
-                    if (res.success && res.base64) {
-                        console.log('Server conversion successful. Processing result...');
-
-                        // Convert Data URI to Blob directly
-                        const base64Data = res.base64.split(',')[1];
-                        const byteCharacters = atob(base64Data);
-                        const byteArrays = [];
-
-                        for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-                            const slice = byteCharacters.slice(offset, offset + 512);
-                            const byteNumbers = new Array(slice.length);
-                            for (let i = 0; i < slice.length; i++) {
-                                byteNumbers[i] = slice.charCodeAt(i);
-                            }
-                            const byteArray = new Uint8Array(byteNumbers);
-                            byteArrays.push(byteArray);
-                        }
-
-                        const blob = new Blob(byteArrays, { type: 'image/jpeg' });
-
-                        file = new File([blob], file.name.replace(/\.(heic|HEIC|heif|HEIF)$/i, '.jpg'), {
-                            type: 'image/jpeg',
-                            lastModified: Date.now()
-                        });
-
-                        console.log(`HEIC Converted Successfully. New Size: ${(file.size / 1024).toFixed(1)} KB`);
-
-                    } else {
-                        throw new Error(res.error || "Server conversion returned no data");
-                    }
-
-                } catch (heicError: any) {
-                    console.error('HEIC Conversion failed:', heicError);
-                    console.log(`HEIC Error: ${heicError.message}`);
-                    throw new Error('Could not convert HEIC image. Please try a JPG or PNG instead.');
-                }
-            }
-
-            // Iterative Compression Strategy
-            try {
-                // If file is > 4MB (safety margin for 4.5MB limit), strict compress
-                // If file is > 1MB, moderate compress
-                let currentFile = file;
-                let attempt = 0;
-                let maxDimension = 2000;
-                let quality = 0.9;
-
-                while (currentFile.size > 4 * 1024 * 1024 && attempt < 3) {
-                    console.log(`Attempt ${attempt + 1}: Compressing ${(currentFile.size / 1024 / 1024).toFixed(2)}MB image...`);
-
-                    // Progressive degradation
-                    if (attempt === 1) { maxDimension = 1500; quality = 0.8; }
-                    if (attempt === 2) { maxDimension = 1200; quality = 0.7; }
-
-                    const compressed = await compressImage(currentFile, maxDimension, quality);
-
-                    // Safety check: prevent infinite growth if compression fails or adds overhead
-                    if (compressed.size < currentFile.size) {
-                        currentFile = compressed;
-                    } else {
-                        // Compression didn't help (already optimized?), break to avoid loop
-                        console.log('Compression did not reduce file size.');
-                        break;
-                    }
-                    attempt++;
-                }
-
-                file = currentFile;
-                console.log(`Final File Size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
-
-            } catch (err) {
-                console.error('Compression failed:', err);
-                if (file.size > 4.5 * 1024 * 1024) {
-                    console.log('File Rejected: Compression failed & Too Large');
-                    throw new Error('Image too large and compression failed.');
-                }
-            }
-
-            // Final Safety Check
-            if (file.size > 4.5 * 1024 * 1024) {
-                console.log(`File Rejected: Still Too Large (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
-                throw new Error(`Image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 4.5MB.`);
-            }
-
-            setNewFile(file);
-            setPreview(URL.createObjectURL(file));
+            setNewFiles(processedFiles);
+            setPreviews(processedPreviews);
 
         } catch (err: any) {
             console.error('File processing error:', err);
-            console.log(`Error: ${err.message}`);
-            setErrorMsg(err.message || 'Failed to process image');
-            setNewFile(null); // Ensure no partial file is set
+            setErrorMsg(err.message || 'Failed to process images');
         } finally {
             setIsProcessing(false);
         }
@@ -223,14 +180,11 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
         setSuccessMsg(null);
 
         // DEBUG LOGGING FOR SUBMIT
-        console.log(`Submitting Form... Name: "${newName}", File: ${newFile ? newFile.name : 'NULL'}`);
-
-        if (!newFile || !newName) {
+        if (newFiles.length === 0 || !newName) {
             const missing = [];
-            if (!newFile) missing.push('File');
+            if (newFiles.length === 0) missing.push('File(s)');
             if (!newName) missing.push('Name');
             const msg = `Please provide: ${missing.join(' and ')}`;
-            console.log(`Validation Error: ${msg}`);
             setErrorMsg(msg);
             return;
         }
@@ -239,7 +193,11 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
         const formData = new FormData();
         formData.append('name', newName);
         formData.append('description', newDesc);
-        formData.append('file', newFile);
+
+        // Append all files
+        newFiles.forEach(file => {
+            formData.append('files', file);
+        });
 
         try {
             const res = await createStyle(formData);
@@ -424,21 +382,26 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Reference Image</label>
+                                    <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Reference Images (Select 1-3)</label>
                                     <div className="relative border-2 border-dashed border-[#333] rounded-lg p-8 text-center hover:border-[var(--primary)] transition-colors cursor-pointer">
                                         <input
                                             type="file"
                                             onChange={handleFileChange}
                                             className="absolute inset-0 opacity-0 cursor-pointer"
                                             accept="image/*"
-                                            required
+                                            multiple // Allow multiple
+                                            required={newFiles.length === 0}
                                         />
-                                        {preview ? (
-                                            <img src={preview} className="mx-auto h-32 object-contain rounded" />
+                                        {previews.length > 0 ? (
+                                            <div className="flex gap-2 justify-center flex-wrap">
+                                                {previews.map((p, i) => (
+                                                    <img key={i} src={p} className="h-20 w-20 object-cover rounded shadow" />
+                                                ))}
+                                            </div>
                                         ) : (
                                             <div className="space-y-2">
                                                 <ImageIcon className="w-8 h-8 text-gray-500 mx-auto" />
-                                                <p className="text-xs text-gray-500">Click to upload (JPG, PNG)</p>
+                                                <p className="text-xs text-gray-500">Click to upload multiple (JPG, PNG)</p>
                                             </div>
                                         )}
                                     </div>
@@ -446,8 +409,9 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
 
                                 <button
                                     type="submit"
-                                    disabled={isSubmitting || isProcessing || !newFile}
-                                    className={`w-full py-4 font-bold uppercase tracking-widest rounded transition-all mt-4 flex justify-center items-center gap-2 ${isSubmitting || isProcessing || !newFile ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[var(--primary)] text-black hover:brightness-110'}`}
+
+                                    disabled={isSubmitting || isProcessing || newFiles.length === 0}
+                                    className={`w-full py-4 font-bold uppercase tracking-widest rounded transition-all mt-4 flex justify-center items-center gap-2 ${isSubmitting || isProcessing || newFiles.length === 0 ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[var(--primary)] text-black hover:brightness-110'}`}
                                 >
                                     {isProcessing ? <><Loader2 className="animate-spin" /> Processing Image...</> : (isSubmitting ? <Loader2 className="animate-spin" /> : 'Create Style')}
                                 </button>

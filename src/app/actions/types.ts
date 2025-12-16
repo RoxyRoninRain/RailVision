@@ -35,4 +35,5 @@ export interface PortfolioItem {
     created_at?: string;
     is_active?: boolean;
     style_metadata?: any;
+    gallery?: string[];
 }

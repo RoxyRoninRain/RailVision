@@ -54,16 +54,77 @@ export async function generateDesign(formData: FormData) {
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
 
-        let styleInput: string | { base64StyleImage: string } = style;
+        let styleInput: string | { base64StyleImages: string[] } = style;
+        const styleId = formData.get('styleId') as string;
 
         if (styleFile) {
             const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
             const styleBase64 = styleBuffer.toString('base64');
-            styleInput = { base64StyleImage: styleBase64 };
+            styleInput = { base64StyleImages: [styleBase64] };
             console.log('[DEBUG] Using CUSTOM Style Image for Nano Banana fusion');
-        } else {
-            // Priority 2: Check for style_url (Preset or DB-loaded style)
+        } else if (styleId) {
+            // Priority 2: Check for Gallery in DB via styleId
+            try {
+                const supabase = await createClient();
+                const { data: styleData } = await supabase
+                    .from('portfolio')
+                    .select('gallery, image_url')
+                    .eq('id', styleId)
+                    .single();
+
+                if (styleData) {
+                    const imageUrls = styleData.gallery && styleData.gallery.length > 0
+                        ? styleData.gallery
+                        : (styleData.image_url ? [styleData.image_url] : []);
+
+                    if (imageUrls.length > 0) {
+                        console.log(`[DEBUG] Found ${imageUrls.length} reference images in gallery/portfolio.`);
+                        const styleBuffers = await Promise.all(imageUrls.map(async (url: string) => {
+                            try {
+                                // Handle relative public paths vs absolute URLs
+                                if (url.startsWith('/')) {
+                                    // Local file read
+                                    const fs = await import('fs');
+                                    const path = await import('path');
+                                    const filePath = path.join(process.cwd(), 'public', url);
+                                    if (fs.existsSync(filePath)) {
+                                        return fs.readFileSync(filePath);
+                                    }
+                                } else {
+                                    // Remote fetch
+                                    const res = await fetch(url);
+                                    if (res.ok) {
+                                        const arrBuf = await res.arrayBuffer();
+                                        return Buffer.from(arrBuf);
+                                    }
+                                }
+                                return null;
+                            } catch (e) {
+                                console.warn(`[DEBUG] Failed to load style image: ${url}`, e);
+                                return null;
+                            }
+                        }));
+
+                        const validBase64s = styleBuffers
+                            .filter(b => b !== null)
+                            .map(b => b!.toString('base64'));
+
+                        if (validBase64s.length > 0) {
+                            styleInput = { base64StyleImages: validBase64s };
+                            console.log(`[DEBUG] Successfully loaded ${validBase64s.length} style images for multi-shot generation.`);
+                        }
+                    }
+                }
+            } catch (dbErr) {
+                console.warn('[DEBUG] Failed to fetch style gallery from DB:', dbErr);
+            }
+        }
+
+        // Fallback: Check for style_url if logic above didn't set image input
+        // (This handles cases where DB lookup failed or styleId wasn't passed, but style_url was)
+        if (typeof styleInput === 'string') {
             const styleUrl = formData.get('style_url') as string;
+            // ... existing styleUrl logic ...
 
             if (styleUrl) {
                 try {
@@ -89,7 +150,7 @@ export async function generateDesign(formData: FormData) {
 
                     if (styleBuffer) {
                         const styleBase64 = styleBuffer.toString('base64');
-                        styleInput = { base64StyleImage: styleBase64 };
+                        styleInput = { base64StyleImages: [styleBase64] }; // Wrapped in array
                         console.log(`[DEBUG] Successfully loaded style image for Nano Banana fusion`);
                     } else {
                         console.warn('[DEBUG] Could not load style image from URL, falling back to text.');

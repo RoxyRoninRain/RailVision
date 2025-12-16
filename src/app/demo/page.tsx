@@ -59,7 +59,9 @@ export default async function Page({
         { id: '5', name: 'Art Deco', description: 'Bold geometric patterns and luxury', image_url: '/styles/artdeco.png' },
     ];
 
-    const safeStyles = (styles.length > 0 || orgId) ? styles : defaultStyles; // If orgId exists but styles=[], we pass [], allowing DesignStudio to handle "No Styles" instead of forcing defaults.
+    // If we found specific styles in the DB, use them.
+    // Otherwise, show the high-quality defaults (Placeholders) until the user adds their own.
+    const safeStyles = styles.length > 0 ? styles : defaultStyles;
 
     // Wait, if safeStyles is [] DesignStudio crashes. 
     // If orgId exists and styles is empty, we must ensure DesignStudio can handle it.

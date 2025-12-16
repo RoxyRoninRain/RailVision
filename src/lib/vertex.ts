@@ -47,7 +47,7 @@ export const getGeminiModel = () => {
 // Update return type
 export async function generateDesignWithNanoBanana(
     base64TargetImage: string,
-    styleInput: string | { base64StyleImage: string },
+    styleInput: string | { base64StyleImages: string[] },
     promptConfig?: { systemInstruction: string; userTemplate: string; negative_prompt?: string }
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     try {
@@ -81,29 +81,31 @@ Using your analysis, generate a pixel-perfect renovation.
             }
         });
 
-        // 2. Add Style Reference if image-based
+        // 2. Add Style References if image-based
         if (typeof styleInput !== 'string') {
-            parts.push({
-                inlineData: {
-                    mimeType: 'image/jpeg',
-                    data: styleInput.base64StyleImage
-                }
+            styleInput.base64StyleImages.forEach(imgBase64 => {
+                parts.push({
+                    inlineData: {
+                        mimeType: 'image/jpeg',
+                        data: imgBase64
+                    }
+                });
             });
         }
 
         // 3. Construct Text Prompt
         // Use userTemplate if provided, otherwise fallback
-        let promptText = promptConfig?.userTemplate || `[Input: Source Image (The space to renovate), Style Reference Image (The desired handrail design)]
+        let promptText = promptConfig?.userTemplate || `[Input: Source Image (The space to renovate), Style Reference Images (The desired handrail design)]
 Command: 
 1. Analyze the GEOMETRY of the Source Image (stairs, walls, lighting).
-2. Analyze the HANDRAIL STYLE of the Reference Image. Focus ONLY on the railing materials, shape, and mounting hardware. Ignore the flooring, walls, or other elements in the reference.
-3. GENERATE the renovation: Replace the existing handrail in the Source Image with the Handrail Style from the Reference Image.
+2. Analyze the HANDRAIL STYLE of the Reference Images. Focus ONLY on the railing materials, shape, and mounting hardware. Ignore the flooring, walls, or other elements in the references.
+3. GENERATE the renovation: Replace the existing handrail in the Source Image with the Handrail Style from the Reference Images.
 4. CONSTRAINT: You must STRICTLY preserve the original stair geometry and lighting of the Source Image.`;
 
         // VARIABLE REPLACEMENT: {{style}}
         // If the user uses {{style}} in their prompt, we replace it with the style description.
         // If not, we append the style description at the end.
-        const styleText = typeof styleInput === 'string' ? styleInput : "the attached Style Reference Image";
+        const styleText = typeof styleInput === 'string' ? styleInput : "the attached Style Reference Images";
 
         if (promptText.includes('{{style}}')) {
             promptText = promptText.replace('{{style}}', styleText);

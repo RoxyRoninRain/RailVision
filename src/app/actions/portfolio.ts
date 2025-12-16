@@ -10,49 +10,60 @@ export async function createStyle(formData: FormData) {
 
     if (!user) return { error: 'Not authenticated' };
 
-    // 1. Validate File
-    const file = formData.get('file') as File;
-    if (!file) return { error: 'No file uploaded' };
+    // 1. Validate Files
+    // Support legacy 'file' or new 'files' keys
+    const files = formData.getAll('files') as File[];
+    const singleFile = formData.get('file') as File;
 
-    // STRICT SERVER-SIDE VALIDATION
-    // 4.5MB Limit (slightly under 5MB to be safe)
+    // Consolidate
+    let allFiles: File[] = [];
+    if (files && files.length > 0) allFiles = files;
+    else if (singleFile) allFiles = [singleFile];
+
+    if (allFiles.length === 0) return { error: 'No files uploaded' };
+
+    // Limit: Max 4 images (1 Main + 3 Refs) usually, but code handles N
+    if (allFiles.length > 5) return { error: 'Too many files (Max 5)' };
+
+    const galleryUrls: string[] = [];
     const MAX_SIZE = 4.5 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-        return { error: `File too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Max allowed is 4.5MB.` };
+
+    // 2. Upload Loop
+    for (const file of allFiles) {
+        if (file.size > MAX_SIZE) {
+            return { error: `File ${file.name} too large. Max 4.5MB.` };
+        }
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('portfolio')
+            .upload(fileName, file, { contentType: file.type, upsert: false });
+
+        if (uploadError) {
+            console.error('Upload Error:', uploadError);
+            return { error: 'Upload failed for ' + file.name };
+        }
+
+        const { data: publicUrlData } = supabase.storage.from('portfolio').getPublicUrl(fileName);
+        galleryUrls.push(publicUrlData.publicUrl);
     }
 
     const name = formData.get('name') as string;
     const desc = formData.get('description') as string;
 
+    // 3. Insert into DB
+    // First image is "image_url" (Thumbnail/Main), Rest are "gallery" (including the first one? Or just extras? Let's put ALL in gallery, and first in image_url)
+    const mainImage = galleryUrls[0];
 
-    // 2. Upload Image to 'portfolio' bucket
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-
-    const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('portfolio')
-        .upload(fileName, file, {
-            contentType: file.type,
-            upsert: false
-        });
-
-    if (uploadError) {
-        console.error('Upload Error:', uploadError);
-        return { error: 'Upload failed: ' + uploadError.message };
-    }
-
-    // 3. Get Public URL
-    const { data: publicUrlData } = supabase.storage
-        .from('portfolio')
-        .getPublicUrl(fileName);
-
-    // 4. Insert into DB
     const { data, error: dbError } = await supabase
         .from('portfolio')
         .insert({
             name,
             description: desc,
-            image_url: publicUrlData.publicUrl,
+            image_url: mainImage,
+            gallery: galleryUrls, // Save all images
             tenant_id: user.id,
             is_active: true
         })
@@ -61,11 +72,9 @@ export async function createStyle(formData: FormData) {
 
     if (dbError) {
         console.error('DB Insert Error:', dbError);
-        // Optional: Cleanup file if DB fails
         return { error: 'Database error: ' + dbError.message };
     }
 
-    // 5. Done
     return { success: true };
 }
 
@@ -180,7 +189,7 @@ export async function getPublicStyles(tenantId: string) {
 
     const { data, error } = await supabase
         .from('portfolio')
-        .select('id, name, description, image_url')
+        .select('id, name, description, image_url, gallery')
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -201,7 +210,8 @@ export async function getStyles(tenantId?: string) {
     const supabase = await createClient();
     const { data } = await supabase
         .from('portfolio')
-        .select('id, name, description, image_url') // Select minimal fields to match 'style' interface
+        .from('portfolio')
+        .select('id, name, description, image_url, gallery') // Select gallery too
         .eq('tenant_id', tenantId);
 
     if (data && data.length > 0) {
