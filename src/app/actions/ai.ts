@@ -113,7 +113,8 @@ export async function generateDesign(formData: FormData) {
         if (promptData) {
             promptConfig = {
                 systemInstruction: promptData.system_instruction,
-                userTemplate: promptData.user_template
+                userTemplate: promptData.user_template,
+                negative_prompt: promptData.negative_prompt
             };
             console.log('[DEBUG] Using active dynamic prompt from DB:', promptData.key);
         } else {

@@ -173,12 +173,13 @@ export interface SystemPrompt {
     key: string;
     system_instruction: string;
     user_template: string;
+    negative_prompt?: string | null;
     description?: string;
     created_at?: string;
     is_active?: boolean;
 }
 
-export async function createSystemPrompt(key: string, instruction: string, template: string) {
+export async function createSystemPrompt(key: string, instruction: string, template: string, negativePrompt?: string) {
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
@@ -197,6 +198,7 @@ export async function createSystemPrompt(key: string, instruction: string, templ
             key,
             system_instruction: instruction,
             user_template: template,
+            negative_prompt: negativePrompt || null,
             is_active: false // Default to inactive
         });
 
@@ -299,6 +301,7 @@ export async function testDesignGeneration(formData: FormData) {
     const styleFile = formData.get('style_image') as File;
     const systemInstruction = formData.get('system_instruction') as string;
     const userTemplate = formData.get('user_template') as string;
+    const negativePrompt = formData.get('negative_prompt') as string;
 
     if (!imageFile || !styleFile) {
         return { error: 'Both Source Image and Style Image are required for testing.' };
@@ -316,7 +319,8 @@ export async function testDesignGeneration(formData: FormData) {
         // 3. Prepare Config
         const promptConfig = {
             systemInstruction: systemInstruction,
-            userTemplate: userTemplate
+            userTemplate: userTemplate,
+            negative_prompt: negativePrompt
         };
 
         // 4. Call Vertex

@@ -10,6 +10,7 @@ interface PromptEditorProps {
 export function PromptEditor({ initialPrompt }: PromptEditorProps) {
     const [systemInstruction, setSystemInstruction] = useState(initialPrompt?.system_instruction || '');
     const [userTemplate, setUserTemplate] = useState(initialPrompt?.user_template || '');
+    const [negativePrompt, setNegativePrompt] = useState(initialPrompt?.negative_prompt || '');
     const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
     const [msg, setMsg] = useState('');
 
@@ -17,6 +18,7 @@ export function PromptEditor({ initialPrompt }: PromptEditorProps) {
         if (initialPrompt) {
             setSystemInstruction(initialPrompt.system_instruction);
             setUserTemplate(initialPrompt.user_template);
+            setNegativePrompt(initialPrompt.negative_prompt || '');
         }
     }, [initialPrompt]);
 
@@ -24,9 +26,13 @@ export function PromptEditor({ initialPrompt }: PromptEditorProps) {
         setStatus('saving');
         setMsg('');
 
-        const result = await updateSystemPrompt('gemini-handrail-main', {
+        // Use the initial prompt key if available, otherwise default
+        const keyToUpdate = initialPrompt?.key || 'gemini-handrail-main';
+
+        const result = await updateSystemPrompt(keyToUpdate, {
             system_instruction: systemInstruction,
-            user_template: userTemplate
+            user_template: userTemplate,
+            negative_prompt: negativePrompt
         });
 
         if (result.success) {
@@ -40,7 +46,6 @@ export function PromptEditor({ initialPrompt }: PromptEditorProps) {
     };
 
     const handleReset = () => {
-        // Reset to Hybrid default (hardcoded here for convenience in UI, or could fetch "default" key)
         if (confirm('Reset to default Hybrid Architect strategy?')) {
             setSystemInstruction(`You are a world-renowned architectural visualization expert. Your goal is to produce indistinguishable-from-reality renovations.
 
@@ -57,11 +62,22 @@ Using your analysis, generate a pixel-perfect renovation.
 
             setUserTemplate(`[Input: Source Image, Style Reference Image]
 Command: Analyze the geometry of the Source Image and the style of the Reference Image. Then, generate the renovation. STRICTLY adhere to the geometry of the source.`);
+            setNegativePrompt('');
         }
     };
 
     return (
         <div className="bg-zinc-900 border border-zinc-800 p-6 rounded-lg max-w-4xl mx-auto space-y-6 text-zinc-200">
+            {/* Banner for Advanced Mode */}
+            <div className="bg-blue-900/20 border border-blue-900/50 p-3 rounded flex items-center justify-between text-xs mb-4">
+                <span className="text-blue-200">
+                    Want to manage multiple prompts, run tests, or create new versions?
+                </span>
+                <a href="/admin/prompts" className="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded font-bold uppercase tracking-wider transition-colors">
+                    Go to Advanced Editor
+                </a>
+            </div>
+
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-white">Gemini 3 Pro Configuration</h2>
                 <div className="flex gap-2">
@@ -106,8 +122,22 @@ Command: Analyze the geometry of the Source Image and the style of the Reference
                 />
             </div>
 
+            <div className="space-y-2">
+                <label className="block text-sm font-medium text-zinc-400">Negative Prompt (Constraints)</label>
+                <p className="text-xs text-zinc-500">Elements to explicitly avoid (e.g. text, watermarks).</p>
+                <textarea
+                    value={negativePrompt}
+                    onChange={e => setNegativePrompt(e.target.value)}
+                    className="w-full h-24 bg-zinc-950 border border-zinc-800 rounded p-4 font-mono text-xs leading-relaxed focus:border-red-500 focus:outline-none resize-y text-red-300"
+                    placeholder="Enter negative constraints..."
+                />
+            </div>
+
             <div className="text-xs text-zinc-600 border-t border-zinc-800 pt-4">
-                <p>Key: <span className="font-mono text-zinc-500">gemini-handrail-main</span></p>
+                <p>Editing Key: <span className="font-mono text-zinc-500">{initialPrompt?.key || 'gemini-handrail-main'}</span></p>
+                {initialPrompt?.key === 'gemini-3-optimized-v2' && (
+                    <span className="text-green-500 ml-2 font-bold uppercase text-[10px] tracking-wider">● Optimized V2 Loaded</span>
+                )}
             </div>
         </div>
     );

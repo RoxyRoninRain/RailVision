@@ -1,0 +1,2 @@
+ALTER TABLE system_prompts
+ADD COLUMN IF NOT EXISTS negative_prompt TEXT DEFAULT NULL;

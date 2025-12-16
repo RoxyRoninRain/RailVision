@@ -16,6 +16,7 @@ export default function PromptsPage() {
     // Editor State
     const [editInstruction, setEditInstruction] = useState('');
     const [editTemplate, setEditTemplate] = useState('');
+    const [editNegative, setEditNegative] = useState('');
 
     // Create State
     const [showCreate, setShowCreate] = useState(false);
@@ -61,6 +62,7 @@ export default function PromptsPage() {
         setSelectedPrompt(prompt);
         setEditInstruction(prompt.system_instruction);
         setEditTemplate(prompt.user_template);
+        setEditNegative(prompt.negative_prompt || '');
         setSaveStatus('idle');
     };
 
@@ -71,7 +73,8 @@ export default function PromptsPage() {
 
         const res = await updateSystemPrompt(selectedPrompt.key, {
             system_instruction: editInstruction,
-            user_template: editTemplate
+            user_template: editTemplate,
+            negative_prompt: editNegative
         });
 
         if (res.success) {
@@ -79,7 +82,7 @@ export default function PromptsPage() {
             // Update local list
             setPrompts(prev => prev.map(p =>
                 p.key === selectedPrompt.key
-                    ? { ...p, system_instruction: editInstruction, user_template: editTemplate }
+                    ? { ...p, system_instruction: editInstruction, user_template: editTemplate, negative_prompt: editNegative }
                     : p
             ));
         } else {
@@ -159,6 +162,7 @@ export default function PromptsPage() {
         // Pass the CURRENT edits, allowing live testing before save
         formData.append('system_instruction', editInstruction);
         formData.append('user_template', editTemplate);
+        formData.append('negative_prompt', editNegative);
 
         const res = await testDesignGeneration(formData);
 
@@ -358,6 +362,21 @@ export default function PromptsPage() {
                                     />
                                     <p className="text-[10px] text-gray-600 mt-2 font-mono">
                                         Structure of the user's request. Use {'{{variable}}'} placeholders if applicable.
+                                    </p>
+                                </div>
+
+                                {/* NEGATIVE PROMPT */}
+                                <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden bg-[#0a0a0a]">
+                                    <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3 block">Negative Prompt (Constraints)</label>
+                                    <textarea
+                                        value={editNegative}
+                                        onChange={e => setEditNegative(e.target.value)}
+                                        className="flex-1 w-full bg-[#050505] border border-white/10 p-4 rounded text-sm text-red-300 font-mono leading-relaxed outline-none focus:border-red-500/50 resize-none selection:bg-red-500/20"
+                                        spellCheck={false}
+                                        placeholder="Things to avoid..."
+                                    />
+                                    <p className="text-[10px] text-gray-600 mt-2 font-mono">
+                                        Explicitly forbidden elements (e.g. text, watermarks, bad geometry).
                                     </p>
                                 </div>
 

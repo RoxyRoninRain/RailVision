@@ -1,13 +1,11 @@
-import { getSystemPrompt } from '../actions';
+import { getSystemPrompt, getActiveSystemPrompt } from '../actions';
 import { PromptEditor } from './PromptEditor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AIConfigPage() {
-    // Fetch the prompt server-side
-    // If table doesn't exist yet (migration pending), this returns null.
-    // The Editor handles null by showing defaults.
-    const promptData = await getSystemPrompt('gemini-handrail-main');
+    // Fetch the active prompt (or fallback to default if none active)
+    const promptData = await getActiveSystemPrompt();
 
     return (
         <div className="p-8 space-y-8 bg-zinc-950 min-h-screen text-zinc-200">

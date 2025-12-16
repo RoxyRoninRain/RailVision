@@ -48,7 +48,7 @@ export const getGeminiModel = () => {
 export async function generateDesignWithNanoBanana(
     base64TargetImage: string,
     styleInput: string | { base64StyleImage: string },
-    promptConfig?: { systemInstruction: string; userTemplate: string }
+    promptConfig?: { systemInstruction: string; userTemplate: string; negative_prompt?: string }
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     try {
         console.log('[NANO BANANA] Initializing generation...');
@@ -112,7 +112,10 @@ Command:
             promptText += `\n\nTarget Style: "${styleInput}"`;
         }
 
-
+        // 4. Append Negative Prompt if provided
+        if (promptConfig?.negative_prompt) {
+            promptText += `\n\nNEGATIVE CONSTRAINTS (MUST AVOID): ${promptConfig.negative_prompt}`;
+        }
 
         parts.push({ text: promptText });
 
