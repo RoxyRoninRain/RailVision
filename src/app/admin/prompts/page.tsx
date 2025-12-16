@@ -256,10 +256,10 @@ export default function PromptsPage() {
 
                     <div className="flex-1 overflow-y-auto p-2 space-y-1">
                         {prompts.map(prompt => (
-                            <button
+                            <div
                                 key={prompt.key}
                                 onClick={() => selectPrompt(prompt)}
-                                className={`w-full text-left p-3 rounded group relative transition-all border ${selectedPrompt?.key === prompt.key
+                                className={`w-full text-left p-3 rounded group relative transition-all border cursor-pointer ${selectedPrompt?.key === prompt.key
                                     ? 'bg-red-900/10 border-red-900/40 text-white shadow-[0_0_15px_rgba(220,38,38,0.15)]'
                                     : 'bg-transparent border-transparent text-gray-400 hover:bg-white/5 hover:text-gray-200'
                                     }`}
@@ -279,18 +279,15 @@ export default function PromptsPage() {
 
                                 {/* Hover Actions */}
                                 {!prompt.is_active && (
-                                    <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <div
-                                            role="button"
-                                            onClick={(e) => handleActivateClick(prompt.key, e)}
-                                            className="p-1.5 bg-zinc-800 hover:bg-green-700 text-gray-400 hover:text-white rounded-full"
-                                            title="Make Live Check"
-                                        >
-                                            <Power size={12} />
-                                        </div>
-                                    </div>
+                                    <button
+                                        onClick={(e) => handleActivateClick(prompt.key, e)}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 bg-zinc-800 hover:bg-green-700 text-gray-400 hover:text-white rounded-full z-10"
+                                        title="Make Live Check"
+                                    >
+                                        <Power size={12} />
+                                    </button>
                                 )}
-                            </button>
+                            </div>
                         ))}
                     </div>
                 </div>
