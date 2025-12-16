@@ -97,7 +97,7 @@ export default async function Page({
 
             // Support comma-separated list of allowed domains
             const rawAllowed = tenantProfile.website || '';
-            const allowedDomains = rawAllowed.split(',').map(d => normalize(d)).filter(Boolean);
+            const allowedDomains = rawAllowed.split(',').map((d: string) => normalize(d)).filter(Boolean);
 
             const isLocalhost = origin.includes('localhost');
             const isRailify = origin.endsWith('railify.app');
