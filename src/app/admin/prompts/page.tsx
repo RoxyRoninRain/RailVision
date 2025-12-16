@@ -337,8 +337,8 @@ export default function PromptsPage() {
                             {/* EDITOR SPLIT */}
                             <div className="flex-1 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/10 overflow-hidden">
 
-                                {/* SYSTEM PROMPT */}
-                                <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
+                                {/* SYSTEM PROMPT (Left Column - 60% width ideal, but flex-1 is fine for split) */}
+                                <div className="flex-[3] flex flex-col p-4 md:p-6 overflow-hidden">
                                     <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3 block">System Instruction (The "Brain")</label>
                                     <textarea
                                         value={editInstruction}
@@ -351,33 +351,38 @@ export default function PromptsPage() {
                                     </p>
                                 </div>
 
-                                {/* USER TEMPLATE */}
-                                <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden bg-[#080808]">
-                                    <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3 block">User Template (The "Input")</label>
-                                    <textarea
-                                        value={editTemplate}
-                                        onChange={e => setEditTemplate(e.target.value)}
-                                        className="flex-1 w-full bg-[#0a0a0a] border border-white/10 p-4 rounded text-sm text-blue-300 font-mono leading-relaxed outline-none focus:border-blue-500/50 resize-none selection:bg-blue-500/20"
-                                        spellCheck={false}
-                                    />
-                                    <p className="text-[10px] text-gray-600 mt-2 font-mono">
-                                        Structure of the user's request. Use {'{{variable}}'} placeholders if applicable.
-                                    </p>
-                                </div>
+                                {/* RIGHT COLUMN (User Template + Negative Prompt) */}
+                                <div className="flex-[2] flex flex-col divide-y divide-white/10 overflow-hidden bg-[#080808]">
 
-                                {/* NEGATIVE PROMPT */}
-                                <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden bg-[#0a0a0a]">
-                                    <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3 block">Negative Prompt (Constraints)</label>
-                                    <textarea
-                                        value={editNegative}
-                                        onChange={e => setEditNegative(e.target.value)}
-                                        className="flex-1 w-full bg-[#050505] border border-white/10 p-4 rounded text-sm text-red-300 font-mono leading-relaxed outline-none focus:border-red-500/50 resize-none selection:bg-red-500/20"
-                                        spellCheck={false}
-                                        placeholder="Things to avoid..."
-                                    />
-                                    <p className="text-[10px] text-gray-600 mt-2 font-mono">
-                                        Explicitly forbidden elements (e.g. text, watermarks, bad geometry).
-                                    </p>
+                                    {/* USER TEMPLATE (Top Half) */}
+                                    <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden">
+                                        <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3 block">User Template (The "Input")</label>
+                                        <textarea
+                                            value={editTemplate}
+                                            onChange={e => setEditTemplate(e.target.value)}
+                                            className="flex-1 w-full bg-[#0a0a0a] border border-white/10 p-4 rounded text-sm text-blue-300 font-mono leading-relaxed outline-none focus:border-blue-500/50 resize-none selection:bg-blue-500/20"
+                                            spellCheck={false}
+                                        />
+                                        <p className="text-[10px] text-gray-600 mt-2 font-mono">
+                                            Structure of the user's request. Use {'{{variable}}'} placeholders.
+                                        </p>
+                                    </div>
+
+                                    {/* NEGATIVE PROMPT (Bottom Half) */}
+                                    <div className="flex-1 flex flex-col p-4 md:p-6 overflow-hidden bg-[#050505]">
+                                        <label className="text-[10px] font-mono text-gray-500 uppercase tracking-widest mb-3 block">Negative Prompt (Constraints)</label>
+                                        <textarea
+                                            value={editNegative}
+                                            onChange={e => setEditNegative(e.target.value)}
+                                            className="flex-1 w-full bg-[#0a0a0a] border border-white/10 p-4 rounded text-sm text-red-300 font-mono leading-relaxed outline-none focus:border-red-500/50 resize-none selection:bg-red-500/20"
+                                            spellCheck={false}
+                                            placeholder="Things to avoid..."
+                                        />
+                                        <p className="text-[10px] text-gray-600 mt-2 font-mono">
+                                            Explicitly forbidden elements (e.g. text, watermarks, bad geometry).
+                                        </p>
+                                    </div>
+
                                 </div>
 
                             </div>
