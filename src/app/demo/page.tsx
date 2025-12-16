@@ -82,12 +82,32 @@ export default async function Page({
             const allowedOrigin = tenantProfile.website.replace(/\/$/, ''); // Remove trailing slash if saved
 
             // Whitelist Logic
+            const normalize = (url: string) => {
+                try {
+                    // If it doesn't start with http, assume it's a domain and prepend https for URL parsing,
+                    // or just strip protocol manually if we want to compare domains.
+                    // Easier: strip protocol and www.
+                    return url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '').toLowerCase().trim();
+                } catch (e) {
+                    return '';
+                }
+            };
+
+            const currentDomain = normalize(origin);
+            const allowedDomain = normalize(tenantProfile.website);
+
             const isLocalhost = origin.includes('localhost');
             const isRailify = origin.endsWith('railify.app');
-            const isAllowed = origin === allowedOrigin;
+            // Check if normalized domains match (e.g. "example.com" === "example.com")
+            // Also check if the current domain ends with the allowed domain (subdomain allowance) 
+            // e.g. "shop.example.com" ends with "example.com" -> Allow? 
+            // For now, strict domain match (ignoring www) is safest unless user wants subdomains.
+            // Let's allow subdomains if they match explicitly or if it's a direct match.
+            const isAllowed = currentDomain === allowedDomain || (allowedDomain && currentDomain.endsWith('.' + allowedDomain));
 
             // Allow if: Localhost OR Railify OR Matches User's Website OR is Mississippi Metal Magic (Legacy)
             if (!isLocalhost && !isRailify && !isAllowed && origin !== 'https://mississippimetalmagic.com') {
+                console.error(`[Security Block] Origin: ${origin} (${currentDomain}) | Allowed: ${tenantProfile.website} (${allowedDomain})`);
                 return (
                     <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-8 text-center font-sans">
                         <div className="w-16 h-16 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 mb-6">
@@ -97,13 +117,15 @@ export default async function Page({
                         <p className="text-gray-400 max-w-md mb-8">
                             This embed is not authorized to run on <code>{origin}</code>.
                         </p>
-                        <div className="bg-[#111] border border-white/10 rounded-lg p-4 max-w-sm w-full text-left">
-                            <p className="text-xs text-gray-500 uppercase font-mono mb-2">How to fix this</p>
-                            <p className="text-sm text-gray-300">
-                                1. Log in to your <span className="text-primary font-bold">Railify Dashboard</span>.<br />
-                                2. Go to <strong>Widget Integration</strong>.<br />
-                                3. Add <code>{origin}</code> as your authorized domain.
-                            </p>
+                        <div className="bg-[#111] border border-white/10 rounded-lg p-6 max-w-md w-full text-left space-y-4">
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase font-mono mb-1">Detected Origin</p>
+                                <code className="text-red-400 block bg-red-900/10 p-2 rounded text-sm">{origin}</code>
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase font-mono mb-1">Configured Website</p>
+                                <code className="text-green-400 block bg-green-900/10 p-2 rounded text-sm">{tenantProfile.website || 'Not Set'}</code>
+                            </div>
                         </div>
                     </div>
                 );
