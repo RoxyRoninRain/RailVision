@@ -1,0 +1,42 @@
+# Workflow: Project Initialization
+# Trigger: /init
+
+This workflow interviews the user to populate the global rules and memory files. It turns a generic template into a specific project configuration.
+
+## Phase 1: The Interview
+1.  **Greeting**: "Hello! Let's set up your new project. I need to ask you 4 questions to configure my brain."
+2.  **Question Loop** (Ask one by one, wait for answer):
+    *   **Q1 (Vision)**: "What are we building in one sentence? (This goes into your PRD)"
+    *   **Q2 (Stack)**: "What language and framework do you want to use? (e.g., Python/FastAPI, Node/React)"
+    *   **Q3 (Database)**: "Will you need a database? If so, which one? (SQLite is good for simple apps, Postgres for scale)"
+    *   **Q4 (Style)**: "Any specific styling or libraries you love? (e.g., Tailwind, Bootstrap)"
+
+## Phase 2: Configuration (The Scribe)
+*Using the user's answers, update the following files:*
+
+1.  **Update `.agent/memory/project-summary.md`**:
+    - Fill in "Vision".
+    - Fill in "Tech Stack Overview".
+    - Set Status to "Planning".
+
+2.  **Update `.agent/rules/tech-stack.md`**:
+    - Replace the `[bracketed placeholders]` with the user's answers.
+    - Set the Package Manager (guess based on language, e.g., Python -> pip/poetry).
+
+3.  **Update `.agent/memory/structure.md`**:
+    - Based on the stack (e.g., React vs Python), clear the generic examples and list the *actual* standard folders for that stack.
+
+## Phase 3: The Scaffolding
+1.  **Proposal**: "Based on your answers, I recommend this folder structure:"
+    - [List root folders]
+2.  **Action**: Ask "Shall I create these folders, the README, and configure gitignore now?"
+3.  **Execution**:
+    - Create the folders.
+    - Create a `README.md` with the project name and vision.
+    - **Git Configuration**:
+        - Check if `.gitignore` exists (create if missing).
+        - Append `.agent/memory/scratchpad.md` to `.gitignore`.
+        - Append `.env` and `__pycache__` / `node_modules` (based on tech stack) to `.gitignore`.
+
+## Phase 4: Handoff
+- "Setup complete. Your agent is configured. You can now run `/plan` or `/feature` to start building."

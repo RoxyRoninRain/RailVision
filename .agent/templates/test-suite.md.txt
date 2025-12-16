@@ -1,0 +1,18 @@
+# Universal Test Suite Template
+
+## 1. Setup
+- Import the module to be tested.
+- Import testing utilities (mocks, fixtures).
+
+## 2. Test Group: Happy Paths (Standard Success)
+- **Test Case**: "Should return X when given Y"
+    - **Arrange**: Set up valid input data.
+    - **Act**: Call the function.
+    - **Assert**: Check result equals expected output.
+
+## 3. Test Group: Edge Cases (Failures)
+- **Test Case**: "Should throw error when input is null"
+- **Test Case**: "Should handle empty lists/arrays gracefully"
+
+## 4. Teardown (Optional)
+- Clean up database or mocks after tests run.

@@ -1,0 +1,16 @@
+# Code Quality Standards
+
+## Readability & Style
+- **Comments**: Comments must explain *WHY* logic exists, not *WHAT* it does.
+    - *Bad*: `i += 1 # increment i`
+    - *Good*: `i += 1 # offset index to skip the header row`
+- **Naming**: Variables must be descriptive. `user_data` is better than `obj`.
+- **Function Length**: If a function exceeds [50] lines, refactor it into smaller helper functions.
+
+## Error Handling
+- **No Silent Failures**: Never use empty `try/catch` blocks. Log the error or re-raise it.
+- **User Feedback**: Errors expected to be seen by users must be descriptive (not "Error 500").
+
+## Testing Requirements
+- **Golden Rule**: Logic is not "Done" until it has a test.
+- **Mocking**: Mock external API calls; do not hit real servers during tests.

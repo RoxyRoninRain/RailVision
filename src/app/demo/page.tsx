@@ -1,4 +1,4 @@
-import DesignStudio from '../DesignStudio';
+import DesignStudio from '@/components/design-studio/DesignStudio';
 import { getStyles, getPublicStyles, getTenantLogo } from '../actions';
 import { createClient } from '@/lib/supabase/server';
 import { headers } from 'next/headers';

@@ -1,0 +1,16 @@
+# Git & Version Control Standards
+
+## Commit Messages
+Follow the **Conventional Commits** pattern:
+- `feat: add user login page`
+- `fix: resolve crash on mobile`
+- `docs: update readme with api keys`
+- `refactor: clean up auth logic`
+
+## Branching Strategy
+- Main Branch: `main` (Production ready code only)
+- Feature Branch: `feature/name-of-feature`
+- Fix Branch: `fix/issue-description`
+
+## Pull Request / Merge Rules
+- PR descriptions must include "Testing Steps" so the human knows how to verify the work.

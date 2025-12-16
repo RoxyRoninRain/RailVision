@@ -1,0 +1,17 @@
+## Summary
+- **What changed?**: {{Brief description of the feature or fix}}
+- **Why?**: {{Link to the issue or user request this addresses}}
+
+## Changes
+- [ ] Modified `{{file_name}}` to handle logic X.
+- [ ] Created `{{file_name}}` for new component Y.
+
+## Testing Steps
+1. Run command: `{{command}}`
+2. Navigate to: `{{url or path}}`
+3. Verify that: `{{expected behavior}}`
+
+## Checklist
+- [ ] Tests passed locally.
+- [ ] No hardcoded secrets or API keys.
+- [ ] Documentation updated (if applicable).

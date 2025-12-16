@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { InputSanitizer } from '@/components/security/InputSanitizer';
-import { generateDesign, submitLead, convertHeicToJpg } from './actions';
+import { generateDesign, submitLead, convertHeicToJpg } from '@/app/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Upload, Check, Loader2, ArrowRight, MousePointerClick, TrendingUp, AlertCircle, Quote,
@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
-import StyleControls from './StyleControls';
+import StyleControls from '@/components/StyleControls';
 import { DownloadGateModal } from '@/components/DownloadGateModal';
 
 interface style {
@@ -233,9 +233,9 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             const response = await generateDesign(formData);
             console.log("generateDesign response:", response);
 
-            if (response.success && response.data) {
+            if (response.success && response.image) {
                 console.log("Success! Setting result.");
-                setResult(response.data);
+                setResult(response.image);
             } else {
                 console.error("Generation failed:", response.error);
                 setError(response.error || "Generation failed");
@@ -803,14 +803,6 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {/* Email Gate Modal */}
-            <DownloadGateModal
-                isOpen={showGate}
-                onClose={() => setShowGate(false)}
-                onSubmit={handleGateSubmit}
-            />
-
         </main>
     );
 }

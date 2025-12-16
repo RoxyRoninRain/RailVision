@@ -1,0 +1,44 @@
+# Workflow: Feature Kickoff (Architect/Mentor Hybrid)
+# Trigger: /feature [description] or /plan [description]
+
+This workflow prioritizes a clear understanding of logic before coding, robust documentation updates, and efficient batch execution.
+
+## Phase 1: Context & Feasibility (The Architect)
+1.  **Ingest Global Rules**:
+    - [ ] Read `.agent/rules/tech-stack.md` to identify allowed languages.
+    - [ ] Read `.agent/memory/roadmap.md` and `.agent/memory/project-summary.md` (PRD) to align with goals.
+    - [ ] **Constraint**: Do not introduce new heavy dependencies (npm/pip) without explicitly highlighting them in the plan.
+
+## Phase 2: The Logic Brief (The Mentor)
+1.  **Restatement**: Summarize the user's goal in one sentence.
+2.  **Pseudo-Code Explanation**:
+    - Write the logic in plain English/Pseudo-code *before* writing code.
+    - *Example: "Check inputs -> If valid, query DB -> Return JSON."*
+    - Explain *why* you are choosing this specific approach/pattern.
+3.  **The Blueprint**:
+    - List all files to be created or modified.
+    - **Rollback Strategy**: Explicitly state: "If this goes wrong, deleting folder X and reverting file Y will clean it up."
+
+## Phase 3: The Gate (User Approval)
+- [ ] **STOP**. Present the Logic Brief and Blueprint.
+- [ ] Ask: "Does this logic hold up? Say 'Go' to execute the build."
+- [ ] *Wait for user confirmation.*
+
+## Phase 4: Batch Execution (The Builder)
+*Proceed immediately after "Go". do not stop for individual file reviews unless an error occurs.*
+
+1.  **Scaffolding**: Create necessary folders/empty files.
+2.  **Implementation**: Write the code for the planned files.
+    - Apply constraints from `.agent/rules/quality.md` (if exists).
+    - Ensure new files are imported/linked to the main application entry point.
+
+## Phase 5: System Consolidation (The Librarian)
+*CRITICAL: Do not skip this step. This keeps the agent "smart" for next time.*
+
+1.  **Documentation Sync**:
+    - [ ] Update `README.md` if new setup steps or env vars are required.
+    - [ ] Update `.agent/memory/structure.md` (Site Map) to reflect new files.
+    - [ ] Update `.agent/memory/project-summary.md` (PRD) to mark the feature as In Progress/Done.
+2.  **Knowledge Capture**:
+    - [ ] If a significant architectural decision was made, log it in `.agent/memory/decisions.md`.
+    - [ ] If you learned a constraint (e.g., "This API requires https"), log it in `.agent/memory/lessons.md`.

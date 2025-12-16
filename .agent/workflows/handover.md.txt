@@ -1,0 +1,47 @@
+# Workflow: Context Handover & Export
+# Trigger: /handover [goal]
+
+This workflow compiles the Agent's "Long Term Memory" into a single, portable prompt that can be pasted into a new AI session or given to a human developer.
+
+## 1. Gather Intelligence
+- [ ] Read `.agent/memory/project-summary.md` (The PRD).
+- [ ] Read `.agent/memory/structure.md` (The Map).
+- [ ] Read `.agent/rules/tech-stack.md` (The Constraints).
+- [ ] Read `.agent/memory/scratchpad.md` (Current Status).
+
+## 2. Generate the "Golden Prompt"
+Create a single Code Block containing the text below. Fill in the {{handlebars}} with the content read in Step 1.
+
+    ```markdown
+    # HANDOVER PROMPT: SYSTEM TRANSFER
+
+    You are an expert software engineer taking over an active project.
+    
+    ## 1. The Mission
+    **Goal**: {{Input the user's goal from the /handover command}}
+    **Vision**: {{Content from project-summary.md -> Vision}}
+
+    ## 2. The Architecture
+    **Tech Stack**:
+    {{Content from rules/tech-stack.md}}
+
+    **File Structure**:
+    {{Content from memory/structure.md}}
+
+    ## 3. Current Context
+    **Active Tasks**:
+    {{Content from memory/scratchpad.md}}
+
+    **Key Decisions/Constraints**:
+    - Consult `.agent/rules/` for strict coding standards.
+    - Consult `.agent/memory/lessons.md` for known pitfalls.
+
+    ## INSTRUCTIONS
+    1. Digest this context.
+    2. Acknowledge the architecture constraints.
+    3. Begin working on the **Goal** immediately.
+    ```
+
+## 3. Final Step
+- Present the code block to the user.
+- instruction: "Copy the block above and paste it into your new chat session."

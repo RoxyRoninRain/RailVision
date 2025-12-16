@@ -1,0 +1,18 @@
+# Active Task Scratchpad
+*This file is overwritten often. It tracks the current thought process.*
+
+## Current Objective
+[What is the specific goal right now? e.g., "Debug the login timeout issue"]
+
+## Step-by-Step Plan
+- [x] Step 1: Reproduce the bug.
+- [ ] Step 2: Analyze logs.
+- [ ] Step 3: Implement fix.
+
+## Mental Notebook (The "Parking Lot")
+*Things I noticed but shouldn't get distracted by right now:*
+- [ ] The CSS in the footer looks misaligned.
+- [ ] We need to update the dependency for `axios` soon.
+
+## Code Snippets / Staging
+*Temporary code blocks being constructed before writing to main files:*

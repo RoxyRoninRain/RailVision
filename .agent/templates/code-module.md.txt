@@ -1,0 +1,29 @@
+# Universal Code Module Template
+*Agent Instruction: Adapt this structure to the target language (e.g., Python, JS, Go).*
+
+## 1. File Header
+- **Docstring/Comment**: Top of file. Explain *what* this file does and *who* uses it.
+- **Copyright/License**: (If applicable).
+
+## 2. Imports / Dependencies
+- **Standard Library**: (e.g., `import os`, `import fs`)
+- **Third-Party**: (e.g., `import pandas`, `import axios`)
+- **Local Imports**: (e.g., `from .utils import helper`)
+
+## 3. Constants & Configuration
+- Define magic numbers, regex patterns, or configuration objects here.
+- *Constraint*: No hardcoded secrets.
+
+## 4. Types / Interfaces (If applicable)
+- Define TypeScript interfaces or Python DataClasses here.
+
+## 5. Helper Functions (Private)
+- Small utility functions used *only* in this file.
+- Prefix with `_` if the language supports private convention.
+
+## 6. Main Logic (Public)
+- The core class or exported function.
+- **Constraint**: Must include error handling (Try/Catch).
+
+## 7. Exports / Entry Point
+- Specifically define what is visible to the rest of the app.

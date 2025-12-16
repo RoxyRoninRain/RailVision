@@ -1,0 +1,13 @@
+# Security & Privacy Protocols
+
+## Data Safety
+- **Secrets**: NEVER hardcode API keys, passwords, or tokens. Use `.env` files.
+- **Logging**: Never log Personally Identifiable Information (PII) like emails or phone numbers.
+- **Git**: Ensure `.gitignore` includes `.env`, `__pycache__`, and `node_modules`.
+
+## Input Validation
+- **SQL Injection**: Always use parameterized queries or ORM methods. Never concatenate strings into SQL.
+- **XSS (Cross-Site Scripting)**: Escape all user input before rendering it to the DOM.
+
+## Agent Behavior Rule
+- **Audit**: Before marking a task as "Complete," scan the changed files for hardcoded strings that look like keys (e.g., `sk-proj-...`).
