@@ -182,7 +182,7 @@ export async function generateDesign(formData: FormData) {
             console.log('[DEBUG] Using default fallback prompt (DB fetch failed or empty)');
         }
 
-        const result = await generateDesignWithNanoBanana(base64Image, styleInput, promptConfig);
+        const result = await generateDesignWithNanoBanana(base64Image, styleInput as any, promptConfig);
 
         if (result.success && result.image) {
             console.log('[DEBUG] Image generated successfully with Nano Banana');

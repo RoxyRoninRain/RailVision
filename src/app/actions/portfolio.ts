@@ -210,7 +210,6 @@ export async function getStyles(tenantId?: string) {
     const supabase = await createClient();
     const { data } = await supabase
         .from('portfolio')
-        .from('portfolio')
         .select('id, name, description, image_url, gallery') // Select gallery too
         .eq('tenant_id', tenantId);
 
