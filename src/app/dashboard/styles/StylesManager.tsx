@@ -1,19 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg } from '@/app/actions';
-import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, Lock } from 'lucide-react';
+import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg } from '@/app/actions'; // Ensure these are exported from actions.ts
+import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PRICING_TIERS } from '@/config/pricing';
 
-export default function StylesManager({ initialStyles, serverError, logoUrl, tier = 'salesmate' }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null, tier?: string }) {
+export default function StylesManager({ initialStyles, serverError, logoUrl }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null }) {
     const [styles, setStyles] = useState<PortfolioItem[]>(initialStyles);
-
-    // Limits
-    // @ts-ignore
-    const tierConfig = Object.values(PRICING_TIERS).find(t => t.id === tier) || PRICING_TIERS.SALESMATE;
-    const maxStyles = tierConfig.maxStyleUploads || 5;
-    const isLimitReached = styles.length >= maxStyles;
     const [isAdding, setIsAdding] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -25,12 +18,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
     const [preview, setPreview] = useState<string | null>(null);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [successMsg, setSuccessMsg] = useState<string | null>(null);
-    const [logs, setLogs] = useState<string[]>([]);
 
-    const addLog = (msg: string) => {
-        console.log(msg);
-        setLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
-    };
 
     // Auto-Seed Defaults
     useEffect(() => {
@@ -99,24 +87,24 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
             let file = e.target.files[0];
 
             // DEBUG LOGGING
-            addLog('--- FILE SELECTED ---');
-            addLog(`Name: ${file.name}`);
-            addLog(`Type: ${file.type || 'Unknown'}`);
-            addLog(`Size: ${(file.size / 1024).toFixed(1)} KB`);
+            console.log('--- FILE SELECTED ---');
+            console.log(`Name: ${file.name}`);
+            console.log(`Type: ${file.type || 'Unknown'}`);
+            console.log(`Size: ${(file.size / 1024).toFixed(1)} KB`);
 
             // Fix: iOS sometimes sends empty type or application/octet-stream
             const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
             const ext = file.name.split('.').pop()?.toLowerCase() || '';
 
             if (!file.type.startsWith('image/') && !validExtensions.includes(ext)) {
-                addLog(`File Rejected: Invalid Type (${file.type}) and Extension (${ext})`);
+                console.log(`File Rejected: Invalid Type (${file.type}) and Extension (${ext})`);
                 setErrorMsg('Please upload an image file (JPG, PNG).');
                 return;
             }
 
             // If type is empty but extension is valid, force type to prevent downstream issues
             if (!file.type && validExtensions.includes(ext)) {
-                addLog('Fixing missing file type based on extension...');
+                console.log('Fixing missing file type based on extension...');
                 const fixedType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
                 file = new File([file.slice(0, file.size, fixedType)], file.name, { type: fixedType, lastModified: Date.now() });
             }
@@ -124,7 +112,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
             // HEIC Detection & Conversion (Server-Side)
             const isHeic = file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif';
             if (isHeic) {
-                addLog('HEIC detected. Starting server-side conversion...');
+                console.log('HEIC detected. Starting server-side conversion...');
 
                 try {
                     const formData = new FormData();
@@ -133,7 +121,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
                     const res = await convertHeicToJpg(formData);
 
                     if (res.success && res.base64) {
-                        addLog('Server conversion successful. Processing result...');
+                        console.log('Server conversion successful. Processing result...');
 
                         // Convert Data URI to Blob directly
                         const base64Data = res.base64.split(',')[1];
@@ -157,7 +145,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
                             lastModified: Date.now()
                         });
 
-                        addLog(`HEIC Converted Successfully. New Size: ${(file.size / 1024).toFixed(1)} KB`);
+                        console.log(`HEIC Converted Successfully. New Size: ${(file.size / 1024).toFixed(1)} KB`);
 
                     } else {
                         throw new Error(res.error || "Server conversion returned no data");
@@ -165,7 +153,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
 
                 } catch (heicError: any) {
                     console.error('HEIC Conversion failed:', heicError);
-                    addLog(`HEIC Error: ${heicError.message}`);
+                    console.log(`HEIC Error: ${heicError.message}`);
                     throw new Error('Could not convert HEIC image. Please try a JPG or PNG instead.');
                 }
             }
@@ -180,7 +168,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
                 let quality = 0.9;
 
                 while (currentFile.size > 4 * 1024 * 1024 && attempt < 3) {
-                    addLog(`Attempt ${attempt + 1}: Compressing ${(currentFile.size / 1024 / 1024).toFixed(2)}MB image...`);
+                    console.log(`Attempt ${attempt + 1}: Compressing ${(currentFile.size / 1024 / 1024).toFixed(2)}MB image...`);
 
                     // Progressive degradation
                     if (attempt === 1) { maxDimension = 1500; quality = 0.8; }
@@ -193,26 +181,26 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
                         currentFile = compressed;
                     } else {
                         // Compression didn't help (already optimized?), break to avoid loop
-                        addLog('Compression did not reduce file size.');
+                        console.log('Compression did not reduce file size.');
                         break;
                     }
                     attempt++;
                 }
 
                 file = currentFile;
-                addLog(`Final File Size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
+                console.log(`Final File Size: ${(file.size / 1024 / 1024).toFixed(2)}MB`);
 
             } catch (err) {
                 console.error('Compression failed:', err);
                 if (file.size > 4.5 * 1024 * 1024) {
-                    addLog('File Rejected: Compression failed & Too Large');
+                    console.log('File Rejected: Compression failed & Too Large');
                     throw new Error('Image too large and compression failed.');
                 }
             }
 
             // Final Safety Check
             if (file.size > 4.5 * 1024 * 1024) {
-                addLog(`File Rejected: Still Too Large (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+                console.log(`File Rejected: Still Too Large (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
                 throw new Error(`Image is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max 4.5MB.`);
             }
 
@@ -221,7 +209,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
 
         } catch (err: any) {
             console.error('File processing error:', err);
-            addLog(`Error: ${err.message}`);
+            console.log(`Error: ${err.message}`);
             setErrorMsg(err.message || 'Failed to process image');
             setNewFile(null); // Ensure no partial file is set
         } finally {
@@ -235,23 +223,15 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
         setSuccessMsg(null);
 
         // DEBUG LOGGING FOR SUBMIT
-        addLog(`Submitting Form... Name: "${newName}", File: ${newFile ? newFile.name : 'NULL'}`);
+        console.log(`Submitting Form... Name: "${newName}", File: ${newFile ? newFile.name : 'NULL'}`);
 
         if (!newFile || !newName) {
             const missing = [];
             if (!newFile) missing.push('File');
             if (!newName) missing.push('Name');
             const msg = `Please provide: ${missing.join(' and ')}`;
-            addLog(`Validation Error: ${msg}`);
+            console.log(`Validation Error: ${msg}`);
             setErrorMsg(msg);
-            return;
-            addLog(`Validation Error: ${msg}`);
-            setErrorMsg(msg);
-            return;
-        }
-
-        if (isLimitReached) {
-            setErrorMsg(`Limit reached! Your plan (${tierConfig.name}) allows ${maxStyles} custom styles.`);
             return;
         }
 
@@ -266,11 +246,11 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
 
             if (res.error) {
                 console.error('Create Style Error:', res.error);
-                addLog(`Server returned error: ${res.error}`);
+                console.log(`Server returned error: ${res.error}`);
                 setErrorMsg(res.error);
                 setIsSubmitting(false);
             } else {
-                addLog('Upload Success! Reloading...');
+                console.log('Upload Success! Reloading...');
                 setSuccessMsg('Style created successfully! updating...');
                 // Slight delay so user sees success message
                 setTimeout(() => {
@@ -278,7 +258,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
                 }, 1500);
             }
         } catch (err: any) {
-            addLog(`Exception: ${err.message}`);
+            console.log(`Exception: ${err.message}`);
             setErrorMsg('Unexpected error: ' + (err.message || String(err)));
             setIsSubmitting(false);
         }
@@ -312,14 +292,11 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
                     <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Visualizer Styles</h2>
                     <p className="text-gray-500 font-mono text-sm mt-1">Manage the styles available in your public visualizer carousel.</p>
                 </div>
-
                 <button
                     onClick={() => setIsAdding(true)}
-                    disabled={isLimitReached}
-                    className={`flex items-center gap-2 px-4 py-2 rounded font-bold uppercase tracking-wider transition-colors ${isLimitReached ? 'bg-gray-800 text-gray-500 cursor-not-allowed' : 'bg-[var(--primary)] text-black hover:brightness-110'}`}
+                    className="flex items-center gap-2 bg-[var(--primary)] text-black px-4 py-2 rounded font-bold uppercase tracking-wider hover:brightness-110 transition-colors"
                 >
-                    {isLimitReached ? <Lock size={18} /> : <Plus size={18} />}
-                    {isLimitReached ? 'Limit Reached' : 'Add New Style'}
+                    <Plus size={18} /> Add New Style
                 </button>
             </div>
 
@@ -332,14 +309,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, tie
             )}
 
             {/* Grid - Change to Masonry-like columns or just responsive heights */}
-            {/* Debug Console */}
-            <div className="bg-black/80 p-4 rounded-lg font-mono text-xs text-green-400 max-h-40 overflow-y-auto border border-green-900/50">
-                <div className="text-gray-500 mb-2 border-b border-gray-800 pb-1">Debug Console (Share this if upload fails)</div>
-                {logs.length === 0 && <div className="text-gray-600 italic">Ready...</div>}
-                {logs.map((log, i) => (
-                    <div key={i}>{log}</div>
-                ))}
-            </div>
+
 
             <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
                 {styles.length === 0 && !isAdding && (

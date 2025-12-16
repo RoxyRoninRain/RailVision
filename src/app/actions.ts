@@ -7,136 +7,6 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
-import { PRICING_TIERS, BOOSTER_PACKS, TierId, BoosterId } from '@/config/pricing';
-
-// --- CREDIT SYSTEM LOGIC ---
-
-async function deductCredit(supabase: any, userId: string): Promise<{ success: boolean; error?: string }> {
-    // 1. Fetch Profile
-    const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-    if (error || !profile) return { success: false, error: 'Profile not found' };
-
-    // 2. Logic: Monthly -> Rollover -> Booster
-    let updates: any = {};
-
-    if ((profile.credits_monthly || 0) > 0) {
-        updates.credits_monthly = profile.credits_monthly - 1;
-        // Also track usage for analytics if needed, but we just decrement balance here
-    } else if (profile.tier === 'showroom' && (profile.credits_rollover || 0) > 0) {
-        updates.credits_rollover = profile.credits_rollover - 1;
-    } else if ((profile.credits_booster || 0) > 0) {
-        updates.credits_booster = profile.credits_booster - 1;
-    } else {
-        // 3. Auto-Boost Logic
-        if (profile.auto_boost_enabled && profile.auto_boost_pack) {
-            console.log(`[Credits] Auto-boosting with pack: ${profile.auto_boost_pack}`);
-            const pack = BOOSTER_PACKS[profile.auto_boost_pack as keyof typeof BOOSTER_PACKS]; // e.g., 'REFILL'
-
-            // Just for safety if pack key is lowercase in DB but UPPER in config or vice versa. 
-            // We defined keys as REFILL, PROJECT in config constant, but ids as 'refill', 'project'.
-            // Let's match by ID.
-            const packDetails = Object.values(BOOSTER_PACKS).find(p => p.id === profile.auto_boost_pack);
-
-            if (packDetails) {
-                // Charge Card (Mock)
-                console.log(`[Billing] Charging user ${userId} $${packDetails.price} for Auto-Boost`);
-
-                // Add credits immediately (current booster balance + new pack - 1 for this gen)
-                updates.credits_booster = (profile.credits_booster || 0) + packDetails.credits - 1;
-            } else {
-                return { success: false, error: 'Insufficient credits. Auto-boost failed (Invalid Pack).' };
-            }
-        } else {
-            return { success: false, error: 'Insufficient credits. Please upgrade or buy a booster pack.' };
-        }
-    }
-
-    // 4. Commit Update
-    const { error: updateError } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', userId);
-
-    if (updateError) return { success: false, error: updateError.message };
-
-    return { success: true };
-}
-
-export async function purchaseBooster(packId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Unauthorized' };
-
-    const pack = Object.values(BOOSTER_PACKS).find(p => p.id === packId);
-    if (!pack) return { error: 'Invalid Booster Pack' };
-
-    // Mock Billing
-    console.log(`[Billing] User ${user.id} bought ${pack.name} for $${pack.price}`);
-
-    // Fetch current booster balance
-    const { data: profile } = await supabase.from('profiles').select('credits_booster').eq('id', user.id).single();
-    const current = profile?.credits_booster || 0;
-
-    const { error } = await supabase
-        .from('profiles')
-        .update({ credits_booster: current + pack.credits })
-        .eq('id', user.id);
-
-    if (error) return { error: error.message };
-    return { success: true };
-}
-
-export async function updateTier(tierId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Unauthorized' };
-
-    const tier = Object.values(PRICING_TIERS).find(t => t.id === tierId);
-    if (!tier) return { error: 'Invalid Tier' };
-
-    // Mock Billing / Subscription Switch
-    console.log(`[Billing] User ${user.id} switched to ${tier.name} ($${tier.price}/mo)`);
-
-    // Reset Monthly Credits to new tier allowance? 
-    // Usually prorated, but for simplicity: Set allowance immediately or wait for cycle?
-    // User Requirement: "Monthly credits reset to X on billing cycle".
-    // If upgrading mid-month, typically you get new features immediately. Credits? 
-    // Let's give them the full allowance for now as a "fresh start".
-
-    // Also reset rollover if moving OFF Showroom? 
-    // "Rollover: FALSE" for others. DB column stays, we just stop consuming it?
-    // User logic: "Logic: Unused monthly credits carry over." logic is tier specific.
-
-    const { error } = await supabase
-        .from('profiles')
-        .update({
-            tier: tier.id,
-            credits_monthly: tier.monthlyCredits
-        })
-        .eq('id', user.id);
-
-    if (error) return { error: error.message };
-    return { success: true };
-}
-
-export async function toggleAutoBoost(enabled: boolean, packId?: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Unauthorized' };
-
-    const updates: any = { auto_boost_enabled: enabled };
-    if (packId) updates.auto_boost_pack = packId;
-
-    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id);
-    if (error) return { error: error.message };
-    return { success: true };
-}
-
 
 // TYPES
 export interface Lead {
@@ -165,13 +35,6 @@ export interface Profile {
     logo_size?: number | null;
     watermark_logo_url?: string | null;
     website?: string | null;
-    // Credit System
-    tier?: string;
-    credits_monthly?: number;
-    credits_rollover?: number;
-    credits_booster?: number;
-    auto_boost_enabled?: boolean;
-    auto_boost_pack?: string;
 }
 
 export async function generateDesign(formData: FormData) {
@@ -194,39 +57,6 @@ export async function generateDesign(formData: FormData) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-
-        // 0. CHECK CREDITS
-        if (user) {
-            const { success, error } = await deductCredit(supabase, user.id);
-            if (!success) {
-                return { error: error || 'Insufficient credits' };
-            }
-        } else {
-            // For public/demo users (not logged in fabricator), we might skip or have a rate limit.
-            // But 'generateDesign' is the fabricator action.
-            // If this is the public widget, the user is NOT logged in as the fabricator.
-            // The fabricator ID is passed via hidden field or context? 
-            // "white-label Design Studio directly on your website". 
-            // Frame src="/demo?org=UUID".
-            // The 'formData' should contain 'organization_id' if coming from public widget.
-            // Let's check formData for organization_id.
-            // User's implementation of Public Widget likely hits an API route or this action.
-            // If actions.ts is used by client component, we need to know WHO's credits to burn.
-
-            // Check if 'organization_id' is in formData (passed from public widget)
-            const orgId = formData.get('organization_id') as string;
-            if (orgId) {
-                console.log(`[Credits] Public generation for Org: ${orgId}`);
-                const { success, error } = await deductCredit(supabase, orgId);
-                if (!success) return { error: 'This visualization tool has reached its usage limit for the month. Please contact the shop owner.' };
-            } else {
-                console.warn('[Credits] No user or orgId found. Allowing free gen (or restrict?)');
-                // For now, allow but log warning. Or strict block? 
-                // "The Problem: Fabricators ... on their own website". 
-            }
-        }
 
         let styleInput: string | { base64StyleImage: string } = style;
 
@@ -419,13 +249,7 @@ export async function getTenantProfile(organizationId: string) {
     // Public fetch of branding details
     const { data, error } = await supabase
         .from('profiles')
-        .select(`
-            shop_name, logo_url, phonenumber:phone, address, 
-            primary_color, tool_background_color, logo_size, 
-            watermark_logo_url, website, subscription_status,
-            tier, credits_monthly, credits_rollover, credits_booster, 
-            auto_boost_enabled, auto_boost_pack
-        `)
+        .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url, website, subscription_status')
         .eq('id', organizationId)
         .single();
 
@@ -813,7 +637,7 @@ export async function updateProfile(formData: FormData) {
     if (logo_size) updates.logo_size = logo_size;
     if (logo_url) updates.logo_url = logo_url;
     if (watermark_logo_url) updates.watermark_logo_url = watermark_logo_url;
-    if (website) updates.website = website;
+    if (website !== undefined) updates.website = website;
 
     const upsertData: any = {
         id: user.id,

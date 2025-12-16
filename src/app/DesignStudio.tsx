@@ -29,16 +29,16 @@ interface TenantProfile {
     tool_background_color?: string | null;
     logo_size?: number | null;
     watermark_logo_url?: string | null;
-    tier?: string | null; // Added tier
 }
 
 interface DesignStudioProps {
     styles: style[];
     tenantProfile: TenantProfile | null;
     orgId: string;
+    dashboardUrl?: string;
 }
 
-export default function DesignStudio({ styles: initialStyles, tenantProfile, orgId }: DesignStudioProps) {
+export default function DesignStudio({ styles: initialStyles, tenantProfile, orgId, dashboardUrl }: DesignStudioProps) {
     // --- STATE ---
     const [step, setStep] = useState(1); // 1=Upload, 2=Style, 3=Result
     const [direction, setDirection] = useState(0);
@@ -54,19 +54,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [showGate, setShowGate] = useState(false);
     const [isGateUnlocked, setIsGateUnlocked] = useState(false); // Valid for session
 
-    // Feature Flags based on Tier
-    const isShowroom = tenantProfile?.tier === 'showroom';
-    const isWidget = tenantProfile?.tier === 'widget';
-    const isWhiteLabel = isShowroom;
-    const isCustomBranding = isShowroom || isWidget; // Tier 2 & 3 only
-
     // Branding
     const [logo, setLogo] = useState<string | null>(tenantProfile?.logo_url || null);
     const [watermarkLogo, setWatermarkLogo] = useState<string | null>(tenantProfile?.watermark_logo_url || tenantProfile?.logo_url || null);
     const [shopName, setShopName] = useState<string | null>(tenantProfile?.shop_name || null);
-    // Default to Railify Violet (#7C3AED) if custom branding not allowed or not set
-    const [primaryColor, setPrimaryColor] = useState((isCustomBranding && tenantProfile?.primary_color) || '#7C3AED');
-    const [toolBackgroundColor, setToolBackgroundColor] = useState((isCustomBranding && tenantProfile?.tool_background_color) || '#050505');
+    const [primaryColor, setPrimaryColor] = useState(tenantProfile?.primary_color || '#FFD700');
+    const [toolBackgroundColor, setToolBackgroundColor] = useState(tenantProfile?.tool_background_color || '#050505');
 
 
     // Processing
@@ -99,18 +92,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             setWatermarkLogo(tenantProfile.logo_url);
         }
         if (tenantProfile?.shop_name) setShopName(tenantProfile.shop_name);
+        if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
+        if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
 
-        // Enforce Feature Flag on Color Updates
-        if (isCustomBranding) {
-            if (tenantProfile?.primary_color) setPrimaryColor(tenantProfile.primary_color);
-            if (tenantProfile?.tool_background_color) setToolBackgroundColor(tenantProfile.tool_background_color);
-        } else {
-            // Reset to defaults if downgrading or restricted
-            setPrimaryColor('#7C3AED');
-            setToolBackgroundColor('#050505');
-        }
-
-    }, [tenantProfile, isCustomBranding]);
+    }, [tenantProfile]);
 
     const primaryRgb = hexToRgb(primaryColor);
 
@@ -385,13 +370,11 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 const drawHeight = logoSize / aspectRatio;
 
                 ctx.globalAlpha = logoOpacity;
-                // Bottom-Left (Railify Logo) - Only if NOT White Label
-                if (!isWhiteLabel) {
-                    ctx.drawImage(railifyImg, padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
-                }
+                // Bottom-Left
+                ctx.drawImage(railifyImg, padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
                 ctx.globalAlpha = 1.0;
-            } else if (!isWhiteLabel) {
-                // Fallback text for Railify if image missing and not white label
+            } else {
+                // Fallback text for Railify if image missing (unlikely)
                 ctx.font = `bold ${canvas.width * 0.02}px monospace`;
                 ctx.fillStyle = `rgba(255, 255, 255, ${logoOpacity})`;
                 ctx.textAlign = 'left';
@@ -486,6 +469,19 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                     ))}
                 </div>
             </header>
+
+            {/* Admin Back Button */}
+            {dashboardUrl && (
+                <div className="absolute top-6 left-6 z-[60]">
+                    <a
+                        href={dashboardUrl}
+                        className="bg-black/50 hover:bg-black/80 text-white backdrop-blur-md px-4 py-2 rounded-full border border-white/10 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all hover:pr-6 group"
+                    >
+                        <ChevronLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
+                        Back to Dashboard
+                    </a>
+                </div>
+            )}
 
             {/* WIZARD CONTENT */}
             <div className="flex-1 relative w-full h-full">
@@ -731,12 +727,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 </AnimatePresence>
             </div>
 
-            {/* Footer Branding - Hidden if White Label */}
-            {!isWhiteLabel && (
-                <div className="fixed bottom-4 right-4 z-40 pointer-events-none opacity-30 text-[10px] font-mono text-white uppercase tracking-widest hidden md:block">
-                    Software by Railify
-                </div>
-            )}
+            {/* Footer Branding */}
+            <div className="fixed bottom-4 right-4 z-40 pointer-events-none opacity-30 text-[10px] font-mono text-white uppercase tracking-widest hidden md:block">
+                Software by Railify
+            </div>
 
             {/* Quote Modal */}
             <AnimatePresence>

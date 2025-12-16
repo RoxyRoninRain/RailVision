@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { getProfile, updateProfile, uploadLogo, purchaseBooster, toggleAutoBoost, Profile } from '@/app/actions';
-import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon, Zap, Coins } from 'lucide-react';
-import { PRICING_TIERS, BOOSTER_PACKS } from '@/config/pricing';
+import { getProfile, updateProfile, uploadLogo, Profile } from '@/app/actions';
+import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 
 export default function SettingsPage() {
@@ -46,28 +45,6 @@ export default function SettingsPage() {
             setMessage('Error updating profile: ' + res.error);
         }
         setSaving(false);
-    };
-
-    const handleBuyBooster = async (packId: string) => {
-        if (!confirm('Simulate purchasing this booster pack?')) return;
-        setSaving(true);
-        const res = await purchaseBooster(packId);
-        if (res.success) {
-            setMessage('Booster pack purchased! Credits added.');
-            // Refresh
-            const updated = await getProfile();
-            if (updated) setProfile(updated);
-        } else {
-            setMessage('Error: ' + res.error);
-        }
-        setSaving(false);
-    };
-
-    const handleToggleAutoBoost = async (checked: boolean) => {
-        const res = await toggleAutoBoost(checked, checked ? 'REFILL' : undefined); // Default to Refill
-        if (res.success) {
-            if (profile) setProfile({ ...profile, auto_boost_enabled: checked, auto_boost_pack: checked ? 'REFILL' : profile.auto_boost_pack });
-        }
     };
 
 
@@ -174,65 +151,6 @@ export default function SettingsPage() {
                                     Manage Billing Portal
                                 </button>
                             </div>
-                        </div>
-
-                        {/* Credits Status */}
-                        <div className="bg-[#111] p-6 rounded-lg border border-gray-800 shadow-xl relative mt-8">
-                            <h2 className="text-xl font-mono font-bold text-white mb-4 flex items-center gap-2">
-                                <Coins className="text-[var(--primary)]" size={20} />
-                                Credits
-                            </h2>
-
-                            <div className="grid grid-cols-2 gap-2 mb-4">
-                                <div className="bg-black/40 p-3 rounded border border-gray-800">
-                                    <div className="text-xs text-gray-500 uppercase font-mono">Monthly</div>
-                                    <div className="text-xl font-bold">{profile?.credits_monthly ?? 0}</div>
-                                </div>
-                                <div className="bg-black/40 p-3 rounded border border-gray-800">
-                                    <div className="text-xs text-gray-500 uppercase font-mono">Booster</div>
-                                    <div className="text-xl font-bold">{profile?.credits_booster ?? 0}</div>
-                                </div>
-                                {profile?.tier === 'showroom' && (
-                                    <div className="bg-black/40 p-3 rounded border border-gray-800 col-span-2">
-                                        <div className="text-xs text-gray-500 uppercase font-mono">Rollover</div>
-                                        <div className="text-xl font-bold">{profile?.credits_rollover ?? 0}</div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="mb-6">
-                                <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-400 select-none">
-                                    <div className="relative">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only peer"
-                                            checked={profile?.auto_boost_enabled || false}
-                                            onChange={(e) => handleToggleAutoBoost(e.target.checked)}
-                                        />
-                                        <div className="w-10 h-6 bg-gray-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--primary)]"></div>
-                                    </div>
-                                    Auto-Boost (when &lt; 10)
-                                </label>
-                            </div>
-
-                            <h3 className="text-sm font-mono text-gray-500 mb-3 border-b border-gray-800 pb-1">Refill Boosters</h3>
-                            <div className="space-y-2">
-                                {Object.values(BOOSTER_PACKS).map((pack) => (
-                                    <button
-                                        key={pack.id}
-                                        onClick={() => handleBuyBooster(pack.id)}
-                                        disabled={saving}
-                                        className="w-full flex items-center justify-between p-3 rounded bg-black/60 hover:bg-[var(--primary)] hover:text-black border border-white/5 transition-all group text-left"
-                                    >
-                                        <div>
-                                            <div className="font-bold text-sm">{pack.name}</div>
-                                            <div className="text-xs text-gray-500 group-hover:text-black/70">{pack.credits} Credits</div>
-                                        </div>
-                                        <div className="font-mono text-sm">${pack.price}</div>
-                                    </button>
-                                ))}
-                            </div>
-
                         </div>
                     </div>
 

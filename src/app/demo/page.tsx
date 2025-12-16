@@ -113,5 +113,17 @@ export default async function Page({
         }
     }
 
-    return <DesignStudio styles={safeStyles} tenantProfile={tenantProfile} orgId={orgId} />;
+    // --- BACK BUTTON LOGIC ---
+    let dashboardUrl = undefined;
+    if (orgId) {
+        // If we have an orgId, check if the current user matches it (Tenant View)
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.id === orgId) {
+            dashboardUrl = '/dashboard/leads';
+        }
+    }
+
+
+    return <DesignStudio styles={safeStyles} tenantProfile={tenantProfile} orgId={orgId} dashboardUrl={dashboardUrl} />;
 }
