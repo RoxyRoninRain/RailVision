@@ -314,7 +314,7 @@ export async function testDesignGeneration(formData: FormData) {
 
         const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
         const base64Style = styleBuffer.toString('base64');
-        const styleInput = { base64StyleImage: base64Style };
+        const styleInput = { base64StyleImages: [base64Style] };
 
         // 3. Prepare Config
         const promptConfig = {
