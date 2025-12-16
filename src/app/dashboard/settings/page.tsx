@@ -179,6 +179,22 @@ export default function SettingsPage() {
                                             />
                                         </div>
 
+                                        <div className="col-span-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <ShieldCheck size={14} /> Website / Whitelisted Domains
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="website"
+                                                defaultValue={profile?.website || ''}
+                                                className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                                placeholder="https://mysite.com, https://app.gohighlevel.com"
+                                            />
+                                            <p className="text-xs text-gray-600 mt-2">
+                                                Comma-separated list of domains allowed to embed your widget.
+                                            </p>
+                                        </div>
+
                                         <div>
                                             <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
                                                 <Mail size={14} /> Contact Email

@@ -94,20 +94,22 @@ export default async function Page({
             };
 
             const currentDomain = normalize(origin);
-            const allowedDomain = normalize(tenantProfile.website);
+
+            // Support comma-separated list of allowed domains
+            const rawAllowed = tenantProfile.website || '';
+            const allowedDomains = rawAllowed.split(',').map(d => normalize(d)).filter(Boolean);
 
             const isLocalhost = origin.includes('localhost');
             const isRailify = origin.endsWith('railify.app');
-            // Check if normalized domains match (e.g. "example.com" === "example.com")
-            // Also check if the current domain ends with the allowed domain (subdomain allowance) 
-            // e.g. "shop.example.com" ends with "example.com" -> Allow? 
-            // For now, strict domain match (ignoring www) is safest unless user wants subdomains.
-            // Let's allow subdomains if they match explicitly or if it's a direct match.
-            const isAllowed = currentDomain === allowedDomain || (allowedDomain && currentDomain.endsWith('.' + allowedDomain));
+
+            // Check against ALL allowed domains
+            const isAllowed = allowedDomains.some(allowed =>
+                currentDomain === allowed || (allowed && currentDomain.endsWith('.' + allowed))
+            );
 
             // Allow if: Localhost OR Railify OR Matches User's Website OR is Mississippi Metal Magic (Legacy)
             if (!isLocalhost && !isRailify && !isAllowed && origin !== 'https://mississippimetalmagic.com') {
-                console.error(`[Security Block] Origin: ${origin} (${currentDomain}) | Allowed: ${tenantProfile.website} (${allowedDomain})`);
+                console.error(`[Security Block] Origin: ${origin} (${currentDomain}) | Allowed: ${allowedDomains.join(', ')}`);
                 return (
                     <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-8 text-center font-sans">
                         <div className="w-16 h-16 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 mb-6">
@@ -123,8 +125,14 @@ export default async function Page({
                                 <code className="text-red-400 block bg-red-900/10 p-2 rounded text-sm">{origin}</code>
                             </div>
                             <div>
-                                <p className="text-xs text-gray-500 uppercase font-mono mb-1">Configured Website</p>
-                                <code className="text-green-400 block bg-green-900/10 p-2 rounded text-sm">{tenantProfile.website || 'Not Set'}</code>
+                                <p className="text-xs text-gray-500 uppercase font-mono mb-1">Configured Website(s)</p>
+                                <div className="bg-green-900/10 p-2 rounded text-sm space-y-1">
+                                    {allowedDomains.length > 0 ? (
+                                        allowedDomains.map(d => <code key={d} className="text-green-400 block">{d}</code>)
+                                    ) : (
+                                        <span className="text-gray-500 italic">Not Set</span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
