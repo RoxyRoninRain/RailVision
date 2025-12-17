@@ -82,7 +82,7 @@ export default async function Page({
             const allowedOrigin = tenantProfile.website.replace(/\/$/, ''); // Remove trailing slash if saved
 
             // Whitelist Logic
-            const normalize = (url: string) => {
+            const normalize = (url: string): string => {
                 try {
                     // If it doesn't start with http, assume it's a domain and prepend https for URL parsing,
                     // or just strip protocol manually if we want to compare domains.
@@ -97,13 +97,13 @@ export default async function Page({
 
             // Support comma-separated list of allowed domains
             const rawAllowed = tenantProfile.website || '';
-            const allowedDomains = rawAllowed.split(',').map((d: string) => normalize(d)).filter(Boolean);
+            const allowedDomains: string[] = rawAllowed.split(',').map((d: string) => normalize(d)).filter((d: string) => !!d);
 
             const isLocalhost = origin.includes('localhost');
             const isRailify = origin.endsWith('railify.app');
 
             // Check against ALL allowed domains
-            const isAllowed = allowedDomains.some(allowed =>
+            const isAllowed = allowedDomains.some((allowed: string) =>
                 currentDomain === allowed || (allowed && currentDomain.endsWith('.' + allowed))
             );
 
@@ -128,7 +128,7 @@ export default async function Page({
                                 <p className="text-xs text-gray-500 uppercase font-mono mb-1">Configured Website(s)</p>
                                 <div className="bg-green-900/10 p-2 rounded text-sm space-y-1">
                                     {allowedDomains.length > 0 ? (
-                                        allowedDomains.map(d => <code key={d} className="text-green-400 block">{d}</code>)
+                                        allowedDomains.map((d: string) => <code key={d} className="text-green-400 block">{d}</code>)
                                     ) : (
                                         <span className="text-gray-500 italic">Not Set</span>
                                     )}
