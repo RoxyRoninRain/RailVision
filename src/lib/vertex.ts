@@ -38,11 +38,7 @@ const vertexAIGlobal = new VertexAI({
     googleAuthOptions
 });
 
-// Specialized model instantiation can go here
-export const getGeminiModel = () => {
-    // Fallback to 1.0 Pro which is most widely available
-    return vertexAI.getGenerativeModel({ model: 'gemini-1.0-pro' });
-};
+
 
 // Update return type
 export async function generateDesignWithNanoBanana(

@@ -410,6 +410,14 @@ export async function getCostAnalysis() {
             }
 
             modelBreakdown[model].cost += cost;
+            // Accumulate split costs for detailed analysis
+            if (model.includes('gemini-3')) {
+                const inputCost = (input / 1000000) * 3.50;
+                const outputCost = (output / 1000000) * 10.50;
+                modelBreakdown[model].inputCost = (modelBreakdown[model].inputCost || 0) + inputCost;
+                modelBreakdown[model].outputCost = (modelBreakdown[model].outputCost || 0) + outputCost;
+            }
+
             totalCost += cost;
             totalGenerations++;
         });
