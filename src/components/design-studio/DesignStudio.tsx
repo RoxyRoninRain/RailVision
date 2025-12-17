@@ -234,7 +234,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             console.log("Style:", styleList[selectedStyleIndex].name);
 
             const response = await generateDesign(formData);
-            console.log("generateDesign response received:", JSON.stringify(response, null, 2));
+            console.log("generateDesign response received (success/fail):", response.success);
 
             // Explicit log for debugging mobile failures
             if (!response.success) {
