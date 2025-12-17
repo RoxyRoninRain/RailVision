@@ -9,6 +9,11 @@ export async function getTenantProfile(organizationId: string) {
     // Use Admin Client to bypass RLS for public branding access
     // This is safe because we ONLY select public branding fields
     const { createAdminClient } = await import('@/lib/supabase/admin');
+
+    // Force no store to prevent caching stale branding/whitelist
+    const { unstable_noStore } = await import('next/cache');
+    unstable_noStore();
+
     const supabase = createAdminClient();
 
     if (!supabase) {
