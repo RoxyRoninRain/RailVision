@@ -68,6 +68,10 @@ export async function updateProfile(formData: FormData) {
     const watermark_logo_url = formData.get('watermark_logo_url') as string;
     const website = formData.get('website') as string;
 
+    console.log('[DEBUG] updateProfile - User:', user.email);
+    console.log('[DEBUG] updateProfile - Website Input:', website);
+    console.log('[DEBUG] updateProfile - FormData Keys:', Array.from(formData.keys()));
+
     const updates: Partial<Profile> = {};
     if (shop_name) updates.shop_name = shop_name;
     if (phone) updates.phone = phone;
