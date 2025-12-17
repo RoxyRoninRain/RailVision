@@ -87,7 +87,7 @@ export default async function Page({
                     // If it doesn't start with http, assume it's a domain and prepend https for URL parsing,
                     // or just strip protocol manually if we want to compare domains.
                     // Easier: strip protocol and www.
-                    return url.replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '').toLowerCase().trim();
+                    return url.trim().replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/$/, '').toLowerCase();
                 } catch (e) {
                     return '';
                 }

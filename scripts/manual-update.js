@@ -2,30 +2,21 @@ const { Client } = require('pg');
 
 const connectionString = 'postgresql://postgres.zlwcdhgdmshtmkqngfzg:Reneg@d3roxyronin@aws-0-us-west-2.pooler.supabase.com:6543/postgres';
 
-async function fix() {
+async function fixAll() {
     console.log('Connecting...');
     const client = new Client({ connectionString });
     try {
         await client.connect();
 
-        console.log('Fetching profile...');
-        const res = await client.query('SELECT id FROM profiles LIMIT 1');
-        if (res.rows.length === 0) {
-            console.log('No profile found.');
-            return;
-        }
-
-        const id = res.rows[0].id;
-        console.log('Found Profile ID:', id);
-
+        console.log('Updating ALL profiles...');
         const newWebsite = 'https://mississippimetalmagic.com, https://app.gohighlevel.com';
-        console.log(`Updating website to: "${newWebsite}"`);
 
-        await client.query('UPDATE profiles SET website = $1 WHERE id = $2', [newWebsite, id]);
-        console.log('Update executed.');
+        const res = await client.query('UPDATE profiles SET website = $1', [newWebsite]);
+        console.log(`Updated ${res.rowCount} profiles.`);
 
-        const verify = await client.query('SELECT website FROM profiles WHERE id = $1', [id]);
-        console.log('New Value:', verify.rows[0].website);
+        // Verify
+        const verify = await client.query('SELECT id, website FROM profiles');
+        console.log(JSON.stringify(verify.rows, null, 2));
 
     } catch (err) {
         console.error(err);
@@ -34,4 +25,4 @@ async function fix() {
     }
 }
 
-fix();
+fixAll();
