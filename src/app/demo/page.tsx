@@ -157,5 +157,9 @@ export default async function Page({
     }
 
 
-    return <DesignStudio styles={safeStyles} tenantProfile={tenantProfile} orgId={orgId} dashboardUrl={dashboardUrl} />;
+    return (
+        <div className="h-screen w-screen overflow-hidden fixed inset-0">
+            <DesignStudio styles={safeStyles} tenantProfile={tenantProfile} orgId={orgId} dashboardUrl={dashboardUrl} />
+        </div>
+    );
 }

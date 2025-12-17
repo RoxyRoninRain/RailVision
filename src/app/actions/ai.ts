@@ -43,6 +43,76 @@ export async function generateDesign(formData: FormData) {
         return { error: 'Missing image or style reference.' };
     }
 
+    // --- CREDIT CONSUMPTION LOGIC (START) ---
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { error: 'You must be logged in to generate designs.' };
+    }
+
+    // 1. Fetch current credits
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('credits_monthly, credits_rollover, credits_booster, auto_boost_enabled, auto_boost_pack')
+        .eq('id', user.id)
+        .single();
+
+    if (profileError || !profile) {
+        return { error: 'Could not fetch user profile for credit check.' };
+    }
+
+    let { credits_monthly, credits_rollover, credits_booster } = profile;
+    let deducted = false;
+
+    // 2. Deduction Priority Algorithm
+    // Priority 1: Monthly (Expires)
+    if (credits_monthly > 0) {
+        credits_monthly--;
+        deducted = true;
+        console.log('[CREDITS] Deducted from Monthly bucket.');
+    }
+    // Priority 2: Rollover (Tier 3 only)
+    else if (credits_rollover > 0) {
+        credits_rollover--;
+        deducted = true;
+        console.log('[CREDITS] Deducted from Rollover bucket.');
+    }
+    // Priority 3: Booster (Never Expires)
+    else if (credits_booster > 0) {
+        credits_booster--;
+        deducted = true;
+        console.log('[CREDITS] Deducted from Booster bucket.');
+    }
+
+    if (!deducted) {
+        return { error: 'Insufficient credits. Please upgrade or buy a booster pack.' };
+    }
+
+    // 3. Commit Update
+    const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+            credits_monthly,
+            credits_rollover,
+            credits_booster
+        })
+        .eq('id', user.id);
+
+    if (updateError) {
+        console.error('[CREDITS] Failed to update balance:', updateError);
+        // Fail open or closed? Closed for safety.
+        return { error: 'Transaction failed. Please try again.' };
+    }
+
+    // 4. Auto-Boost Logic (Placeholder)
+    const totalBalance = credits_monthly + credits_rollover + credits_booster;
+    if (profile.auto_boost_enabled && totalBalance < 10) {
+        console.log(`[AUTO-BOOST] Balance low (${totalBalance}). Triggering charge for ${profile.auto_boost_pack}... (TODO)`);
+        // TODO: Call Stripe PaymentIntent -> if success -> add credits
+    }
+    // --- CREDIT CONSUMPTION LOGIC (END) ---
+
     // Server-side validation
     const validation = InputSanitizer.validate(file);
     if (!validation.valid) {

@@ -12,6 +12,8 @@ export default function WidgetPage() {
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
+    const [embedHeight, setEmbedHeight] = useState('800');
+    const [isFullScreen, setIsFullScreen] = useState(false);
 
     useEffect(() => {
         getProfile().then(p => {
@@ -56,7 +58,7 @@ export default function WidgetPage() {
     const embedCode = `<iframe 
   src="https://railify.app/demo?org=${profile?.id || 'YOUR_ID'}" 
   width="100%" 
-  height="800" 
+  height="${isFullScreen ? '100vh' : embedHeight}" 
   style="border:none; border-radius: 12px; background: transparent;"
   title="Design Studio"
 ></iframe>`;
@@ -138,9 +140,26 @@ export default function WidgetPage() {
                                 </div>
                                 Embed Code
                             </h3>
-                            <p className="text-gray-400 text-sm mt-1">
-                                Copy and paste this code into your website&apos;s HTML (Squarespace, Wix, WordPress, etc).
-                            </p>
+                            <div className="flex items-center justify-between">
+                                <p className="text-gray-400 text-sm mt-1">
+                                    Copy and paste this code into your website's HTML.
+                                </p>
+                                {/* Height Toggles */}
+                                <div className="flex bg-black/50 rounded-lg p-1 text-xs font-medium border border-white/10">
+                                    <button
+                                        onClick={() => setIsFullScreen(false)}
+                                        className={`px-3 py-1 rounded-md transition-all ${!isFullScreen ? 'bg-secondary text-black' : 'text-gray-400 hover:text-white'}`}
+                                    >
+                                        Fixed Height
+                                    </button>
+                                    <button
+                                        onClick={() => setIsFullScreen(true)}
+                                        className={`px-3 py-1 rounded-md transition-all ${isFullScreen ? 'bg-secondary text-black' : 'text-gray-400 hover:text-white'}`}
+                                    >
+                                        Full Screen
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div className="p-6 space-y-4">
                             <div className="relative group">

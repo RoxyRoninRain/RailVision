@@ -537,7 +537,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                             animate={{ opacity: 1 }}
                             className="w-full h-full flex flex-col p-4 md:p-8"
                         >
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full min-h-0">
+                            <div className="flex flex-col md:grid md:grid-cols-2 gap-6 h-full min-h-0">
                                 {/* Left: Preview */}
                                 <div className="relative w-full h-full bg-[#111] border border-white/10 rounded-2xl overflow-hidden flex items-center justify-center p-4 shadow-2xl group">
                                     {/* Back Button */}
@@ -565,56 +565,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                 {/* Right: Controls */}
                                 <div className="flex flex-col h-full min-h-0 relative">
 
-                                    {/* Mobile: Bottom Bar (Visible < md) */}
-                                    <div className="md:hidden absolute bottom-0 left-0 right-0 z-30 pb-4">
-                                        <button
-                                            onClick={() => setShowStyleSheet(true)}
-                                            className="w-full bg-[#111] border border-[var(--secondary)] rounded-xl p-4 flex items-center justify-between shadow-xl"
-                                        >
-                                            <span className="font-bold uppercase text-[var(--primary)]">{styleList[selectedStyleIndex]?.name || 'Select Style'}</span>
-                                            <Settings className="w-5 h-5 text-gray-400" />
-                                        </button>
-                                        <button
-                                            onClick={handleGenerate}
-                                            className="w-full mt-2 py-3 bg-[var(--primary)] text-black font-bold rounded-xl"
-                                        >
-                                            Generate
-                                        </button>
-                                    </div>
+                                    {/* Carousel Section (Visible on ALL screens now) */}
+                                    <div className="flex flex-col h-auto md:h-full justify-end md:justify-center min-h-0 flex-none pb-4 md:pb-0">
+                                        <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter mb-2 md:mb-4">Select Style</h3>
 
-                                    {/* Mobile Style Sheet (Popup) */}
-                                    <AnimatePresence>
-                                        {showStyleSheet && (
-                                            <motion.div
-                                                initial={{ y: "100%" }}
-                                                animate={{ y: 0 }}
-                                                exit={{ y: "100%" }}
-                                                className="fixed inset-0 z-40 bg-[#0a0a0a] flex flex-col p-6 md:hidden"
-                                            >
-                                                <div className="flex justify-between items-center mb-6">
-                                                    <h3 className="text-xl font-bold">Select Style</h3>
-                                                    <button onClick={() => setShowStyleSheet(false)}><X /></button>
-                                                </div>
-                                                <StyleControls
-                                                    styleSource={styleSource}
-                                                    setStyleSource={setStyleSource}
-                                                    styles={styleList}
-                                                    selectedStyleIndex={selectedStyleIndex}
-                                                    setSelectedStyleIndex={(i) => { setSelectedStyleIndex(i); setShowStyleSheet(false); }}
-                                                    customStyleFile={customStyleFile}
-                                                    setCustomStyleFile={setCustomStyleFile}
-                                                    error={error}
-                                                />
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
-
-                                    {/* Desktop/Tablet: Info + Carousel (Visible >= md) */}
-                                    <div className="hidden md:flex flex-col h-full justify-center min-h-0">
-                                        <h3 className="text-2xl font-black uppercase tracking-tighter mb-4">Select Style</h3>
-
-                                        {/* Carousel - Compact Aspect Video */}
-                                        <div className="relative w-full aspect-video bg-[#111] rounded-2xl overflow-hidden border border-[#222] group shadow-xl mb-6 flex-shrink-0">
+                                        {/* Carousel - Responsive Aspect */}
+                                        <div className="relative w-full aspect-[21/9] md:aspect-video bg-[#111] rounded-2xl overflow-hidden border border-[#222] group shadow-xl mb-4 md:mb-6 flex-shrink-0 touch-none">
                                             <AnimatePresence mode='wait'>
                                                 <motion.img
                                                     key={styleList[selectedStyleIndex].id}
@@ -632,12 +588,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                                 <p className="text-gray-300 text-xs line-clamp-2">{styleList[selectedStyleIndex].description}</p>
                                             </div>
 
-                                            {/* Arrows */}
-                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-[var(--primary)] hover:text-black text-white p-2 rounded-full backdrop-blur-md transition-all">
-                                                <ChevronLeft className="w-5 h-5" />
+                                            {/* Arrows - Always nice */}
+                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-[var(--primary)] hover:text-black text-white p-2 sm:p-3 rounded-full backdrop-blur-md transition-all z-20 active:scale-95">
+                                                <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
                                             </button>
-                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev + 1) % styleList.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-[var(--primary)] hover:text-black text-white p-2 rounded-full backdrop-blur-md transition-all">
-                                                <ChevronRight className="w-5 h-5" />
+                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev + 1) % styleList.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-[var(--primary)] hover:text-black text-white p-2 sm:p-3 rounded-full backdrop-blur-md transition-all z-20 active:scale-95">
+                                                <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
                                             </button>
                                         </div>
 
@@ -691,8 +647,8 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                             ) : (
                                 <div className="relative w-full h-full flex flex-col">
                                     {/* Result Area */}
-                                    <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
-                                        {result && <img src={result} className="w-full h-full object-contain" />}
+                                    <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden p-4 md:p-0">
+                                        {result && <img src={result} className="w-full h-full object-contain max-h-[calc(100vh-theme(spacing.32))]" />}
 
                                         {/* Dynamic Watermark */}
                                         {(watermarkLogo || logo) && result && (

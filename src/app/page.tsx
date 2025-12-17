@@ -8,6 +8,9 @@ export default function LandingPage() {
 
       {/* --- NAVBAR --- */}
       <nav className="fixed top-0 left-0 w-full z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-md">
+        <div className="w-full bg-gradient-to-r from-green-400/90 to-green-500/90 text-black text-center py-1.5 text-xs font-bold tracking-widest uppercase">
+          🚀 Launching Soon!
+        </div>
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="relative w-48 h-12">
@@ -23,7 +26,7 @@ export default function LandingPage() {
 
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
             <Link href="#features" className="hover:text-white transition-colors">Features</Link>
-            {/* <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link> */}
+            <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link>
           </div>
 
           <div className="flex items-center gap-4">
@@ -156,12 +159,99 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- PRICING SECTION REMOVED --- */}
-      {/* 
+      {/* --- PRICING SECTION --- */}
       <section id="pricing" className="py-24 px-6 bg-[#080808]">
-        ... (Pricing content commented out or removed) ...
-      </section> 
-      */}
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">Simple, Transparent Pricing</h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">Choose the plan that fits your business.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Card 1: The Salesmate */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 flex flex-col relative group hover:border-white/20 transition-colors">
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-gray-400 mb-2">The Salesmate</h3>
+                <div className="flex items-baseline gap-1 mb-4 relative w-fit">
+                  <span className="text-4xl font-bold text-white blur-md select-none group-hover:opacity-50 transition-opacity">$49</span>
+                  <span className="text-gray-500">/mo</span>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Hidden</span>
+                  </div>
+                </div>
+                <p className="text-sm font-semibold text-primary mb-2">Best for: In-Home Sales & Estimates</p>
+                <p className="text-gray-500 text-sm">"The Digital Sketchpad" – Stop drawing on napkins. Close the deal before you leave the driveway.</p>
+              </div>
+              <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
+                <li className="flex gap-3"><Check size={18} className="text-white shrink-0" /> 50 Visualizations per month</li>
+                <li className="flex gap-3"><Check size={18} className="text-white shrink-0" /> Internal Dashboard</li>
+                <li className="flex gap-3"><Check size={18} className="text-white shrink-0" /> 5 Custom Styles</li>
+              </ul>
+              <div className="mt-auto">
+                <p className="text-xs text-gray-500 text-center mb-4">Best for solo operators.</p>
+                <Link href="/signup?plan=salesmate" className="block w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-center font-medium transition-colors">
+                  Start Free Trial
+                </Link>
+              </div>
+            </div>
+
+            {/* Card 2: The Widget */}
+            <div className="bg-[#111] border border-primary/50 rounded-2xl p-8 flex flex-col relative shadow-[0_0_50px_-12px_rgba(255,255,255,0.1)] scale-105 z-10">
+              <div className="absolute top-0 right-0 bg-primary/20 text-primary border border-primary/20 text-xs font-bold px-3 py-1 rounded-bl-xl rounded-tr-xl">
+                MOST POPULAR
+              </div>
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-white mb-2">The Widget</h3>
+                <div className="flex items-baseline gap-1 mb-4 relative w-fit">
+                  <span className="text-4xl font-bold text-white blur-md select-none hover:blur-none transition-all cursor-crosshair">$99</span>
+                  <span className="text-gray-500">/mo</span>
+                </div>
+                <p className="text-sm font-semibold text-primary mb-2">Best for: Website Lead Gen</p>
+                <p className="text-gray-400 text-sm">"The 24/7 Sales Rep" – Let customers design their own stairs while you sleep. Capture leads instantly.</p>
+              </div>
+              <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> 100 Visualizations per month</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Embeddable Widget</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Lead Capture Gate</li>
+                <li className="flex gap-3"><Check size={18} className="text-primary shrink-0" /> Pays for itself with one job</li>
+              </ul>
+              <div className="mt-auto">
+                <Link href="/signup?plan=widget" className="block w-full py-3 bg-white text-black hover:bg-gray-200 rounded-xl text-center font-bold transition-colors">
+                  Get Started
+                </Link>
+              </div>
+            </div>
+
+            {/* Card 3: The Showroom */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 flex flex-col relative group hover:border-purple-500/30 transition-colors">
+              <div className="mb-8">
+                <h3 className="text-xl font-bold text-purple-400 mb-2">The Showroom</h3>
+                <div className="flex items-baseline gap-1 mb-4 relative w-fit">
+                  <span className="text-4xl font-bold text-white blur-md select-none group-hover:opacity-50 transition-opacity">$300</span>
+                  <span className="text-gray-500">/mo</span>
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    <span className="text-[10px] font-bold text-white/50 uppercase tracking-wider">Hidden</span>
+                  </div>
+                </div>
+                <p className="text-sm font-semibold text-purple-400 mb-2">Best for: Established Brands</p>
+                <p className="text-gray-500 text-sm">"The White-Glove Experience" – No "Railify" logos. Just your brand, your styles, and your watermark.</p>
+              </div>
+              <ul className="space-y-4 mb-8 text-sm text-gray-300 flex-1">
+                <li className="flex gap-3"><Check size={18} className="text-purple-400 shrink-0" /> 500 Visualizations per month</li>
+                <li className="flex gap-3"><Check size={18} className="text-purple-400 shrink-0" /> White Label (No Branding)</li>
+                <li className="flex gap-3"><Check size={18} className="text-purple-400 shrink-0" /> Custom Watermark</li>
+                <li className="flex gap-3"><Check size={18} className="text-purple-400 shrink-0" /> Rollover Unused Credits</li>
+              </ul>
+              <div className="mt-auto">
+                <Link href="/signup?plan=showroom" className="block w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-center font-medium transition-colors">
+                  Contact Sales
+                </Link>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
 
       {/* --- FOOTER --- */}
       <footer className="py-12 border-t border-white/5 bg-black text-gray-500 text-sm">
@@ -183,7 +273,7 @@ export default function LandingPage() {
             <h4 className="font-bold text-white mb-4">Product</h4>
             <ul className="space-y-2">
               <li><Link href="#features" className="hover:text-primary">Features</Link></li>
-              {/* <li><Link href="#pricing" className="hover:text-primary">Pricing</Link></li> */}
+              <li><Link href="#pricing" className="hover:text-primary">Pricing</Link></li>
             </ul>
           </div>
           <div>
