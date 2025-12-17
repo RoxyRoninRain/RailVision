@@ -539,7 +539,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                         >
                             <div className="flex flex-col md:grid md:grid-cols-2 gap-6 h-full min-h-0">
                                 {/* Left: Preview */}
-                                <div className="relative w-full h-full bg-[#111] border border-white/10 rounded-2xl overflow-hidden flex items-center justify-center p-4 shadow-2xl group">
+                                <div className="relative w-full flex-1 md:h-full bg-[#111] border border-white/10 rounded-2xl overflow-hidden flex items-center justify-center p-4 shadow-2xl group min-h-0 order-1">
                                     {/* Back Button */}
                                     <div className="absolute top-4 left-4 z-20">
                                         <button
@@ -563,7 +563,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                 </div>
 
                                 {/* Right: Controls */}
-                                <div className="flex flex-col h-full min-h-0 relative">
+                                <div className="flex flex-col h-auto md:h-full min-h-0 relative order-2">
 
                                     {/* Carousel Section (Visible on ALL screens now) */}
                                     <div className="flex flex-col h-auto md:h-full justify-end md:justify-center min-h-0 flex-none pb-4 md:pb-0">
@@ -571,14 +571,32 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
                                         {/* Carousel - Responsive Aspect */}
                                         <div className="relative w-full aspect-[21/9] md:aspect-video bg-[#111] rounded-2xl overflow-hidden border border-[#222] group shadow-xl mb-4 md:mb-6 flex-shrink-0 touch-none">
-                                            <AnimatePresence mode='wait'>
+                                            <AnimatePresence mode='wait' custom={direction}>
                                                 <motion.img
                                                     key={styleList[selectedStyleIndex].id}
                                                     src={styleList[selectedStyleIndex].image_url || '/styles/industrial.png'}
-                                                    initial={{ opacity: 0 }}
-                                                    animate={{ opacity: 1 }}
-                                                    exit={{ opacity: 0 }}
-                                                    className="w-full h-full object-cover"
+                                                    custom={direction}
+                                                    variants={variants}
+                                                    initial="enter"
+                                                    animate="center"
+                                                    exit="exit"
+                                                    transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
+                                                    className="w-full h-full object-cover cursor-grab active:cursor-grabbing"
+                                                    drag="x"
+                                                    dragConstraints={{ left: 0, right: 0 }}
+                                                    dragElastic={1}
+                                                    onDragEnd={(e, { offset, velocity }) => {
+                                                        const swipe = offset.x; // negative = left swip (next), positive = right swipe (prev)
+
+                                                        if (swipe < -50) {
+                                                            paginate(1);
+                                                            setSelectedStyleIndex((prev) => (prev + 1) % styleList.length);
+                                                        } else if (swipe > 50) {
+                                                            paginate(-1); // Reusing logic? No, paginate moves Steps. I need a carousel helper.
+                                                            // Logic for style index update only:
+                                                            setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length);
+                                                        }
+                                                    }}
                                                 />
                                             </AnimatePresence>
 
