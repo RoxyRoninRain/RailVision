@@ -39,6 +39,7 @@ export default function SettingsPage() {
                     address: formData.get('address') as string,
                     primary_color: formData.get('primary_color') as string,
                     tool_background_color: formData.get('tool_background_color') as string,
+                    website: formData.get('website') as string,
                 });
             }
         } else {

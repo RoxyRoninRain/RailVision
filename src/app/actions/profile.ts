@@ -73,12 +73,6 @@ export async function updateProfile(formData: FormData) {
     if (phone) updates.phone = phone;
     if (address) updates.address = address;
     if (primary_color) updates.primary_color = primary_color;
-    if (tool_background_color) updates.primary_color = primary_color; // Assuming legacy or shared field, original code used primary_color loop or something? 
-    // In actions.ts snippet:
-    // const tool_background_color = formData.get('tool_background_color') as string;
-    // ...
-    // if (tool_background_color) updates.tool_background_color = tool_background_color;
-    // (My snippet cut off, but assuming standard pattern)
     if (tool_background_color) updates.tool_background_color = tool_background_color;
 
     if (logo_size) updates.logo_size = logo_size;
