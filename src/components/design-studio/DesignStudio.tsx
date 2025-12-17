@@ -230,8 +230,16 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             formData.append('prompt', "High quality architectural photorealistic render"); // Basic prompt, server handles rest
 
             console.log("Calling generateDesign with formData...");
+            console.log("File:", file.name, file.type, file.size);
+            console.log("Style:", styleList[selectedStyleIndex].name);
+
             const response = await generateDesign(formData);
-            console.log("generateDesign response:", response);
+            console.log("generateDesign response received:", JSON.stringify(response, null, 2));
+
+            // Explicit log for debugging mobile failures
+            if (!response.success) {
+                console.error("Server reported failure:", response.error);
+            }
 
             if (response.success && response.image) {
                 console.log("Success! Setting result.");
@@ -623,6 +631,18 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             {isGenerating ? <Loader2 className="animate-spin" /> : <TrendingUp size={20} />}
                                             Generate
                                         </button>
+
+                                        {/* Debug Error Display */}
+                                        {error && (
+                                            <div className="mt-4 p-4 bg-red-900/50 border border-red-500/50 rounded-xl text-red-200 text-sm font-mono break-words">
+                                                <div className="flex items-center gap-2 mb-2 font-bold text-red-400 uppercase tracking-wider">
+                                                    <AlertCircle size={16} />
+                                                    Generation Failed
+                                                </div>
+                                                {error}
+                                            </div>
+                                        )}
+
                                     </div>
                                 </div>
                             </div>
