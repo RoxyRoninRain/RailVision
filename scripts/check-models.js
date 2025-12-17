@@ -59,11 +59,12 @@ async function checkModel(modelId) {
 
 // 5. List of suspects
 const suspects = [
-    'gemini-3-pro-image',      // User request
-    'gemini-3-pro-preview',    // Likely correct
-    'gemini-experimental',
-    'gemini-2.0-flash-exp',
-    'gemini-1.5-pro'
+    'gemini-3-pro-image-preview', // The failed one
+    'gemini-1.5-pro-preview-0409',
+    'gemini-1.5-flash',
+    'gemini-1.0-pro',
+    'imagegeneration@006', // Imagen 2
+    'gemini-experimental'
 ];
 
 async function run() {

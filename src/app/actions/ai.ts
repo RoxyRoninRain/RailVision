@@ -224,6 +224,9 @@ export async function generateDesign(formData: FormData) {
 
     } catch (error: any) {
         console.error('[ERROR] Generation Failed:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
+        // CRITICAL: Return the actual error to the UI instead of a silent fallback
+        return { success: false, error: 'Generation Failed: ' + (error.message || 'Unknown error') };
+        /*
         // Fallback for demo/dev purposes if API fails (e.g. Rate Limit or 404)
         console.warn('Returning fallback image due to generation failure.');
         return {
@@ -231,6 +234,6 @@ export async function generateDesign(formData: FormData) {
             image: '/styles/modern.png', // Fallback to a valid existing image
             isFallback: true
         };
-        // return { error: 'Failed to generate image. ' + (error.message || 'Unknown error') };
+        */
     }
 }

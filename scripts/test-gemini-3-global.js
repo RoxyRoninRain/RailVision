@@ -35,6 +35,7 @@ if (envVars.GOOGLE_APPLICATION_CREDENTIALS) {
 const vertexAI = new VertexAI({
     project: projectId,
     location: location,
+    apiEndpoint: 'aiplatform.googleapis.com', // Match the app's logic
     googleAuthOptions
 });
 
