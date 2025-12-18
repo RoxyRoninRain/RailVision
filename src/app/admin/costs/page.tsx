@@ -66,6 +66,12 @@ export default function CostDashboard() {
     const { totalCost, totalGenerations, totalInputTokens, totalOutputTokens, modelBreakdown } = data;
     const costPerImage = totalGenerations > 0 ? (totalCost / totalGenerations).toFixed(4) : '0.0000';
 
+    const formatTokens = (tokens: number) => {
+        if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
+        if (tokens >= 1000) return `${(tokens / 1000).toFixed(1)}k`;
+        return tokens.toLocaleString();
+    };
+
     // Gemini 3 Stats
     const geminiStats = modelBreakdown['gemini-3.0-pro-image-preview'] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
 
@@ -157,10 +163,10 @@ export default function CostDashboard() {
                         </div>
                     </div>
                     <div className="text-2xl font-bold font-mono">
-                        {(totalInputTokens / 1000000).toFixed(1)}M <span className="text-gray-600 text-sm">In</span>
+                        {formatTokens(totalInputTokens)} <span className="text-gray-600 text-sm">In</span>
                     </div>
                     <div className="text-2xl font-bold font-mono">
-                        {(totalOutputTokens / 1000000).toFixed(1)}M <span className="text-gray-600 text-sm">Out</span>
+                        {formatTokens(totalOutputTokens)} <span className="text-gray-600 text-sm">Out</span>
                     </div>
                 </div>
             </div>
