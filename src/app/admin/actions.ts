@@ -381,12 +381,17 @@ export async function getCostAnalysis(startDate?: string, endDate?: string) {
 
         let totalCost = 0;
         let totalGenerations = 0;
+        let totalInputTokens = 0;
+        let totalOutputTokens = 0;
         let modelBreakdown: any = {};
 
         data.forEach((gen: any) => {
             const model = gen.model_id || 'unknown';
             const input = gen.input_tokens || 0;
             const output = gen.output_tokens || 0;
+
+            totalInputTokens += input;
+            totalOutputTokens += output;
 
             if (!modelBreakdown[model]) {
                 modelBreakdown[model] = { count: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
@@ -445,6 +450,8 @@ export async function getCostAnalysis(startDate?: string, endDate?: string) {
         return {
             totalCost,
             totalGenerations,
+            totalInputTokens,
+            totalOutputTokens,
             modelBreakdown,
             lastUpdated: new Date().toISOString()
         };

@@ -63,7 +63,7 @@ export default function CostDashboard() {
         return <div className="text-red-500 p-8">Error: {data.error}</div>;
     }
 
-    const { totalCost, totalGenerations, modelBreakdown } = data;
+    const { totalCost, totalGenerations, totalInputTokens, totalOutputTokens, modelBreakdown } = data;
     const costPerImage = totalGenerations > 0 ? (totalCost / totalGenerations).toFixed(4) : '0.0000';
 
     // Gemini 3 Stats
@@ -157,10 +157,10 @@ export default function CostDashboard() {
                         </div>
                     </div>
                     <div className="text-2xl font-bold font-mono">
-                        {(geminiStats.inputTokens / 1000000).toFixed(1)}M <span className="text-gray-600 text-sm">In</span>
+                        {(totalInputTokens / 1000000).toFixed(1)}M <span className="text-gray-600 text-sm">In</span>
                     </div>
                     <div className="text-2xl font-bold font-mono">
-                        {(geminiStats.outputTokens / 1000000).toFixed(1)}M <span className="text-gray-600 text-sm">Out</span>
+                        {(totalOutputTokens / 1000000).toFixed(1)}M <span className="text-gray-600 text-sm">Out</span>
                     </div>
                 </div>
             </div>
