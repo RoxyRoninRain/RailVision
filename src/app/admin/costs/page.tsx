@@ -8,15 +8,36 @@ import { ArrowLeft, RefreshCw, DollarSign, Image as ImageIcon, Cpu, TrendingUp }
 export default function CostDashboard() {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [timeFilter, setTimeFilter] = useState('all');
 
     useEffect(() => {
-        loadData();
-    }, []);
+        loadData(timeFilter);
+    }, [timeFilter]);
 
-    const loadData = async () => {
+    const loadData = async (filter: string) => {
         setLoading(true);
         try {
-            const result = await getCostAnalysis();
+            let startDate: string | undefined;
+            const now = new Date();
+
+            switch (filter) {
+                case '24h':
+                    startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+                    break;
+                case '7d':
+                    startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+                    break;
+                case '30d':
+                    startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+                    break;
+                case 'year':
+                    startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
+                    break;
+                default:
+                    startDate = undefined;
+            }
+
+            const result = await getCostAnalysis(startDate);
             setData(result);
         } catch (e) {
             console.error(e);
@@ -46,11 +67,23 @@ export default function CostDashboard() {
     const costPerImage = totalGenerations > 0 ? (totalCost / totalGenerations).toFixed(4) : '0.0000';
 
     // Gemini 3 Stats
-    const geminiStats = modelBreakdown['gemini-3.0-pro-image-preview'] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0 };
+    const geminiStats = modelBreakdown['gemini-3.0-pro-image-preview'] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
+
+    const FilterTab = ({ label, value }: { label: string, value: string }) => (
+        <button
+            onClick={() => setTimeFilter(value)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${timeFilter === value
+                ? 'bg-white text-black'
+                : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
+                }`}
+        >
+            {label}
+        </button>
+    );
 
     return (
         <div className="min-h-screen bg-black text-white p-8 font-sans">
-            <header className="mb-8 flex items-center justify-between">
+            <header className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <Link href="/admin/stats" className="p-2 hover:bg-white/10 rounded-full transition-colors">
                         <ArrowLeft size={20} />
@@ -62,12 +95,14 @@ export default function CostDashboard() {
                         <p className="text-gray-400 text-sm">Analyze API spend and profitability</p>
                     </div>
                 </div>
-                <button
-                    onClick={loadData}
-                    className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                    <RefreshCw size={20} />
-                </button>
+
+                <div className="flex items-center gap-2 bg-white/5 p-1 rounded-full">
+                    <FilterTab label="24h" value="24h" />
+                    <FilterTab label="7 Days" value="7d" />
+                    <FilterTab label="30 Days" value="30d" />
+                    <FilterTab label="Year" value="year" />
+                    <FilterTab label="All Time" value="all" />
+                </div>
             </header>
 
             {/* MAIN STATS */}
@@ -81,7 +116,9 @@ export default function CostDashboard() {
                         </div>
                     </div>
                     <div className="text-4xl font-bold font-mono">${totalCost.toFixed(2)}</div>
-                    <div className="text-xs text-gray-500 mt-2">All time</div>
+                    <div className="text-xs text-gray-500 mt-2">
+                        {timeFilter === 'all' ? 'All time' : `Last ${timeFilter}`}
+                    </div>
                 </div>
 
                 {/* Avg Cost / Image */}
@@ -192,15 +229,15 @@ export default function CostDashboard() {
                             <div className="flex justify-between text-sm text-gray-400">
                                 <div className="flex items-center gap-2">
                                     <div className="w-3 h-3 rounded-full bg-blue-500" />
-                                    <span>Input ({((geminiStats.inputCost / geminiStats.cost) * 100).toFixed(1)}%)</span>
+                                    <span>Input ({geminiStats.cost > 0 ? ((geminiStats.inputCost / geminiStats.cost) * 100).toFixed(1) : 0}%)</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="w-3 h-3 rounded-full bg-purple-500" />
-                                    <span>Output ({((geminiStats.outputCost / geminiStats.cost) * 100).toFixed(1)}%)</span>
+                                    <span>Output ({geminiStats.cost > 0 ? ((geminiStats.outputCost / geminiStats.cost) * 100).toFixed(1) : 0}%)</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="w-3 h-3 rounded-full bg-pink-500" />
-                                    <span>Image Gen ({((geminiStats.imageCost / geminiStats.cost) * 100).toFixed(1)}%)</span>
+                                    <span>Image Gen ({geminiStats.cost > 0 ? ((geminiStats.imageCost / geminiStats.cost) * 100).toFixed(1) : 0}%)</span>
                                 </div>
                             </div>
                         </div>

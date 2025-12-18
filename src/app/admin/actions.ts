@@ -358,15 +358,24 @@ export async function updateSubscriptionStatus(tenantId: string, status: 'active
 }
 
 // COST ANALYSIS
-export async function getCostAnalysis() {
+export async function getCostAnalysis(startDate?: string, endDate?: string) {
     const supabase = await createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
     try {
-        // Fetch all generations with token data
-        const { data, error } = await supabase
+        // Fetch generations with optionally filtered date range
+        let query = supabase
             .from('generations')
             .select('model_id, input_tokens, output_tokens, created_at');
+
+        if (startDate) {
+            query = query.gte('created_at', startDate);
+        }
+        if (endDate) {
+            query = query.lte('created_at', endDate);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 

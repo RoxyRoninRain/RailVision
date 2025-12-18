@@ -139,7 +139,7 @@ Command:
 
             const usage = {
                 inputTokens: response.usageMetadata?.promptTokenCount || 0,
-                outputTokens: response.usageMetadata?.candidatesTokenCount || 0
+                outputTokens: response.usageMetadata?.candidatesTokenCount || (response.usageMetadata?.totalTokenCount ? response.usageMetadata.totalTokenCount - (response.usageMetadata.promptTokenCount || 0) : 0)
             };
 
             // Gemini 3.0 Image Generation usually returns inline data differently or as a standard part.
