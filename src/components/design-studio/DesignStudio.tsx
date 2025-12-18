@@ -427,27 +427,32 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     };
 
     const downloadCanvas = (canvas: HTMLCanvasElement) => {
+        const dataUrl = canvas.toDataURL('image/png');
         try {
             const link = document.createElement('a');
             link.download = `Railify-${Date.now()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            document.body.appendChild(link); // Required for Firefox
+            link.href = dataUrl;
+            document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-            console.log("Download triggered.");
         } catch (e) {
-            console.error("Download failed:", e);
-            alert("Download blocked. Trying to open in new tab...");
-            try {
-                // Fallback: Open blob in new tab
-                canvas.toBlob((blob) => {
-                    if (blob) {
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, '_blank');
-                    }
-                });
-            } catch (e2) {
-                console.error("Fallback failed:", e2);
+            console.error("Primary download failed", e);
+        }
+
+        // Fallback or secondary confirmation: allow user to open if blocked
+        // Check if we are in an iframe (often blocks downloads)
+        const isIframe = window.self !== window.top;
+        if (isIframe) {
+            console.log("Iframe detected. Attempting to open compatible view.");
+            // We can't force a download easily in some sandboxed iframes.
+            // Opening in a new tab allows the user to "Save Image As..."
+            const newWindow = window.open();
+            if (newWindow) {
+                newWindow.document.write(`<img src="${dataUrl}" style="width:100%"/>`);
+                newWindow.document.title = "Your Design";
+            } else {
+                // If popup blocked, notify user
+                alert("Download blocked by browser. Please right-click the image and select 'Save Image As'.");
             }
         }
     };
@@ -770,7 +775,6 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
                     >
-// 1. Fix: Scrollable Modal
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                             className="bg-[#111] border border-[#333] p-8 rounded-2xl max-w-md w-full relative shadow-2xl max-h-[85vh] overflow-y-auto"
