@@ -227,6 +227,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 }
             }
 
+            // Fix for Embedded Auth issues:
+            // Ensure orgId is passed for guest/embedded users so the server can bill the tenant.
+            if (orgId) {
+                formData.append('organization_id', orgId);
+            }
+
             formData.append('prompt', "High quality architectural photorealistic render"); // Basic prompt, server handles rest
 
             console.log("Calling generateDesign with formData...");

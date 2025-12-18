@@ -393,30 +393,41 @@ export async function getCostAnalysis() {
             // Output: $0.0004 per 1k characters ~ approx $1.50 / 1M tokens
             // Images: $0.04 per image (fixed) + token overhead?
 
-            // SIMPLIFIED MODEL based on User Request:
-            // "Calculate the cost for that model [Gemini 3 Pro Image Preview]"
+            // PRICING MAP (Gemini 3 Pro Image Preview - Late 2025)
+            // Input: $2.00 / 1M tokens
+            // Output: $12.00 / 1M tokens (Thinking)
+            // Image Generation: ~$0.134 per image (Fixed cost for 1k/2k)
 
             let cost = 0;
+            // Initialize specific tracking for this model if needed
             if (model.includes('gemini-3')) {
-                // Rate: $3.50 / 1M Input | $10.50 / 1M Output (Standard Pro Pricing as proxy)
-                // OR specific Image Gen pricing if available.
-                // Using Standard Pro rates for now as safe estimate.
-                const inputCost = (input / 1000000) * 3.50;
-                const outputCost = (output / 1000000) * 10.50;
-                cost = inputCost + outputCost;
+                modelBreakdown[model].inputCost = modelBreakdown[model].inputCost || 0;
+                modelBreakdown[model].outputCost = modelBreakdown[model].outputCost || 0;
+                modelBreakdown[model].imageCost = modelBreakdown[model].imageCost || 0;
+            }
+
+            if (model.includes('gemini-3')) {
+                // 1. Input Cost ($2.00 / 1M)
+                const inputCost = (input / 1000000) * 2.00;
+
+                // 2. Output Cost ($12.00 / 1M) - e.g. for thinking tokens
+                const outputCost = (output / 1000000) * 12.00;
+
+                // 3. Fixed Image Cost (~$0.134)
+                const imageCost = 0.134;
+
+                cost = inputCost + outputCost + imageCost;
+
+                // Accumulate split costs
+                modelBreakdown[model].inputCost += inputCost;
+                modelBreakdown[model].outputCost += outputCost;
+                modelBreakdown[model].imageCost += imageCost;
             } else if (model.includes('imagen')) {
                 // Legacy Imagen 2/3 fixed price
                 cost = 0.040;
             }
 
             modelBreakdown[model].cost += cost;
-            // Accumulate split costs for detailed analysis
-            if (model.includes('gemini-3')) {
-                const inputCost = (input / 1000000) * 3.50;
-                const outputCost = (output / 1000000) * 10.50;
-                modelBreakdown[model].inputCost = (modelBreakdown[model].inputCost || 0) + inputCost;
-                modelBreakdown[model].outputCost = (modelBreakdown[model].outputCost || 0) + outputCost;
-            }
 
             totalCost += cost;
             totalGenerations++;

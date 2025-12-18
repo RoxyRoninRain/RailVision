@@ -173,24 +173,34 @@ export default function CostDashboard() {
                                     className="h-full bg-blue-500 flex items-center justify-center text-xs font-bold text-black"
                                     style={{ width: `${(geminiStats.inputCost / geminiStats.cost) * 100}%` }}
                                 >
-                                    Input
+                                    In
                                 </div>
                                 <div
                                     className="h-full bg-purple-500 flex items-center justify-center text-xs font-bold text-black"
                                     style={{ width: `${(geminiStats.outputCost / geminiStats.cost) * 100}%` }}
                                 >
-                                    Output
+                                    Out
+                                </div>
+                                <div
+                                    className="h-full bg-pink-500 flex items-center justify-center text-xs font-bold text-black"
+                                    style={{ width: `${(geminiStats.imageCost / geminiStats.cost) * 100}%` }}
+                                >
+                                    Img
                                 </div>
                             </div>
 
                             <div className="flex justify-between text-sm text-gray-400">
                                 <div className="flex items-center gap-2">
                                     <div className="w-3 h-3 rounded-full bg-blue-500" />
-                                    <span>Input Costs ({((geminiStats.inputCost / geminiStats.cost) * 100).toFixed(1)}%)</span>
+                                    <span>Input ({((geminiStats.inputCost / geminiStats.cost) * 100).toFixed(1)}%)</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span>Output Costs ({((geminiStats.outputCost / geminiStats.cost) * 100).toFixed(1)}%)</span>
                                     <div className="w-3 h-3 rounded-full bg-purple-500" />
+                                    <span>Output ({((geminiStats.outputCost / geminiStats.cost) * 100).toFixed(1)}%)</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-3 h-3 rounded-full bg-pink-500" />
+                                    <span>Image Gen ({((geminiStats.imageCost / geminiStats.cost) * 100).toFixed(1)}%)</span>
                                 </div>
                             </div>
                         </div>
@@ -207,22 +217,31 @@ export default function CostDashboard() {
                             <p className="text-sm text-gray-400">Average breakdown based on {geminiStats.count} generations:</p>
 
                             <div className="p-4 bg-white/5 rounded-xl space-y-3 font-mono text-sm">
-                                {/* Input Math */}
+                                {/* Fixed Image Cost */}
                                 <div className="flex justify-between">
+                                    <span className="text-pink-400">Image Generation (Fixed)</span>
+                                    <span>${(geminiStats.imageCost / geminiStats.count).toFixed(4)}</span>
+                                </div>
+                                <div className="text-xs text-gray-500 pl-2 border-l border-pink-500/30">
+                                    Flat rate per 1k/2k image
+                                </div>
+
+                                {/* Input Math */}
+                                <div className="flex justify-between pt-2 border-t border-white/5">
                                     <span className="text-blue-400">Input Processing</span>
                                     <span>${(geminiStats.inputCost / geminiStats.count).toFixed(4)}</span>
                                 </div>
                                 <div className="text-xs text-gray-500 pl-2 border-l border-blue-500/30">
-                                    ~{Math.round(geminiStats.inputTokens / geminiStats.count).toLocaleString()} tokens @ $3.50/1M
+                                    ~{Math.round(geminiStats.inputTokens / geminiStats.count).toLocaleString()} tokens @ $2.00/1M
                                 </div>
 
                                 {/* Output Math */}
                                 <div className="flex justify-between pt-2 border-t border-white/5">
-                                    <span className="text-purple-400">Output Generation</span>
+                                    <span className="text-purple-400">"Thinking" Output</span>
                                     <span>${(geminiStats.outputCost / geminiStats.count).toFixed(4)}</span>
                                 </div>
                                 <div className="text-xs text-gray-500 pl-2 border-l border-purple-500/30">
-                                    ~{Math.round(geminiStats.outputTokens / geminiStats.count).toLocaleString()} tokens @ $10.50/1M
+                                    ~{Math.round(geminiStats.outputTokens / geminiStats.count).toLocaleString()} tokens @ $12.00/1M
                                 </div>
 
                                 {/* Total Math */}
@@ -239,7 +258,7 @@ export default function CostDashboard() {
             </div>
 
             <div className="mt-8 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-200 text-sm">
-                <strong>Pricing Note:</strong> Costs are estimated based on Gemini 3.0 Pro preview rates ($3.50/1M In, $10.50/1M Output). Actual billing from Google Cloud may vary.
+                <strong>Pricing Note:</strong> Costs are based on Gemini 3.0 Pro (Late 2025): $2.00/1M Input, $12.00/1M Output (Thinking), ~$0.134/Image.
             </div>
         </div>
     );

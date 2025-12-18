@@ -3,6 +3,7 @@
 import { InputSanitizer } from '@/components/security/InputSanitizer';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
 
 export async function convertHeicToJpg(formData: FormData) {
@@ -47,19 +48,49 @@ export async function generateDesign(formData: FormData) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    // Context for billing:
+    let profileIdToBill = user?.id; // Default to logged-in user
+    let shouldUseAdminClient = false;
+
+    // Check for guest/embedded access if no user
     if (!user) {
-        return { error: 'You must be logged in to generate designs.' };
+        const organizationId = formData.get('organization_id') as string;
+        if (organizationId) {
+            console.log(`[AUTH] Guest access request for Tenant ID: ${organizationId}`);
+            // Use tenant ID for billing
+            profileIdToBill = organizationId;
+            // Must use Admin Client to read/write another user's profile (since we are guest)
+            shouldUseAdminClient = true;
+        } else {
+            return { error: 'You must be logged in to generate designs.' };
+        }
+    }
+
+    // Initialize the correct client interaction
+    let profileData, profileError;
+    let dbClient = supabase; // Default to standard RLS client
+
+    if (shouldUseAdminClient) {
+        const adminClient = createAdminClient();
+        if (!adminClient) {
+            console.error('[AUTH PROVISIONING] Failed to create admin client for guest access.');
+            return { error: 'System configuration error. Please contact support.' };
+        }
+        dbClient = adminClient;
     }
 
     // 1. Fetch current credits
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: dbError } = await dbClient
         .from('profiles')
         .select('credits_monthly, credits_rollover, credits_booster, auto_boost_enabled, auto_boost_pack')
-        .eq('id', user.id)
+        .eq('id', profileIdToBill)
         .single();
 
+    profileError = dbError;
+
     if (profileError || !profile) {
-        return { error: 'Could not fetch user profile for credit check.' };
+        console.error('[CREDITS] Profile fetch failed:', profileError);
+        return { error: 'Could not fetch profile for credit check.' };
     }
 
     let { credits_monthly, credits_rollover, credits_booster } = profile;
@@ -90,14 +121,14 @@ export async function generateDesign(formData: FormData) {
     }
 
     // 3. Commit Update
-    const { error: updateError } = await supabase
+    const { error: updateError } = await dbClient
         .from('profiles')
         .update({
             credits_monthly,
             credits_rollover,
             credits_booster
         })
-        .eq('id', user.id);
+        .eq('id', profileIdToBill);
 
     if (updateError) {
         console.error('[CREDITS] Failed to update balance:', updateError);
@@ -269,7 +300,7 @@ export async function generateDesign(formData: FormData) {
                 const userAgent = headersList.get('user-agent') || 'unknown';
 
                 await supabase.from('generations').insert([{
-                    organization_id: user ? user.id : null,
+                    organization_id: profileIdToBill, // Use the billed ID (User or Tenant)
                     image_url: result.image.startsWith('data:') ? 'Base64 Image Data' : result.image,
                     prompt_used: promptConfig ? 'Dynamic Prompt' : 'Default Prompt',
                     style_id: style,
