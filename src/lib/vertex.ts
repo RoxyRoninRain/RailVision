@@ -38,6 +38,18 @@ const vertexAIGlobal = new VertexAI({
     googleAuthOptions
 });
 
+// Router Model: Gemini 2.5 Flash Lite (Fast & Cheap)
+// Using global endpoint as requested to fix 404
+const routerModel = vertexAIGlobal.getGenerativeModel({
+    model: 'gemini-2.5-flash-lite'
+});
+
+// Auto-Demolition Model: Imagen 3 (Image Editing)
+// Using standard regional endpoint
+const imagenModel = vertexAI.getGenerativeModel({
+    model: 'imagen-3.0-capability-001'
+});
+
 
 
 // Update return type
@@ -190,4 +202,4 @@ Command:
     return { success: false, error: "Max retries exceeded." };
 }
 
-export { vertexAI };
+export { vertexAI, vertexAIGlobal, routerModel, imagenModel };

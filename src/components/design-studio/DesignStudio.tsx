@@ -333,13 +333,20 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
     const executeDownload = () => {
         if (!result) return;
+        console.log("Starting download execution...");
 
         const canvas = document.createElement('canvas');
         const img = new Image();
-        img.crossOrigin = "anonymous";
+
+        // Only set crossOrigin if it's NOT a data URI
+        if (!result.startsWith('data:')) {
+            img.crossOrigin = "anonymous";
+        }
+
         img.src = result;
 
         img.onload = async () => {
+            console.log("Main image loaded for download.");
             canvas.width = img.width;
             canvas.height = img.height;
             const ctx = canvas.getContext('2d');
@@ -355,7 +362,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             const loadImage = (src: string): Promise<HTMLImageElement | null> => {
                 return new Promise((resolve) => {
                     const i = new Image();
-                    i.crossOrigin = "anonymous";
+                    if (!src.startsWith('data:')) i.crossOrigin = "anonymous";
                     i.src = src;
                     i.onload = () => resolve(i);
                     i.onerror = () => {
@@ -412,13 +419,37 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
             downloadCanvas(canvas);
         };
+
+        img.onerror = (e) => {
+            console.error("Failed to load main image for download canvas:", e);
+            alert("Could not prepare image for download. Please try right-clicking the image to save.");
+        };
     };
 
     const downloadCanvas = (canvas: HTMLCanvasElement) => {
-        const link = document.createElement('a');
-        link.download = `Railify-${Date.now()}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        try {
+            const link = document.createElement('a');
+            link.download = `Railify-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            document.body.appendChild(link); // Required for Firefox
+            link.click();
+            document.body.removeChild(link);
+            console.log("Download triggered.");
+        } catch (e) {
+            console.error("Download failed:", e);
+            alert("Download blocked. Trying to open in new tab...");
+            try {
+                // Fallback: Open blob in new tab
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        window.open(url, '_blank');
+                    }
+                });
+            } catch (e2) {
+                console.error("Fallback failed:", e2);
+            }
+        }
     };
 
     // --- UTILS ---
@@ -739,11 +770,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
                     >
+// 1. Fix: Scrollable Modal
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-                            className="bg-[#111] border border-[#333] p-8 rounded-2xl max-w-md w-full relative shadow-2xl"
+                            className="bg-[#111] border border-[#333] p-8 rounded-2xl max-w-md w-full relative shadow-2xl max-h-[85vh] overflow-y-auto"
                         >
-                            <button onClick={() => setQuoteOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X /></button>
+                            <button onClick={() => setQuoteOpen(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white sticky z-10"><X /></button>
 
                             <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">Request Quote</h2>
                             <p className="text-gray-400 text-sm mb-6">Our engineers will review your design and provide a detailed estimate.</p>
