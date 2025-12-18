@@ -27,6 +27,7 @@ export default async function AdminLayout({
                 <div className="text-[var(--primary)] font-mono text-xl font-bold">SUPER ADMIN</div>
                 <nav className="flex flex-col gap-2 flex-1">
                     <a href="/admin/stats" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Global Stats</a>
+                    <a href="/admin/costs" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Cost Breakdown</a>
                     <a href="/admin/tenants" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Tenants List</a>
                     <a href="/admin/prompts" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Prompt Settings</a>
                     <a href="/admin/styles" className="p-2 hover:bg-white/5 rounded text-gray-400 hover:text-white">Style Library</a>
