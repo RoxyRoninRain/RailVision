@@ -571,7 +571,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                             transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
                             className="w-full h-full flex flex-col items-center justify-center p-6 min-h-0"
                         >
-                            <div className="max-w-md w-full text-center space-y-6">
+                            <div className="max-w-xl w-full text-center space-y-6">
                                 <div className="space-y-2">
                                     <h2 className="text-3xl md:text-4xl font-black uppercase tracking-tighter">
                                         Transform Your <span className="text-[var(--primary)]">Space</span>
@@ -581,7 +581,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                     </p>
                                 </div>
 
-                                <div className="relative group w-full aspect-video bg-[#0A0A0A] rounded-2xl border-2 border-dashed border-[#222] hover:border-[var(--primary)] transition-all duration-300 flex flex-col items-center justify-center cursor-pointer hover:bg-[#0e0e0e] hover:shadow-[0_0_30px_-5px_var(--primary-rgb)] overflow-hidden">
+                                <div className="relative group w-full aspect-video bg-[#0A0A0A] rounded-3xl border border-[#222] shadow-2xl hover:border-[var(--primary)] transition-all duration-300 flex flex-col items-center justify-center cursor-pointer hover:bg-[#0e0e0e] hover:shadow-[0_0_30px_-5px_var(--primary-rgb)] overflow-hidden">
                                     <input type="file" onChange={handleFileChange} className="absolute inset-0 z-20 opacity-0 cursor-pointer" accept="image/*, .heic, .heif" />
                                     <div className="w-12 h-12 bg-[#151515] rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                         <Upload className="w-6 h-6 text-[var(--primary)]" />
@@ -749,32 +749,41 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                             ) : (
                                 <div className="relative w-full h-full flex flex-col">
                                     {/* Result Area */}
-                                    <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden p-4 md:p-0">
-                                        {result && <img src={result} className="w-full h-full object-contain max-h-[calc(100vh-theme(spacing.32))]" />}
-
-                                        {/* Dynamic Watermark */}
-                                        {(watermarkLogo || logo) && result && (
-                                            <img src={watermarkLogo || logo as string} className="absolute bottom-8 right-8 w-32 md:w-48 opacity-90 drop-shadow-xl" />
+                                    <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden p-8">
+                                        {result && (
+                                            <img
+                                                src={result}
+                                                className="w-full h-full object-contain max-h-[60vh] rounded-3xl border border-[#333] shadow-2xl"
+                                            />
                                         )}
 
-                                        {/* Controls - Grouped Top Right to avoid left-side branding */}
-                                        <div className="absolute top-4 right-4 flex items-center gap-3">
-                                            <button onClick={() => paginate(-1)} className="bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md border border-white/10 hover:bg-white hover:text-black transition-all flex items-center gap-2 text-sm uppercase font-bold tracking-widest">
-                                                <ChevronLeft className="w-4 h-4" /> Adjust
-                                            </button>
-                                            <button onClick={() => { setFile(null); setPreview(null); setResult(null); setStep(1); }} className="bg-black/50 text-white px-4 py-2 rounded-full backdrop-blur-md border border-white/10 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-sm uppercase font-bold tracking-widest">
-                                                <RefreshCw className="w-4 h-4" /> Restart
-                                            </button>
-                                        </div>
+                                        {/* Dynamic Watermark - Adjusted position for new borders */}
+                                        {(watermarkLogo || logo) && result && (
+                                            <img src={watermarkLogo || logo as string} className="absolute bottom-10 right-10 w-24 md:w-32 opacity-80 drop-shadow-lg" />
+                                        )}
                                     </div>
 
                                     {/* Action Bar */}
-                                    <div className="bg-[#0A0A0A] border-t border-[#222] p-6 flex justify-center gap-4">
-                                        <button onClick={() => setQuoteOpen(true)} className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded hover:bg-gray-200 transition-colors text-sm md:text-base cursor-pointer">
+                                    <div className="bg-[#0A0A0A] border-t border-[#222] p-4 flex flex-wrap justify-center items-center gap-4">
+
+                                        {/* Navigation Controls moved here */}
+                                        <div className="flex gap-2">
+                                            <button onClick={() => paginate(-1)} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-white hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                                <ChevronLeft className="w-4 h-4" /> Back
+                                            </button>
+                                            <button onClick={() => { setFile(null); setPreview(null); setResult(null); setStep(1); }} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                                <RefreshCw className="w-4 h-4" /> Restart
+                                            </button>
+                                        </div>
+
+                                        <div className="h-8 w-px bg-[#333] hidden md:block"></div>
+
+                                        <button onClick={() => setQuoteOpen(true)} className="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-colors text-xs md:text-sm cursor-pointer shadow-lg">
                                             Request Quote
                                         </button>
-                                        <div className="flex flex-col justify-center items-center px-4">
-                                            <p className="text-gray-500 text-[10px] uppercase tracking-widest text-center">Right-Click Image to Save</p>
+
+                                        <div className="flex flex-col justify-center items-center px-2">
+                                            <p className="text-gray-500 text-[10px] uppercase tracking-widest text-center">Right-Click to Save</p>
                                         </div>
                                     </div>
                                 </div>
