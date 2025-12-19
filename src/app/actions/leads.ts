@@ -86,7 +86,7 @@ export async function submitLead(formData: FormData) {
                 } else if (tenantProfile?.email) {
                     // 2. Send Email
                     const { error: emailError } = await resend.emails.send({
-                        from: 'Railify <notifications@railify.com>',
+                        from: 'Railify <notifications@railify.app>',
                         to: tenantProfile.email,
                         subject: `New Quote Request: ${customer_name}`,
                         html: `
