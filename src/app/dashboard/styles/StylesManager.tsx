@@ -574,7 +574,7 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                         <span className="text-xs text-gray-500 uppercase">Zoom</span>
                         <input
                             type="range" min="1" max="3" step="0.1"
-                            value={zoom} onChange={e => setZoom(parseFloat(e.target.value))}
+                            value={zoom} onChange={e => { setZoom(parseFloat(e.target.value)); setIsDirty(true); }}
                             className="flex-1 accent-[var(--primary)]"
                         />
                     </div>
