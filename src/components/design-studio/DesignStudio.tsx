@@ -426,9 +426,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         };
     };
 
-    const downloadCanvas = (canvas: HTMLCanvasElement) => {
-        const dataUrl = canvas.toDataURL('image/png');
+    const downloadCanvas = (canvas: HTMLCanvasElement, mainImg?: HTMLImageElement) => {
+        let dataUrl = '';
         try {
+            dataUrl = canvas.toDataURL('image/png');
             const link = document.createElement('a');
             link.download = `Railify-${Date.now()}.png`;
             link.href = dataUrl;
