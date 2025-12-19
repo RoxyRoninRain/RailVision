@@ -410,9 +410,10 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
     // Cropper State
     const [imageSrc, setImageSrc] = useState<string>(style.image_url);
     const [isDirty, setIsDirty] = useState(false); // If true, we need to upload the cropped result
-    const [crop, setCrop] = useState({ x: 0, y: 0 }); // Pan offset percentage (-50 to 50)
+    const [crop, setCrop] = useState({ x: 0, y: 0 }); // Normalized Offset (-0.5 to 0.5)
     const [zoom, setZoom] = useState(1);
     const [newFile, setNewFile] = useState<File | null>(null);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     // Load new image for cropping
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -474,13 +475,9 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                 offsetX = (canvas.width - drawWidth) / 2;
                 offsetY = (canvas.height - drawHeight) / 2;
 
-                // Apply Pan (crop.x is % shift)
-                // If crop.x is 10, shift right by 10% of canvas width? 
-                // Let's assume crop.x is pixels in the UI? 
-                // Better: crop.x is percentage of the *image* dimension?
-                // Let's interpret crop.x as percentage of canvas width shift.
-                offsetX += (crop.x / 100) * canvas.width * zoom; // Amplify shift by zoom?
-                offsetY += (crop.y / 100) * canvas.height * zoom;
+                // Apply Pan (crop.x is % of CANVAS width delta)
+                offsetX += crop.x * canvas.width;
+                offsetY += crop.y * canvas.height;
 
                 ctx.fillStyle = '#000';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -527,12 +524,20 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
         setIsSubmitting(false);
     }
 
-    // Simple Pan Handler
+    // Normalized Pan Handler
     const handleDrag = (e: React.MouseEvent) => {
-        if (e.buttons !== 1) return;
+        if (e.buttons !== 1 || !containerRef.current) return;
+
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+
+        // Calculate delta as percentage of container
+        const deltaX = e.movementX / rect.width;
+        const deltaY = e.movementY / rect.height;
+
         setCrop(prev => ({
-            x: prev.x + e.movementX * 0.5, // Sensitivity
-            y: prev.y + e.movementY * 0.5
+            x: prev.x + deltaX,
+            y: prev.y + deltaY
         }));
         setIsDirty(true);
     }
@@ -547,15 +552,23 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
 
                     {/* Viewport */}
                     <div
+                        ref={containerRef}
                         className="w-full aspect-[4/3] bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
                         onMouseMove={handleDrag}
                     >
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        {/* Correct Visual Preview: Wrapper handles Translate (Crop), Image handles Scale (Zoom) */}
+                        <div
+                            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                            style={{
+                                transform: `translate(${crop.x * 100}%, ${crop.y * 100}%)`,
+                                transition: 'transform 0s linear'
+                            }}
+                        >
                             <img
                                 src={imageSrc}
                                 style={{
-                                    transform: `translate(${crop.x}px, ${crop.y}px) scale(${zoom})`,
-                                    transition: 'transform 0.05s linear' // Smooth drag
+                                    transform: `scale(${zoom})`,
+                                    transition: 'transform 0.1s ease-out'
                                 }}
                                 className="max-w-none max-h-none min-w-full min-h-full object-cover opacity-90"
                                 draggable={false}
