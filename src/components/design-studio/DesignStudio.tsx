@@ -770,12 +770,12 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
                                     {/* Action Bar */}
                                     <div className="bg-[#0A0A0A] border-t border-[#222] p-6 flex justify-center gap-4">
-                                        <button onClick={() => setQuoteOpen(true)} className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded hover:bg-gray-200 transition-colors text-sm md:text-base">
+                                        <button onClick={() => setQuoteOpen(true)} className="px-8 py-4 bg-white text-black font-black uppercase tracking-widest rounded hover:bg-gray-200 transition-colors text-sm md:text-base cursor-pointer">
                                             Request Quote
                                         </button>
-                                        <button onClick={handleDownloadClick} className="px-8 py-4 bg-[var(--primary)] text-black font-black uppercase tracking-widest rounded hover:brightness-110 transition-colors shadow-[0_0_20px_-5px_var(--primary)] flex items-center gap-2 text-sm md:text-base">
-                                            <Download className="w-5 h-5" /> Download High-Res
-                                        </button>
+                                        <div className="flex flex-col justify-center items-center px-4">
+                                            <p className="text-gray-500 text-[10px] uppercase tracking-widest text-center">Right-Click Image to Save</p>
+                                        </div>
                                     </div>
                                 </div>
                             )}
