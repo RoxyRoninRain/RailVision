@@ -24,9 +24,10 @@ export async function getTenantProfile(organizationId: string) {
     // Public fetch of branding details
     const { data, error } = await supabase
         .from('profiles')
-        .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url, website, subscription_status')
+        .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url, website, subscription_status, confirmation_email_body')
         .eq('id', organizationId)
         .single();
+
 
     if (error) {
         console.error('Fetch Tenant Profile Error:', error);
@@ -73,6 +74,7 @@ export async function updateProfile(formData: FormData) {
     const watermark_logo_url = formData.get('watermark_logo_url') as string;
     const website = formData.get('website') as string;
     const address_zip = formData.get('address_zip') as string;
+    const confirmation_email_body = formData.get('confirmation_email_body') as string;
     const travel_settings_raw = formData.get('travel_settings') as string;
 
     console.log('[DEBUG] updateProfile - User:', user.email);
@@ -91,6 +93,7 @@ export async function updateProfile(formData: FormData) {
     if (watermark_logo_url) updates.watermark_logo_url = watermark_logo_url;
     if (website !== undefined) updates.website = website;
     if (address_zip) updates.address_zip = address_zip;
+    if (confirmation_email_body !== undefined) updates.confirmation_email_body = confirmation_email_body;
     if (travel_settings_raw) {
         try {
             updates.travel_settings = JSON.parse(travel_settings_raw);

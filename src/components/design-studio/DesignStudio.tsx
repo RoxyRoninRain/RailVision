@@ -78,6 +78,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [message, setMessage] = useState('');
     const [currentEstimate, setCurrentEstimate] = useState<any>(null); // New State
     const [leadStatus, setLeadStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+    const [quoteFiles, setQuoteFiles] = useState<File[]>([]);
 
     // Mobile UI State
     const [showStyleSheet, setShowStyleSheet] = useState(false);
@@ -287,6 +288,11 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             if (result) formData.append('generated_design_url', result);
             if (orgId) formData.append('organization_id', orgId);
             if (currentEstimate) formData.append('estimate_json', JSON.stringify(currentEstimate));
+
+            // Append Files
+            quoteFiles.forEach(file => {
+                formData.append('files', file);
+            });
 
             await submitLead(formData);
             setLeadStatus('success');
@@ -892,6 +898,22 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             onChange={e => setMessage(e.target.value)}
                                             placeholder="Tell us about your project..."
                                         />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <label className="text-xs font-mono text-gray-500 uppercase">Photos (Optional)</label>
+                                        <div className="border border-[#333] border-dashed rounded p-4 text-center cursor-pointer hover:bg-white/5 transition-colors relative">
+                                            <input
+                                                type="file"
+                                                multiple
+                                                accept="image/*"
+                                                onChange={e => setQuoteFiles(Array.from(e.target.files || []))}
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            />
+                                            <div className="flex flex-col items-center gap-2 text-gray-400">
+                                                <Upload size={20} />
+                                                <span className="text-xs">{quoteFiles.length > 0 ? `${quoteFiles.length} file(s) selected` : 'Upload photos of your space'}</span>
+                                            </div>
+                                        </div>
                                     </div>
                                     <button type="submit" disabled={leadStatus === 'submitting'} className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase tracking-widest rounded hover:shadow-[0_0_20px_var(--primary)] transition-all mt-4">
                                         {leadStatus === 'submitting' ? 'Processing...' : 'Send Request'}

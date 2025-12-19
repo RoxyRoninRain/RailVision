@@ -21,8 +21,37 @@ export async function submitLead(formData: FormData) {
     const message = formData.get('message') as string;
     const estimate_json = formData.get('estimate_json') ? JSON.parse(formData.get('estimate_json') as string) : null;
 
+    // File Uploads
+    const files = formData.getAll('files') as File[];
+    const attachmentUrls: string[] = [];
+
     if (!email) {
         return { success: false, error: 'Email is required' };
+    }
+
+    // 1. Handle File Uploads
+    if (files.length > 0) {
+        for (const file of files) {
+            // Basic validation
+            if (file.size > 10 * 1024 * 1024) continue; // Skip > 10MB
+
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `${orgId || 'public'}/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('quote-uploads')
+                .upload(filePath, file);
+
+            if (!uploadError) {
+                const { data: { publicUrl } } = supabase.storage
+                    .from('quote-uploads')
+                    .getPublicUrl(filePath);
+                attachmentUrls.push(publicUrl);
+            } else {
+                console.error("File upload failed:", uploadError);
+            }
+        }
     }
 
     const payload: any = {
@@ -33,6 +62,7 @@ export async function submitLead(formData: FormData) {
         phone,
         message,
         estimate_json,
+        attachments: attachmentUrls,
         status: 'New',
         created_at: new Date().toISOString()
     };
@@ -42,13 +72,6 @@ export async function submitLead(formData: FormData) {
     }
 
     // Insert
-    // Insert using standard client first to respect RLS if possible (Guest Insert policies)
-    // BUT we found RLS might be blocking. Let's try standard first, if fail, try admin?
-    // Actually, simpler to just use Admin for Leas Insert if it's a public form.
-    // However, best practice is to have public RLS policy. 
-    // Let's rely on createClient() first, and just error log if it fails, OR fallback.
-    // Given the time, let's use Admin Client for Insert as well to be 100% sure it lands.
-
     const adminSupabase = createAdminClient();
     const dbClient = adminSupabase || supabase;
 
@@ -64,7 +87,7 @@ export async function submitLead(formData: FormData) {
     // Stub for Email Notification
     console.log(`[Notification] New Quote Request for Tenant ${orgId || 'Generic'}: ${customer_name} (${email})`);
 
-    // --- EMAIL NOTIFICATION START ---
+    // --- EMAIL NOTIFICATIONS START ---
     console.log(`[Email Debug] Attempting to send. OrgId: ${orgId ? 'Present' : 'Missing'}, Key: ${process.env.RESEND_API_KEY ? 'Present' : 'Missing'}`);
 
     if (orgId && process.env.RESEND_API_KEY) {
@@ -74,17 +97,18 @@ export async function submitLead(formData: FormData) {
             if (!adminSupabase) console.error('[Email Debug] Failed to create Admin Client');
 
             if (adminSupabase) {
-                // 1. Fetch Tenant Email
+                // 1. Fetch Tenant Profile & Settings
                 const { data: tenantProfile, error: profileError } = await adminSupabase
                     .from('profiles')
-                    .select('email, shop_name')
+                    .select('email, shop_name, confirmation_email_body')
                     .eq('id', orgId)
                     .single();
 
                 if (profileError) {
                     console.error("Failed to fetch tenant profile:", profileError);
                 } else if (tenantProfile?.email) {
-                    // 2. Send Email
+
+                    // Email 1: To Tenant (New Lead Alert)
                     const { error: emailError } = await resend.emails.send({
                         from: 'Railify <notifications@railify.app>',
                         to: tenantProfile.email,
@@ -112,6 +136,15 @@ export async function submitLead(formData: FormData) {
                                     <p><a href="${generatedUrl}">View Full Image</a></p>
                                 </div>
                             ` : ''}
+
+                            ${attachmentUrls.length > 0 ? `
+                                <div style="margin-top: 20px; border-top: 1px solid #eee; pt-3;">
+                                    <p><strong>Customer Uploads (${attachmentUrls.length}):</strong></p>
+                                    <ul>
+                                        ${attachmentUrls.map(url => `<li><a href="${url}">View Photo</a></li>`).join('')}
+                                    </ul>
+                                </div>
+                            ` : ''}
                             
                             <hr/>
                             <p style="font-size: 12px; color: #888;">Powered by Railify</p>
@@ -124,6 +157,39 @@ export async function submitLead(formData: FormData) {
                     } else {
                         console.log(`[Email Debug] Success. Email sent to ${tenantProfile.email}`);
                     }
+
+                    // Email 2: To Customer (Confirmation)
+                    const confirmationBody = tenantProfile.confirmation_email_body ||
+                        "Thank you for your request! We have received your details and will be reviewing your project shortly. Expect to hear from us within 1-2 business days with a formal quote.";
+
+                    const { error: customerEmailError } = await resend.emails.send({
+                        from: `${tenantProfile.shop_name || 'Railify'} <notifications@railify.app>`, // "Acme Metal <notifications@railify.app>"
+                        to: email, // Customer email
+                        replyTo: tenantProfile.email, // Replies go to Tenant
+                        subject: `We received your request! - ${tenantProfile.shop_name || 'Railify'}`,
+                        html: `
+                        <div style="font-family: sans-serif; color: #333;">
+                            <h2>Hello ${customer_name},</h2>
+                            <p>${confirmationBody.replace(/\n/g, '<br/>')}</p>
+                            <br/>
+                            <p><strong>Your Project Summary:</strong></p>
+                            <ul>
+                                <li>Style: ${styleName}</li>
+                                ${estimate_json && estimate_json.min ? `<li>Est. Price: $${estimate_json.min} - $${estimate_json.max}</li>` : ''}
+                            </ul>
+                            <br/>
+                            <p>Best regards,</p>
+                            <p><strong>${tenantProfile.shop_name || 'The Railify Team'}</strong></p>
+                        </div>
+                        `
+                    });
+
+                    if (customerEmailError) {
+                        console.error("[Email Debug] Customer Confirmation Failed:", customerEmailError);
+                    } else {
+                        console.log(`[Email Debug] Confirmation sent to customer ${email}`);
+                    }
+
                 } else {
                     console.warn(`No email found for tenant ${orgId}`);
                 }

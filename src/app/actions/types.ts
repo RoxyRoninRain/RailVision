@@ -26,6 +26,7 @@ export interface Profile {
     website?: string | null;
     address_zip?: string | null;
     travel_settings?: any;
+    confirmation_email_body?: string | null;
 }
 
 export interface PortfolioItem {

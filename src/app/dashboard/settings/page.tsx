@@ -420,6 +420,22 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
 
+                                        <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full bg-green-500"></div> Customer Confirmation Email
+                                            </label>
+                                            <p className="text-xs text-gray-500 mb-4">
+                                                Customize the email sent to customers when they request a quote.
+                                            </p>
+                                            <textarea
+                                                name="confirmation_email_body"
+                                                defaultValue={profile?.confirmation_email_body || "Thank you for your request. We will review your project and get back to you shortly."}
+                                                rows={6}
+                                                className="w-full bg-[#111] border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-y font-sans text-sm"
+                                                placeholder="Enter your confirmation message here..."
+                                            />
+                                        </div>
+
                                         {/* Logo Size Control (REMOVED) */}
                                     </div>
                                 </div>
