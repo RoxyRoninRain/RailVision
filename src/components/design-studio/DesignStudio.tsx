@@ -79,6 +79,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [showStyleSheet, setShowStyleSheet] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
 
+    // Manual Download Modal State
+    const [showDownloadModal, setShowDownloadModal] = useState(false);
+    const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+
 
     const styleList = initialStyles;
 
@@ -427,33 +431,50 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     };
 
     const downloadCanvas = (canvas: HTMLCanvasElement, mainImg?: HTMLImageElement) => {
-        let dataUrl = '';
+        let finalDataUrl = '';
         try {
-            dataUrl = canvas.toDataURL('image/png');
-            const link = document.createElement('a');
-            link.download = `Railify-${Date.now()}.png`;
-            link.href = dataUrl;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            finalDataUrl = canvas.toDataURL('image/png');
         } catch (e) {
-            console.error("Primary download failed", e);
+            console.warn("Canvas tainted by watermark. Falling back to non-watermarked image.", e);
+            if (mainImg) {
+                // Fallback: Create simple canvas with just the main image
+                const simpleCanvas = document.createElement('canvas');
+                simpleCanvas.width = mainImg.width;
+                simpleCanvas.height = mainImg.height;
+                const ctx = simpleCanvas.getContext('2d');
+                if (ctx) {
+                    ctx.drawImage(mainImg, 0, 0);
+                    try {
+                        finalDataUrl = simpleCanvas.toDataURL('image/png');
+                    } catch (e2) {
+                        console.error("Even main image tainted canvas (unlikely for Base64).", e2);
+                    }
+                }
+            }
         }
 
-        // Fallback or secondary confirmation: allow user to open if blocked
-        // Check if we are in an iframe (often blocks downloads)
+        if (!finalDataUrl) {
+            alert("Security policy blocked image processing. Please right-click the preview to save.");
+            return;
+        }
+
+        // Set URL and Show Modal (100% Reliability for Embeds)
+        setDownloadUrl(finalDataUrl);
+        setShowDownloadModal(true);
+
+        // Optional: Still try to auto-trigger for desktop users who tolerate it
+        // But only if NOT in an iframe to avoid confusion
         const isIframe = window.self !== window.top;
-        if (isIframe) {
-            console.log("Iframe detected. Attempting to open compatible view.");
-            // We can't force a download easily in some sandboxed iframes.
-            // Opening in a new tab allows the user to "Save Image As..."
-            const newWindow = window.open();
-            if (newWindow) {
-                newWindow.document.write(`<img src="${dataUrl}" style="width:100%"/>`);
-                newWindow.document.title = "Your Design";
-            } else {
-                // If popup blocked, notify user
-                alert("Download blocked by browser. Please right-click the image and select 'Save Image As'.");
+        if (!isIframe) {
+            try {
+                const link = document.createElement('a');
+                link.download = `Railify-${Date.now()}.png`;
+                link.href = finalDataUrl;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } catch (e) {
+                console.warn("Auto-download suppressed, modal should handle it.");
             }
         }
     };
@@ -836,6 +857,36 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                     </button>
                                 </form>
                             )}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+            {/* Manual Download Fallback Modal */}
+            <AnimatePresence>
+                {showDownloadModal && downloadUrl && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+                            className="bg-[#111] border border-[#333] p-8 rounded-2xl max-w-sm w-full relative shadow-2xl text-center"
+                        >
+                            <button onClick={() => setShowDownloadModal(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X /></button>
+
+                            <Check className="w-16 h-16 text-[var(--primary)] mx-auto mb-4" />
+                            <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">Design Ready</h2>
+                            <p className="text-gray-400 text-sm mb-6">Your customized handrail design has been generated.</p>
+
+                            <a
+                                href={downloadUrl}
+                                download={`Railify-Design-${Date.now()}.png`}
+                                onClick={() => setTimeout(() => setShowDownloadModal(false), 1000)}
+                                className="block w-full py-4 bg-[var(--primary)] text-black font-bold uppercase tracking-widest rounded hover:brightness-110 transition-colors shadow-[0_0_20px_-5px_var(--primary)] text-center text-decoration-none"
+                            >
+                                Save Image
+                            </a>
+                            <p className="text-[10px] text-gray-600 mt-4 uppercase tracking-widest">Click to Download</p>
                         </motion.div>
                     </motion.div>
                 )}
