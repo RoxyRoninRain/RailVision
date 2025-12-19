@@ -641,49 +641,68 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                     <div className="flex flex-col h-auto md:h-full justify-end md:justify-center min-h-0 flex-none pb-4 md:pb-0">
                                         <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter mb-2 md:mb-4">Select Style</h3>
 
-                                        {/* Carousel - Responsive Aspect */}
-                                        <div className="relative w-full aspect-[21/9] md:aspect-video bg-[#111] rounded-2xl overflow-hidden border border-[#222] group shadow-xl mb-4 md:mb-6 flex-shrink-0 touch-none">
-                                            <AnimatePresence mode='wait' custom={direction}>
-                                                <motion.img
-                                                    key={styleList[selectedStyleIndex].id}
-                                                    src={styleList[selectedStyleIndex].image_url || '/styles/industrial.png'}
-                                                    custom={direction}
-                                                    variants={variants}
-                                                    initial="enter"
-                                                    animate="center"
-                                                    exit="exit"
-                                                    transition={{ x: { type: "spring", stiffness: 300, damping: 30 }, opacity: { duration: 0.2 } }}
-                                                    className="w-full h-full object-cover cursor-grab active:cursor-grabbing"
-                                                    drag="x"
-                                                    dragConstraints={{ left: 0, right: 0 }}
-                                                    dragElastic={1}
-                                                    onDragEnd={(e, { offset, velocity }) => {
-                                                        const swipe = offset.x; // negative = left swip (next), positive = right swipe (prev)
+                                        {/* Carousel - Center Mode with Neighbors */}
+                                        <div className="relative w-full h-64 md:h-80 flex items-center justify-center mb-6 perspective-[1000px] group select-none">
 
-                                                        if (swipe < -50) {
-                                                            paginate(1);
-                                                            setSelectedStyleIndex((prev) => (prev + 1) % styleList.length);
-                                                        } else if (swipe > 50) {
-                                                            paginate(-1); // Reusing logic? No, paginate moves Steps. I need a carousel helper.
-                                                            // Logic for style index update only:
-                                                            setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length);
-                                                        }
-                                                    }}
+                                            {/* PREVIOUS Image (Left) */}
+                                            <div
+                                                className="absolute left-[-5%] w-[60%] h-[80%] opacity-40 blur-[1px] scale-90 z-0 cursor-pointer transition-all duration-300 hover:opacity-60 hover:scale-95"
+                                                onClick={() => setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length)}
+                                            >
+                                                <img
+                                                    src={styleList[(selectedStyleIndex - 1 + styleList.length) % styleList.length].image_url || '/styles/industrial.png'}
+                                                    className="w-full h-full object-cover rounded-xl grayscale"
                                                 />
-                                            </AnimatePresence>
-
-                                            {/* Overlay Text */}
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
-                                                <h4 className="text-white text-2xl font-black uppercase italic">{styleList[selectedStyleIndex].name}</h4>
-                                                <p className="text-gray-300 text-xs line-clamp-2">{styleList[selectedStyleIndex].description}</p>
                                             </div>
 
-                                            {/* Arrows - Always nice */}
-                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length); }} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-[var(--primary)] hover:text-black text-white p-2 sm:p-3 rounded-full backdrop-blur-md transition-all z-20 active:scale-95">
-                                                <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
+                                            {/* NEXT Image (Right) */}
+                                            <div
+                                                className="absolute right-[-5%] w-[60%] h-[80%] opacity-40 blur-[1px] scale-90 z-0 cursor-pointer transition-all duration-300 hover:opacity-60 hover:scale-95"
+                                                onClick={() => setSelectedStyleIndex((prev) => (prev + 1) % styleList.length)}
+                                            >
+                                                <img
+                                                    src={styleList[(selectedStyleIndex + 1) % styleList.length].image_url || '/styles/industrial.png'}
+                                                    className="w-full h-full object-cover rounded-xl grayscale"
+                                                />
+                                            </div>
+
+                                            {/* ACTIVE Image (Center) */}
+                                            <div className="relative z-20 w-[70%] h-full shadow-2xl rounded-2xl overflow-hidden border-2 border-[var(--primary)] bg-[#111]">
+                                                <AnimatePresence mode='popLayout' custom={direction}>
+                                                    <motion.img
+                                                        key={styleList[selectedStyleIndex].id}
+                                                        src={styleList[selectedStyleIndex].image_url || '/styles/industrial.png'}
+                                                        initial={{ opacity: 0, scale: 0.9 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.9 }}
+                                                        transition={{ duration: 0.3 }}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </AnimatePresence>
+
+                                                {/* Overlay Text */}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-6">
+                                                    <h4 className="text-white text-2xl md:text-3xl font-black uppercase italic tracking-tighter shadow-black drop-shadow-lg">
+                                                        {styleList[selectedStyleIndex].name}
+                                                    </h4>
+                                                    <p className="text-gray-300 text-xs line-clamp-2 md:line-clamp-3 leading-relaxed shadow-black drop-shadow-md">
+                                                        {styleList[selectedStyleIndex].description}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* Arrows - Integrated */}
+                                            <button
+                                                onClick={() => setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length)}
+                                                className="absolute left-2 top-1/2 -translate-y-1/2 z-30 bg-black/50 hover:bg-[var(--primary)] text-white hover:text-black p-3 rounded-full backdrop-blur-md transition-all active:scale-90"
+                                            >
+                                                <ChevronLeft className="w-6 h-6" />
                                             </button>
-                                            <button onClick={() => { setSelectedStyleIndex((prev) => (prev + 1) % styleList.length); }} className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-[var(--primary)] hover:text-black text-white p-2 sm:p-3 rounded-full backdrop-blur-md transition-all z-20 active:scale-95">
-                                                <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
+                                            <button
+                                                onClick={() => setSelectedStyleIndex((prev) => (prev + 1) % styleList.length)}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 z-30 bg-black/50 hover:bg-[var(--primary)] text-white hover:text-black p-3 rounded-full backdrop-blur-md transition-all active:scale-90"
+                                            >
+                                                <ChevronRight className="w-6 h-6" />
                                             </button>
                                         </div>
 
