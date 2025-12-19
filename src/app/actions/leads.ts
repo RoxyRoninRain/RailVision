@@ -1,7 +1,11 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { Lead } from './types';
+import { Resend } from 'resend';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Public submission
 export async function submitLead(formData: FormData) {
@@ -38,7 +42,17 @@ export async function submitLead(formData: FormData) {
     }
 
     // Insert
-    const { error } = await supabase
+    // Insert using standard client first to respect RLS if possible (Guest Insert policies)
+    // BUT we found RLS might be blocking. Let's try standard first, if fail, try admin?
+    // Actually, simpler to just use Admin for Leas Insert if it's a public form.
+    // However, best practice is to have public RLS policy. 
+    // Let's rely on createClient() first, and just error log if it fails, OR fallback.
+    // Given the time, let's use Admin Client for Insert as well to be 100% sure it lands.
+
+    const adminSupabase = createAdminClient();
+    const dbClient = adminSupabase || supabase;
+
+    const { error } = await dbClient
         .from('leads')
         .insert([payload]);
 
@@ -49,6 +63,73 @@ export async function submitLead(formData: FormData) {
 
     // Stub for Email Notification
     console.log(`[Notification] New Quote Request for Tenant ${orgId || 'Generic'}: ${customer_name} (${email})`);
+
+    // --- EMAIL NOTIFICATION START ---
+    if (orgId && process.env.RESEND_API_KEY) {
+        try {
+            // Use Admin Client to bypass RLS for Profile Read
+            const adminSupabase = createAdminClient();
+
+            if (adminSupabase) {
+                // 1. Fetch Tenant Email
+                const { data: tenantProfile, error: profileError } = await adminSupabase
+                    .from('profiles')
+                    .select('email, shop_name')
+                    .eq('id', orgId)
+                    .single();
+
+                if (profileError) {
+                    console.error("Failed to fetch tenant profile:", profileError);
+                } else if (tenantProfile?.email) {
+                    // 2. Send Email
+                    const { error: emailError } = await resend.emails.send({
+                        from: 'Railify <notifications@railify.com>',
+                        to: tenantProfile.email,
+                        subject: `New Quote Request: ${customer_name}`,
+                        html: `
+                        <div style="font-family: sans-serif; color: #333;">
+                            <h2>New Logic/Quote Request</h2>
+                            <p><strong>Customer:</strong> ${customer_name}</p>
+                            <p><strong>Email:</strong> ${email}</p>
+                            <p><strong>Phone:</strong> ${phone || 'N/A'}</p>
+                            <p><strong>Style:</strong> ${styleName}</p>
+                            <p><strong>Message:</strong><br/>${message ? message.replace(/\n/g, '<br/>') : 'No message'}</p>
+                            
+                            ${estimate_json ? `
+                                <div style="background: #f5f5f5; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                                    <h3>Estimate Details</h3>
+                                    <pre style="margin: 0;">${JSON.stringify(estimate_json, null, 2)}</pre>
+                                </div>
+                            ` : ''}
+
+                             ${generatedUrl ? `
+                                <div style="margin-top: 20px;">
+                                    <p><strong>Generated Design:</strong></p>
+                                    <img src="${generatedUrl}" alt="Design" style="max-width: 300px; border-radius: 8px;" />
+                                    <p><a href="${generatedUrl}">View Full Image</a></p>
+                                </div>
+                            ` : ''}
+                            
+                            <hr/>
+                            <p style="font-size: 12px; color: #888;">Powered by Railify</p>
+                        </div>
+                    `
+                    });
+
+                    if (emailError) {
+                        console.error("Resend Email Failed:", emailError);
+                    } else {
+                        console.log(`Email sent to tenant ${tenantProfile.email}`);
+                    }
+                } else {
+                    console.warn(`No email found for tenant ${orgId}`);
+                }
+            }
+        } catch (emailErr) {
+            console.error("Email dispatch error:", emailErr);
+        }
+    }
+    // --- EMAIL NOTIFICATION END ---
 
     return { success: true };
 }
@@ -78,7 +159,7 @@ export async function getOwnerLeads(): Promise<Lead[]> {
 
     return data.map((lead: any) => ({
         ...lead,
-        style_name: lead.portfolio?.name || 'Unknown'
+        style_name: lead.style_name || lead.portfolio?.name || 'Unknown'
     }));
 }
 

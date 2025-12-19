@@ -72,6 +72,8 @@ export async function updateProfile(formData: FormData) {
     const logo_url = formData.get('logo_url') as string; // From client upload
     const watermark_logo_url = formData.get('watermark_logo_url') as string;
     const website = formData.get('website') as string;
+    const address_zip = formData.get('address_zip') as string;
+    const travel_settings_raw = formData.get('travel_settings') as string;
 
     console.log('[DEBUG] updateProfile - User:', user.email);
     console.log('[DEBUG] updateProfile - Website Input:', website);
@@ -88,6 +90,14 @@ export async function updateProfile(formData: FormData) {
     if (logo_url) updates.logo_url = logo_url;
     if (watermark_logo_url) updates.watermark_logo_url = watermark_logo_url;
     if (website !== undefined) updates.website = website;
+    if (address_zip) updates.address_zip = address_zip;
+    if (travel_settings_raw) {
+        try {
+            updates.travel_settings = JSON.parse(travel_settings_raw);
+        } catch (e) {
+            console.error('Invalid travel_settings JSON', e);
+        }
+    }
 
     const upsertData: any = {
         id: user.id,

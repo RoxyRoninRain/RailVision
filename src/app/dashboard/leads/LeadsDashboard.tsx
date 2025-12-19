@@ -49,9 +49,11 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
         document.body.removeChild(link);
     };
 
-    // Split Leads
-    const quoteLeads = leads.filter(l => l.estimate_json && l.estimate_json.message);
-    const softLeads = leads.filter(l => !l.estimate_json || !l.estimate_json.message);
+    // Unified Leads List (filtering out empty ones if needed, or showing all)
+    // User requested removing 'Soft Leads' (downloads without quotes).
+    // We assume anything with a status != 'Draft' is a quote.
+    // Actually, typescript says status is only 'New' | 'Contacted' | 'Closed', so this filter is always true.
+    const quoteLeads = leads;
 
     return (
         <div className="min-h-screen bg-[#050505] p-6 md:p-8 text-white relative font-sans">
@@ -60,7 +62,7 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
                     <h1 className="text-4xl font-mono font-bold text-[var(--primary)] uppercase tracking-tighter mb-2">
                         Leads Pipeline
                     </h1>
-                    <p className="text-gray-500 font-light">Monitor incoming requests and manage deal flow.</p>
+                    <p className="text-gray-500 font-light">Monitor incoming quote requests and activity.</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -77,8 +79,8 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
                 <div className="bg-[#111] border border-gray-800 p-4 rounded-lg flex items-center justify-between">
                     <div>
-                        <p className="text-gray-500 text-xs font-mono uppercase tracking-widest">Total Designs</p>
-                        <p className="text-2xl font-bold text-white">{stats?.totalGenerations || 0}</p>
+                        <p className="text-gray-500 text-xs font-mono uppercase tracking-widest">Total Active Leads</p>
+                        <p className="text-2xl font-bold text-white">{quoteLeads.length}</p>
                     </div>
                     <BarChart3 className="text-[var(--primary)] opacity-50" />
                 </div>
@@ -114,30 +116,6 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
                         <div className="p-12 border border-dashed border-gray-800 rounded-xl flex flex-col items-center justify-center text-gray-600 bg-[#0a0a0a]">
                             <MessageSquareQuote className="w-12 h-12 mb-4 opacity-50" />
                             <p className="uppercase tracking-widest font-mono text-sm">No Quote Requests Yet</p>
-                        </div>
-                    )}
-                </section>
-
-                {/* 2. Soft Leads (Downloads) */}
-                <section>
-                    <div className="flex items-center gap-3 mb-6">
-                        <Download className="text-blue-400 text-3xl" />
-                        <h2 className="text-2xl font-bold uppercase tracking-widest text-white">Soft Leads (Downloads)</h2>
-                        <span className="bg-zinc-900 text-gray-400 text-xs font-bold px-2 py-1 rounded border border-zinc-800">
-                            {softLeads.length}
-                        </span>
-                    </div>
-
-                    {softLeads.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {softLeads.map(lead => (
-                                <LeadCard key={lead.id} lead={lead} onClick={setSelectedLead} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="p-12 border border-dashed border-gray-800 rounded-xl flex flex-col items-center justify-center text-gray-600 bg-[#0a0a0a]">
-                            <Download className="w-12 h-12 mb-4 opacity-50" />
-                            <p className="uppercase tracking-widest font-mono text-sm">No Downloads Yet</p>
                         </div>
                     )}
                 </section>

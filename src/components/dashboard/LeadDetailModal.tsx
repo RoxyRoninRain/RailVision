@@ -62,26 +62,62 @@ export function LeadDetailModal({ lead, onClose }: LeadDetailModalProps) {
                         <h3 className="text-[var(--primary)] text-sm uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">Estimate Breakdown</h3>
 
                         <div className="bg-[#222] rounded p-4 text-sm space-y-2">
-                            <div className="flex justify-between">
-                                <span className="text-gray-400">Base Price</span>
-                                <span className="text-white">${estimate.base_price?.toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-400">Travel/Install</span>
-                                <span className="text-white">${estimate.travel_fee?.toFixed(2)}</span>
-                            </div>
+                            {/* Format A: Range Estimate (Current) */}
+                            {estimate.min !== undefined && (
+                                <>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Estimated Range</span>
+                                        <span className="text-white font-bold text-lg">
+                                            ${estimate.min?.toLocaleString()} - ${estimate.max?.toLocaleString()}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Project Size</span>
+                                        <span className="text-white">{estimate.linearFeet} ft</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Zip Code</span>
+                                        <span className="text-white">{estimate.zipCode || 'N/A'}</span>
+                                    </div>
+                                    {estimate.distance > 0 && (
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Distance</span>
+                                            <span className="text-white">{estimate.distance.toFixed(1)} miles</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
 
-                            {estimate.addons?.map((addon: any, i: number) => (
-                                <div key={i} className="flex justify-between">
-                                    <span className="text-gray-400">+ {addon.name}</span>
-                                    <span className="text-white">${addon.price?.toFixed(2)}</span>
-                                </div>
-                            ))}
+                            {/* Format B: Detailed Breakdown (Legacy/Future) */}
+                            {estimate.base_price !== undefined && (
+                                <>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Base Price</span>
+                                        <span className="text-white">${estimate.base_price?.toFixed(2)}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-400">Travel/Install</span>
+                                        <span className="text-white">${estimate.travel_fee?.toFixed(2)}</span>
+                                    </div>
 
-                            <div className="border-t border-gray-700 pt-2 mt-2 flex justify-between font-bold text-lg text-[var(--primary)]">
-                                <span>Total</span>
-                                <span>${estimate.total?.toFixed(2)}</span>
-                            </div>
+                                    {estimate.addons?.map((addon: any, i: number) => (
+                                        <div key={i} className="flex justify-between">
+                                            <span className="text-gray-400">+ {addon.name}</span>
+                                            <span className="text-white">${addon.price?.toFixed(2)}</span>
+                                        </div>
+                                    ))}
+
+                                    <div className="border-t border-gray-700 pt-2 mt-2 flex justify-between font-bold text-lg text-[var(--primary)]">
+                                        <span>Total</span>
+                                        <span>${estimate.total?.toFixed(2)}</span>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Fallback */}
+                            {!estimate.min && !estimate.base_price && (
+                                <p className="text-gray-500 italic text-center">No estimate details available.</p>
+                            )}
                         </div>
                     </div>
 

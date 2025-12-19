@@ -24,6 +24,8 @@ export interface Profile {
     logo_size?: number | null;
     watermark_logo_url?: string | null;
     website?: string | null;
+    address_zip?: string | null;
+    travel_settings?: any;
 }
 
 export interface PortfolioItem {
@@ -36,4 +38,6 @@ export interface PortfolioItem {
     is_active?: boolean;
     style_metadata?: any;
     gallery?: string[];
+    price_per_ft_min?: number;
+    price_per_ft_max?: number;
 }

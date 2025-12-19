@@ -361,6 +361,8 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
     const [previews, setPreviews] = useState<string[]>([]);
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [priceMin, setPriceMin] = useState('');
+    const [priceMax, setPriceMax] = useState('');
 
     // Reuse helper from parent or duplicate? Creating simple duplicated handler for robust isolation
     const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -377,6 +379,8 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
         const formData = new FormData();
         formData.append('name', newName);
         formData.append('description', newDesc);
+        if (priceMin) formData.append('price_min', priceMin);
+        if (priceMax) formData.append('price_max', priceMax);
         newFiles.forEach(f => formData.append('files', f));
 
         const res = await createStyle(formData);
@@ -394,6 +398,16 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input value={newName} onChange={e => setNewName(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="Style Name" required />
                     <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white h-20" placeholder="Description" />
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="text-xs text-gray-500 uppercase">Min Price ($/ft)</label>
+                            <input type="number" value={priceMin} onChange={e => setPriceMin(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
+                        </div>
+                        <div className="flex-1">
+                            <label className="text-xs text-gray-500 uppercase">Max Price ($/ft)</label>
+                            <input type="number" value={priceMax} onChange={e => setPriceMax(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
+                        </div>
+                    </div>
                     <input type="file" onChange={handleFile} className="text-white text-sm" accept="image/*" multiple required />
                     <button disabled={isSubmitting} className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded mt-4">{isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : 'Create Style'}</button>
                 </form>
@@ -405,6 +419,8 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
 function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, onClose: () => void, onSuccess: () => void }) {
     const [name, setName] = useState(style.name);
     const [desc, setDesc] = useState(style.description || '');
+    const [priceMin, setPriceMin] = useState(style.price_per_ft_min?.toString() || '');
+    const [priceMax, setPriceMax] = useState(style.price_per_ft_max?.toString() || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Cropper State
@@ -500,6 +516,8 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
         formData.append('id', style.id);
         formData.append('name', name);
         formData.append('description', desc);
+        formData.append('price_min', priceMin);
+        formData.append('price_max', priceMax);
 
         // If newly uploaded or just re-cropped existing, we generate a file
         // Note: For existing URL (CORS), we might fail to crop if not proxy. 
@@ -612,6 +630,17 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                     <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Description</label>
                         <textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white h-32 resize-none" />
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Min Price ($/ft)</label>
+                            <input type="number" value={priceMin} onChange={e => setPriceMin(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Max Price ($/ft)</label>
+                            <input type="number" value={priceMax} onChange={e => setPriceMax(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
+                        </div>
                     </div>
 
                     <div className="flex-1"></div>

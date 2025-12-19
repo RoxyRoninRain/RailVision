@@ -52,6 +52,8 @@ export async function createStyle(formData: FormData) {
 
     const name = formData.get('name') as string;
     const desc = formData.get('description') as string;
+    const priceMin = formData.get('price_min') ? parseFloat(formData.get('price_min') as string) : 0;
+    const priceMax = formData.get('price_max') ? parseFloat(formData.get('price_max') as string) : 0;
 
     // 3. Insert into DB
     // First image is "image_url" (Thumbnail/Main), Rest are "gallery" (including the first one? Or just extras? Let's put ALL in gallery, and first in image_url)
@@ -65,7 +67,9 @@ export async function createStyle(formData: FormData) {
             image_url: mainImage,
             gallery: galleryUrls, // Save all images
             tenant_id: user.id,
-            is_active: true
+            is_active: true,
+            price_per_ft_min: priceMin,
+            price_per_ft_max: priceMax
         })
         .select()
         .single();
@@ -114,11 +118,15 @@ export async function updateStyle(formData: FormData) {
 
     const name = formData.get('name') as string;
     const description = formData.get('description') as string;
+    const priceMin = formData.get('price_min') ? parseFloat(formData.get('price_min') as string) : undefined;
+    const priceMax = formData.get('price_max') ? parseFloat(formData.get('price_max') as string) : undefined;
 
     // 2. Prepare Update Object
     const updates: any = {};
     if (name) updates.name = name;
     if (description !== null) updates.description = description; // Allow empty string
+    if (priceMin !== undefined) updates.price_per_ft_min = priceMin;
+    if (priceMax !== undefined) updates.price_per_ft_max = priceMax;
     if (mainImage) updates.image_url = mainImage;
 
     const { error: dbError } = await supabase
@@ -245,7 +253,7 @@ export async function getPublicStyles(tenantId: string) {
         const standardClient = await createClient();
         const { data, error } = await standardClient
             .from('portfolio')
-            .select('id, name, description, image_url, gallery')
+            .select('id, name, description, image_url, gallery, price_per_ft_min, price_per_ft_max')
             .eq('tenant_id', tenantId)
             .eq('is_active', true)
             .order('created_at', { ascending: false });
@@ -259,7 +267,7 @@ export async function getPublicStyles(tenantId: string) {
 
     const { data, error } = await supabase
         .from('portfolio')
-        .select('id, name, description, image_url, gallery')
+        .select('id, name, description, image_url, gallery, price_per_ft_min, price_per_ft_max')
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -280,7 +288,7 @@ export async function getStyles(tenantId?: string) {
     const supabase = await createClient();
     const { data } = await supabase
         .from('portfolio')
-        .select('id, name, description, image_url, gallery') // Select gallery too
+        .select('id, name, description, image_url, gallery, price_per_ft_min, price_per_ft_max') // Select gallery too
         .eq('tenant_id', tenantId);
 
     if (data && data.length > 0) {

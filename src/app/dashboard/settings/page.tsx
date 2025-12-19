@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getProfile, updateProfile, uploadLogo, Profile } from '@/app/actions';
-import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon } from 'lucide-react';
+import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon, Trash2, Plus } from 'lucide-react';
 import Image from 'next/image';
 
 export default function SettingsPage() {
@@ -11,11 +11,17 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [uploadingWatermark, setUploadingWatermark] = useState(false);
     const [message, setMessage] = useState('');
+    const [travelSettings, setTravelSettings] = useState<any>({ pricing_type: 'radius_tiers', tiers: [] });
     const watermarkInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         getProfile().then(data => {
-            if (data) setProfile(data);
+            if (data) {
+                setProfile(data);
+                if (data.travel_settings) {
+                    setTravelSettings(data.travel_settings);
+                }
+            }
             setLoading(false);
         });
     }, []);
@@ -160,7 +166,10 @@ export default function SettingsPage() {
                         <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
                             <form onSubmit={handleSubmit} className="space-y-8">
                                 <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
+                                <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
                                 <input type="hidden" name="watermark_logo_url" value={profile?.watermark_logo_url || ''} />
+                                <input type="hidden" name="travel_settings" value={JSON.stringify(travelSettings)} />
+
                                 <div className="space-y-6">
                                     <h3 className="text-lg font-mono text-gray-500 border-b border-gray-800 pb-2 uppercase tracking-wider">
                                         Business Details
@@ -224,15 +233,155 @@ export default function SettingsPage() {
 
                                         <div className="col-span-2">
                                             <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <MapPin size={14} /> Shop Address
+                                                <MapPin size={14} /> Shop Address & Zip
                                             </label>
-                                            <textarea
-                                                name="address"
-                                                defaultValue={profile?.address || ''}
-                                                rows={2}
-                                                className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-none"
-                                                placeholder="123 Steel Blvd, Industriville, ST 90210"
-                                            />
+                                            <div className="flex gap-4">
+                                                <div className="flex-grow">
+                                                    <textarea
+                                                        name="address"
+                                                        defaultValue={profile?.address || ''}
+                                                        rows={2}
+                                                        className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-none"
+                                                        placeholder="123 Steel Blvd, Industriville"
+                                                    />
+                                                </div>
+                                                <div className="w-32">
+                                                    <input
+                                                        type="text"
+                                                        name="address_zip"
+                                                        defaultValue={profile?.address_zip || ''}
+                                                        className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                                        placeholder="Zip"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Travel Settings */}
+                                        <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
+                                            <label className="block text-gray-400 mb-4 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full bg-blue-500"></div> Travel Fees
+                                            </label>
+
+                                            <div className="bg-black/50 rounded border border-gray-800 p-4 space-y-4">
+                                                <div className="flex gap-4 mb-4">
+                                                    <div className="flex-1">
+                                                        <span className="text-xs text-gray-500 uppercase block mb-1">Pricing Strategy</span>
+                                                        <select
+                                                            value={travelSettings.pricing_type || 'radius_tiers'}
+                                                            onChange={e => setTravelSettings({ ...travelSettings, pricing_type: e.target.value })}
+                                                            className="w-full bg-[#050505] border border-gray-800 text-sm rounded p-2 text-white"
+                                                        >
+                                                            <option value="radius_tiers">Radius Tiers</option>
+                                                            <option value="per_mile">Per Mile Rate</option>
+                                                        </select>
+                                                    </div>
+                                                    <div className="flex-1">
+                                                        <span className="text-xs text-gray-500 uppercase block mb-1">Application Method</span>
+                                                        <select
+                                                            value={travelSettings.application_type || 'flat'}
+                                                            onChange={e => setTravelSettings({ ...travelSettings, application_type: e.target.value })}
+                                                            className="w-full bg-[#050505] border border-gray-800 text-sm rounded p-2 text-white"
+                                                        >
+                                                            <option value="flat">Standard (Flat Fee)</option>
+                                                            <option value="per_foot_surcharge">Surcharge (Per Foot)</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                {travelSettings.pricing_type === 'per_mile' ? (
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="text-xs text-gray-500 uppercase block mb-1">Base Fee ($)</label>
+                                                            <input
+                                                                type="number"
+                                                                value={travelSettings.base_fee === 0 ? 0 : (travelSettings.base_fee || '')}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    setTravelSettings({ ...travelSettings, base_fee: isNaN(val) ? '' : val });
+                                                                }}
+                                                                className="w-full bg-[#050505] border border-gray-800 rounded p-2 text-white"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-gray-500 uppercase block mb-1">Rate ($/Mile)</label>
+                                                            <input
+                                                                type="number"
+                                                                value={travelSettings.rate_per_mile === 0 ? 0 : (travelSettings.rate_per_mile || '')}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value);
+                                                                    setTravelSettings({ ...travelSettings, rate_per_mile: isNaN(val) ? '' : val });
+                                                                }}
+                                                                className="w-full bg-[#050505] border border-gray-800 rounded p-2 text-white"
+                                                                placeholder="0.00"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div className="space-y-4">
+                                                        <div className="space-y-2">
+                                                            {travelSettings.tiers?.map((tier: any, idx: number) => (
+                                                                <div key={idx} className="flex items-center gap-2">
+                                                                    <div className="relative flex-1">
+                                                                        <span className="absolute left-3 top-2.5 text-xs text-gray-500">0 -</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={tier.radius === 0 ? 0 : (tier.radius || '')}
+                                                                            onChange={e => {
+                                                                                const newTiers = [...(travelSettings.tiers || [])];
+                                                                                const val = parseFloat(e.target.value);
+                                                                                newTiers[idx].radius = isNaN(val) ? '' : val;
+                                                                                setTravelSettings({ ...travelSettings, tiers: newTiers });
+                                                                            }}
+                                                                            className="w-full bg-[#050505] border border-gray-800 rounded p-2 pl-8 text-sm text-white"
+                                                                            placeholder="Miles"
+                                                                        />
+                                                                        <span className="absolute right-3 top-2.5 text-xs text-gray-500">mi</span>
+                                                                    </div>
+                                                                    <span className="text-gray-500 text-sm">→</span>
+                                                                    <div className="relative flex-1">
+                                                                        <span className="absolute left-3 top-2.5 text-xs text-gray-500">$</span>
+                                                                        <input
+                                                                            type="number"
+                                                                            value={tier.price === 0 ? 0 : (tier.price || '')}
+                                                                            onChange={e => {
+                                                                                const newTiers = [...(travelSettings.tiers || [])];
+                                                                                const val = parseFloat(e.target.value);
+                                                                                newTiers[idx].price = isNaN(val) ? '' : val;
+                                                                                setTravelSettings({ ...travelSettings, tiers: newTiers });
+                                                                            }}
+                                                                            className="w-full bg-[#050505] border border-gray-800 rounded p-2 pl-6 text-sm text-white"
+                                                                            placeholder="Fee"
+                                                                        />
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const newTiers = travelSettings.tiers.filter((_: any, i: number) => i !== idx);
+                                                                            setTravelSettings({ ...travelSettings, tiers: newTiers });
+                                                                        }}
+                                                                        className="text-red-500 hover:text-red-400 p-2"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                const newTiers = [...(travelSettings.tiers || []), { radius: 20, price: 50 }];
+                                                                setTravelSettings({ ...travelSettings, tiers: newTiers });
+                                                            }}
+                                                            className="text-xs font-bold uppercase tracking-wider text-[var(--primary)] hover:underline flex items-center gap-1"
+                                                        >
+                                                            <Plus size={14} /> Add Distance Tier
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
 
                                         <div className="col-span-1 border-t border-gray-800 pt-6 mt-2">
@@ -295,7 +444,7 @@ export default function SettingsPage() {
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

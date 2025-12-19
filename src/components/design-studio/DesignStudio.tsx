@@ -12,12 +12,15 @@ import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
 import StyleControls from '@/components/StyleControls';
 import { DownloadGateModal } from '@/components/DownloadGateModal';
+import { EstimateModal } from '@/components/EstimateModal';
 
 interface style {
     id: string;
     name: string;
     description: string;
     image_url?: string;
+    price_per_ft_min?: number;
+    price_per_ft_max?: number;
 }
 
 interface TenantProfile {
@@ -73,6 +76,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
     const [message, setMessage] = useState('');
+    const [currentEstimate, setCurrentEstimate] = useState<any>(null); // New State
     const [leadStatus, setLeadStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
 
     // Mobile UI State
@@ -82,6 +86,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     // Manual Download Modal State
     const [showDownloadModal, setShowDownloadModal] = useState(false);
     const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+    const [showEstimate, setShowEstimate] = useState(false);
 
 
     const styleList = initialStyles;
@@ -281,6 +286,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             formData.append('style_name', styleList[selectedStyleIndex]?.name || 'Custom');
             if (result) formData.append('generated_design_url', result);
             if (orgId) formData.append('organization_id', orgId);
+            if (currentEstimate) formData.append('estimate_json', JSON.stringify(currentEstimate));
 
             await submitLead(formData);
             setLeadStatus('success');
@@ -797,13 +803,20 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
                                         <div className="h-8 w-px bg-[#333] hidden md:block"></div>
 
-                                        <button onClick={() => setQuoteOpen(true)} className="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-colors text-xs md:text-sm cursor-pointer shadow-lg">
-                                            Request Quote
-                                        </button>
+                                        {/* Show Request Quote ONLY if Pricing is NOT available (fallback). 
+                                            If Pricing IS available, users should go through Estimate -> Quote flow. 
+                                        */}
+                                        {!(styleList[selectedStyleIndex]?.price_per_ft_min && styleList[selectedStyleIndex]?.price_per_ft_min > 0) && (
+                                            <button onClick={() => setQuoteOpen(true)} className="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-colors text-xs md:text-sm cursor-pointer shadow-lg">
+                                                Request Quote
+                                            </button>
+                                        )}
 
-                                        <div className="flex flex-col justify-center items-center px-2">
-                                            <p className="text-gray-500 text-[10px] uppercase tracking-widest text-center">Right-Click to Save</p>
-                                        </div>
+                                        {(styleList[selectedStyleIndex]?.price_per_ft_min || 0) > 0 && (
+                                            <button onClick={() => setShowEstimate(true)} className="px-6 py-3 bg-blue-600 text-white font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-colors text-xs md:text-sm cursor-pointer shadow-lg flex items-center gap-2">
+                                                <TrendingUp size={16} /> Estimate
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             )}
@@ -889,6 +902,19 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <EstimateModal
+                isOpen={showEstimate}
+                onClose={() => setShowEstimate(false)}
+                styleId={styleList[selectedStyleIndex]?.id}
+                styleName={styleList[selectedStyleIndex]?.name}
+                onRequestQuote={(estimateData: any) => {
+                    setShowEstimate(false);
+                    setQuoteOpen(true);
+                    setCurrentEstimate(estimateData); // Save for submission
+                    setMessage(`I received an estimate of ${estimateData.min} - ${estimateData.max} for ${estimateData.linearFeet}ft of ${styleList[selectedStyleIndex]?.name}. (Zip: ${estimateData.zipCode})`);
+                }}
+            />
             {/* Manual Download Fallback Modal */}
             <AnimatePresence>
                 {showDownloadModal && downloadUrl && (
