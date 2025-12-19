@@ -417,7 +417,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 ctx.globalAlpha = 1.0;
             }
 
-            downloadCanvas(canvas);
+            downloadCanvas(canvas, img);
         };
 
         img.onerror = (e) => {
