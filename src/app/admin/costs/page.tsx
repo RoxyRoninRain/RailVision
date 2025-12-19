@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getCostAnalysis } from '../actions';
+import Link from 'next/link';
 import { ArrowLeft, RefreshCw, DollarSign, Image as ImageIcon, Cpu, TrendingUp, X, Calendar } from 'lucide-react';
 
 import { startOfMonth, startOfYear } from 'date-fns';
