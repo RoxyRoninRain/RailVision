@@ -78,6 +78,63 @@ export async function createStyle(formData: FormData) {
     return { success: true };
 }
 
+export async function updateStyle(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+
+    const styleId = formData.get('id') as string;
+    if (!styleId) return { error: 'Style ID required' };
+
+    // 1. Handle File Upload (Optional)
+    const file = formData.get('file') as File;
+    let mainImage = null;
+
+    if (file && file.size > 0) {
+        if (file.size > 5 * 1024 * 1024) {
+            return { error: `File ${file.name} too large. Max 5MB.` };
+        }
+
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}_update_${Math.random().toString(36).substring(7)}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+            .from('portfolio')
+            .upload(fileName, file, { contentType: file.type, upsert: false });
+
+        if (uploadError) {
+            console.error('Update Upload Error:', uploadError);
+            return { error: 'Upload failed' };
+        }
+
+        const { data: publicUrlData } = supabase.storage.from('portfolio').getPublicUrl(fileName);
+        mainImage = publicUrlData.publicUrl;
+    }
+
+    const name = formData.get('name') as string;
+    const description = formData.get('description') as string;
+
+    // 2. Prepare Update Object
+    const updates: any = {};
+    if (name) updates.name = name;
+    if (description !== null) updates.description = description; // Allow empty string
+    if (mainImage) updates.image_url = mainImage;
+
+    const { error: dbError } = await supabase
+        .from('portfolio')
+        .update(updates)
+        .eq('id', styleId)
+        .eq('tenant_id', user.id);
+
+    if (dbError) {
+        console.error('DB Update Error:', dbError);
+        return { error: 'Database error: ' + dbError.message };
+    }
+
+    return { success: true };
+}
+
 export async function updateStyleStatus(id: string, isActive: boolean) {
     const supabase = await createClient();
     const { error } = await supabase
