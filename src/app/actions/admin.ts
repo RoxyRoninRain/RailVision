@@ -1,10 +1,15 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function getAdminStats() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabaseUser = await createClient();
+    const { data: { user } } = await supabaseUser.auth.getUser();
+
+    // Switch to Admin Client for Data Fetching to bypass RLS
+    const supabase = createAdminClient();
+    if (!supabase) return [];
 
     // Security Check
     // In real app, check a specific role or table. For now, check email.

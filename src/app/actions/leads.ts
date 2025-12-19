@@ -65,10 +65,13 @@ export async function submitLead(formData: FormData) {
     console.log(`[Notification] New Quote Request for Tenant ${orgId || 'Generic'}: ${customer_name} (${email})`);
 
     // --- EMAIL NOTIFICATION START ---
+    console.log(`[Email Debug] Attempting to send. OrgId: ${orgId ? 'Present' : 'Missing'}, Key: ${process.env.RESEND_API_KEY ? 'Present' : 'Missing'}`);
+
     if (orgId && process.env.RESEND_API_KEY) {
         try {
             // Use Admin Client to bypass RLS for Profile Read
             const adminSupabase = createAdminClient();
+            if (!adminSupabase) console.error('[Email Debug] Failed to create Admin Client');
 
             if (adminSupabase) {
                 // 1. Fetch Tenant Email
@@ -117,9 +120,9 @@ export async function submitLead(formData: FormData) {
                     });
 
                     if (emailError) {
-                        console.error("Resend Email Failed:", emailError);
+                        console.error("[Email Debug] Resend API Error:", JSON.stringify(emailError));
                     } else {
-                        console.log(`Email sent to tenant ${tenantProfile.email}`);
+                        console.log(`[Email Debug] Success. Email sent to ${tenantProfile.email}`);
                     }
                 } else {
                     console.warn(`No email found for tenant ${orgId}`);

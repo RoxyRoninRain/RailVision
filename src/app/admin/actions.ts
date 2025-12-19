@@ -358,7 +358,9 @@ export async function updateSubscriptionStatus(tenantId: string, status: 'active
 }
 
 // COST ANALYSIS
-export async function getCostAnalysis(startDate?: string, endDate?: string) {
+import { format, startOfMonth, startOfYear } from 'date-fns';
+
+export async function getCostAnalysis(dateRange?: { from?: string, to?: string }, groupBy: 'day' | 'week' | 'month' | 'year' = 'day') {
     const supabase = await createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
@@ -366,13 +368,14 @@ export async function getCostAnalysis(startDate?: string, endDate?: string) {
         // Fetch generations with optionally filtered date range
         let query = supabase
             .from('generations')
-            .select('model_id, input_tokens, output_tokens, created_at');
+            .select('model_id, input_tokens, output_tokens, created_at') // Removed cost_usd to fix error
+            .order('created_at', { ascending: true }); // Important for bucketing
 
-        if (startDate) {
-            query = query.gte('created_at', startDate);
+        if (dateRange?.from) {
+            query = query.gte('created_at', dateRange.from);
         }
-        if (endDate) {
-            query = query.lte('created_at', endDate);
+        if (dateRange?.to) {
+            query = query.lte('created_at', dateRange.to);
         }
 
         const { data, error } = await query;
@@ -384,68 +387,81 @@ export async function getCostAnalysis(startDate?: string, endDate?: string) {
         let totalInputTokens = 0;
         let totalOutputTokens = 0;
         let modelBreakdown: any = {};
+        const chartDataMap: Record<string, any> = {};
 
         data.forEach((gen: any) => {
             const model = gen.model_id || 'unknown';
             const input = gen.input_tokens || 0;
             const output = gen.output_tokens || 0;
+            const createdAt = new Date(gen.created_at);
 
             totalInputTokens += input;
             totalOutputTokens += output;
 
-            if (!modelBreakdown[model]) {
-                modelBreakdown[model] = { count: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
-            }
-
-            modelBreakdown[model].count++;
-            modelBreakdown[model].inputTokens += input;
-            modelBreakdown[model].outputTokens += output;
-
-            // PRICING MAP (Gemini 3 Pro Image Preview)
-            // As of Dec 2025 (Estimated Public Preview Pricing)
-            // Input: $0.0001 per 1k characters ~ approx $0.50 / 1M tokens
-            // Output: $0.0004 per 1k characters ~ approx $1.50 / 1M tokens
-            // Images: $0.04 per image (fixed) + token overhead?
-
-            // PRICING MAP (Gemini 3 Pro Image Preview - Late 2025)
-            // Input: $2.00 / 1M tokens
-            // Output: $12.00 / 1M tokens (Thinking)
-            // Image Generation: ~$0.134 per image (Fixed cost for 1k/2k)
-
+            // --- COST CALCULATION (Same logic as before) ---
             let cost = 0;
-            // Initialize specific tracking for this model if needed
-            if (model.includes('gemini-3')) {
-                modelBreakdown[model].inputCost = modelBreakdown[model].inputCost || 0;
-                modelBreakdown[model].outputCost = modelBreakdown[model].outputCost || 0;
-                modelBreakdown[model].imageCost = modelBreakdown[model].imageCost || 0;
+            // Prefer stored cost if available, else calculate
+            if (gen.cost_usd !== undefined && gen.cost_usd !== null) {
+                cost = gen.cost_usd;
+            } else {
+                if (model.includes('gemini-3')) {
+                    // 1. Input Cost ($2.00 / 1M)
+                    const inputCost = (input / 1000000) * 2.00;
+                    // 2. Output Cost ($12.00 / 1M)
+                    const outputCost = (output / 1000000) * 12.00;
+                    // 3. Fixed Image Cost (~$0.134)
+                    const imageCost = 0.134;
+                    cost = inputCost + outputCost + imageCost;
+                } else if (model.includes('imagen')) {
+                    cost = 0.040;
+                }
             }
-
-            if (model.includes('gemini-3')) {
-                // 1. Input Cost ($2.00 / 1M)
-                const inputCost = (input / 1000000) * 2.00;
-
-                // 2. Output Cost ($12.00 / 1M) - e.g. for thinking tokens
-                const outputCost = (output / 1000000) * 12.00;
-
-                // 3. Fixed Image Cost (~$0.134)
-                const imageCost = 0.134;
-
-                cost = inputCost + outputCost + imageCost;
-
-                // Accumulate split costs
-                modelBreakdown[model].inputCost += inputCost;
-                modelBreakdown[model].outputCost += outputCost;
-                modelBreakdown[model].imageCost += imageCost;
-            } else if (model.includes('imagen')) {
-                // Legacy Imagen 2/3 fixed price
-                cost = 0.040;
-            }
-
-            modelBreakdown[model].cost += cost;
 
             totalCost += cost;
             totalGenerations++;
+
+            // --- MODEL BREAKDOWN ---
+            if (!modelBreakdown[model]) {
+                modelBreakdown[model] = { count: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
+            }
+            modelBreakdown[model].count++;
+            modelBreakdown[model].inputTokens += input;
+            modelBreakdown[model].outputTokens += output;
+            modelBreakdown[model].cost += cost;
+
+            // --- CHART BUCKETING ---
+            let bucketKey = '';
+            let bucketLabel = '';
+
+            if (groupBy === 'year') {
+                bucketKey = format(createdAt, 'yyyy');
+                bucketLabel = bucketKey;
+            } else if (groupBy === 'month') {
+                bucketKey = format(createdAt, 'yyyy-MM');
+                bucketLabel = format(createdAt, 'MMM yyyy');
+            } else {
+                // Default to Day
+                bucketKey = format(createdAt, 'yyyy-MM-dd');
+                bucketLabel = format(createdAt, 'MMM dd');
+            }
+
+            if (!chartDataMap[bucketKey]) {
+                chartDataMap[bucketKey] = {
+                    date: bucketKey,
+                    label: bucketLabel,
+                    cost: 0,
+                    generations: 0,
+                    inputTokens: 0
+                };
+            }
+
+            chartDataMap[bucketKey].cost += cost;
+            chartDataMap[bucketKey].generations += 1;
+            chartDataMap[bucketKey].inputTokens += input;
         });
+
+        // Convert Map to Array and Sort
+        const chartData = Object.values(chartDataMap).sort((a: any, b: any) => a.date.localeCompare(b.date));
 
         return {
             totalCost,
@@ -453,6 +469,7 @@ export async function getCostAnalysis(startDate?: string, endDate?: string) {
             totalInputTokens,
             totalOutputTokens,
             modelBreakdown,
+            chartData,
             lastUpdated: new Date().toISOString()
         };
 
