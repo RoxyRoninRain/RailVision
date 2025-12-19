@@ -534,6 +534,7 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
             x: prev.x + e.movementX * 0.5, // Sensitivity
             y: prev.y + e.movementY * 0.5
         }));
+        setIsDirty(true);
     }
 
     return (
