@@ -9,6 +9,7 @@ interface LeadDetailModalProps {
 
 export function LeadDetailModal({ lead, onClose }: LeadDetailModalProps) {
     if (!lead) return null;
+    console.log('[LeadDetailModal] Render:', lead);
 
     const estimate = lead.estimate_json || { base_price: 0, travel_fee: 0, addons: [], total: 0 };
 
@@ -19,9 +20,9 @@ export function LeadDetailModal({ lead, onClose }: LeadDetailModalProps) {
                 onClick={e => e.stopPropagation()}
             >
                 {/* Left: Images */}
-                <div className="w-1/2 bg-black flex items-center justify-center p-4 border-r border-gray-800">
-                    {/* Slider mock */}
-                    <div className="space-y-4 w-full">
+                <div className="w-1/2 bg-black flex flex-col items-center justify-start p-4 border-r border-gray-800 overflow-y-auto">
+                    {/* Main generated image */}
+                    <div className="space-y-4 w-full mb-6">
                         <div className="aspect-video bg-[#111] rounded overflow-hidden relative border border-gray-800">
                             {lead.generated_design_url ? (
                                 <img src={lead.generated_design_url} className="w-full h-full object-contain" alt="After" />
@@ -32,6 +33,21 @@ export function LeadDetailModal({ lead, onClose }: LeadDetailModalProps) {
                         </div>
                         <p className="text-center text-gray-400 text-sm">Reviewing design for {lead.customer_name}</p>
                     </div>
+
+                    {/* Customer Uploads */}
+                    {lead.attachments && lead.attachments.length > 0 && (
+                        <div className="w-full">
+                            <h3 className="text-gray-500 text-xs font-mono uppercase tracking-widest mb-3">Customer Uploads</h3>
+                            <div className="grid grid-cols-3 gap-2">
+                                {lead.attachments.map((url, i) => (
+                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="aspect-square border border-gray-800 rounded overflow-hidden hover:border-[var(--primary)] transition-all relative group">
+                                        <img src={url} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Right: Data */}
@@ -58,18 +74,7 @@ export function LeadDetailModal({ lead, onClose }: LeadDetailModalProps) {
                         </div>
                     </div>
 
-                    {lead.attachments && lead.attachments.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className="text-[var(--primary)] text-sm uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">Customer Uploads</h3>
-                            <div className="flex flex-wrap gap-2">
-                                {lead.attachments.map((url, i) => (
-                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-20 h-20 border border-gray-700 rounded overflow-hidden hover:border-[var(--primary)] transition-colors">
-                                        <img src={url} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
-                                    </a>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+
 
                     <div>
                         <h3 className="text-[var(--primary)] text-sm uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">Estimate Breakdown</h3>
