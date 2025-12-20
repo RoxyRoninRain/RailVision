@@ -294,12 +294,20 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 formData.append('files', file);
             });
 
-            await submitLead(formData);
-            setLeadStatus('success');
-            setTimeout(() => {
-                setQuoteOpen(false);
-                setLeadStatus('idle');
-            }, 3000);
+            const response = await submitLead(formData);
+
+            if (response.success) {
+                setLeadStatus('success');
+                setTimeout(() => {
+                    setQuoteOpen(false);
+                    setLeadStatus('idle');
+                }, 3000);
+            } else {
+                console.error("Quote submission failed:", response.error);
+                setLeadStatus('error');
+                // Optional: Show alert or toast
+                alert(`Something went wrong: ${response.error || 'Unknown error'}`);
+            }
         } catch (err) {
             console.error(err);
             setLeadStatus('error');
