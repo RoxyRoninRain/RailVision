@@ -58,6 +58,19 @@ export function LeadDetailModal({ lead, onClose }: LeadDetailModalProps) {
                         </div>
                     </div>
 
+                    {lead.attachments && lead.attachments.length > 0 && (
+                        <div className="mb-8">
+                            <h3 className="text-[var(--primary)] text-sm uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">Customer Uploads</h3>
+                            <div className="flex flex-wrap gap-2">
+                                {lead.attachments.map((url, i) => (
+                                    <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-20 h-20 border border-gray-700 rounded overflow-hidden hover:border-[var(--primary)] transition-colors">
+                                        <img src={url} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <h3 className="text-[var(--primary)] text-sm uppercase tracking-wider mb-4 border-b border-gray-800 pb-2">Estimate Breakdown</h3>
 
