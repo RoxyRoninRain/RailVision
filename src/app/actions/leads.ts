@@ -29,11 +29,19 @@ export async function submitLead(formData: FormData) {
         return { success: false, error: 'Email is required' };
     }
 
+    const uploadErrors: string[] = [];
+
     // 1. Handle File Uploads
     if (files.length > 0) {
+        console.log(`[Upload Debug] Received ${files.length} files`);
         for (const file of files) {
+            console.log(`[Upload Debug] Processing ${file.name}, size: ${file.size}`);
+
             // Basic validation
-            if (file.size > 10 * 1024 * 1024) continue; // Skip > 10MB
+            if (file.size > 50 * 1024 * 1024) { // 50MB per file
+                uploadErrors.push(`${file.name} too large`);
+                continue;
+            }
 
             const fileExt = file.name.split('.').pop();
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
@@ -50,6 +58,7 @@ export async function submitLead(formData: FormData) {
                 attachmentUrls.push(publicUrl);
             } else {
                 console.error("File upload failed:", uploadError);
+                uploadErrors.push(`Upload failed for ${file.name}: ${uploadError.message}`);
             }
         }
     }
@@ -200,7 +209,7 @@ export async function submitLead(formData: FormData) {
     }
     // --- EMAIL NOTIFICATION END ---
 
-    return { success: true };
+    return { success: true, warnings: uploadErrors };
 }
 
 export async function getOwnerLeads(): Promise<Lead[]> {
