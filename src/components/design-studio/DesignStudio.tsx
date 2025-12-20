@@ -297,6 +297,9 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             const response = await submitLead(formData);
 
             if (response.success) {
+                if (response.warnings && response.warnings.length > 0) {
+                    alert(`Quote sent, but some files failed to upload:\n${response.warnings.join('\n')}`);
+                }
                 setLeadStatus('success');
                 setTimeout(() => {
                     setQuoteOpen(false);

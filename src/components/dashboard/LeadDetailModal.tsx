@@ -69,7 +69,7 @@ export function LeadDetailModal({ lead, onClose }: LeadDetailModalProps) {
                             </div>
                             <div>
                                 <span className="text-gray-500 block">Date</span>
-                                <span className="text-white">{new Date(lead.created_at).toLocaleString()}</span>
+                                <span className="text-white">{new Date(lead.created_at).toISOString().split('T')[0]}</span>
                             </div>
                         </div>
                     </div>
