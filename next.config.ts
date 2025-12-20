@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // Silence warning about multiple lockfiles
   experimental: {
     serverActions: {
-      bodySizeLimit: '10mb',
+      bodySizeLimit: '50mb',
     },
   },
   images: {

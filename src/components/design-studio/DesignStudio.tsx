@@ -914,14 +914,38 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                                 type="file"
                                                 multiple
                                                 accept="image/*"
-                                                onChange={e => setQuoteFiles(Array.from(e.target.files || []))}
+                                                onChange={async e => {
+                                                    const files = Array.from(e.target.files || []);
+                                                    if (files.length > 0) {
+                                                        const compressedFiles = await Promise.all(
+                                                            files.map(async (file) => {
+                                                                try {
+                                                                    return await compressImage(file, 1500); // 1500px max width/height
+                                                                } catch (err) {
+                                                                    console.error("Compression failed for", file.name, err);
+                                                                    return file; // Fallback to original
+                                                                }
+                                                            })
+                                                        );
+                                                        setQuoteFiles(prev => [...prev, ...compressedFiles]);
+                                                    }
+                                                }}
                                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                             />
                                             <div className="flex flex-col items-center gap-2 text-gray-400">
                                                 <Upload size={20} />
-                                                <span className="text-xs">{quoteFiles.length > 0 ? `${quoteFiles.length} file(s) selected` : 'Upload photos of your space'}</span>
+                                                <span className="text-xs">{quoteFiles.length > 0 ? `${quoteFiles.length} file(s) ready` : 'Upload photos of your space'}</span>
                                             </div>
                                         </div>
+                                        {quoteFiles.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setQuoteFiles([])}
+                                                className="text-xs text-red-500 hover:text-red-400 mt-1 flex items-center gap-1 w-full justify-end"
+                                            >
+                                                <X size={12} /> Clear Photos
+                                            </button>
+                                        )}
                                     </div>
                                     <button type="submit" disabled={leadStatus === 'submitting'} className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase tracking-widest rounded hover:shadow-[0_0_20px_var(--primary)] transition-all mt-4">
                                         {leadStatus === 'submitting' ? 'Processing...' : 'Send Request'}

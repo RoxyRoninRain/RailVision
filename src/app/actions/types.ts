@@ -9,6 +9,7 @@ export interface Lead {
     generated_design_url?: string;
     estimate_json?: any;
     organization_id?: string;
+    attachments?: string[];
 }
 
 export interface Profile {
