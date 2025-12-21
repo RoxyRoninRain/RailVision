@@ -95,7 +95,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                                     className="w-full h-full object-cover"
                                 />
                                 {logoUrl && (
-                                    <div className="absolute bottom-2 right-2 p-2 bg-black/20 backdrop-blur-sm rounded-lg">
+                                    <div className="absolute bottom-2 right-2 rounded-lg">
                                         <img
                                             src={logoUrl}
                                             className="w-16 h-auto opacity-70"
@@ -483,7 +483,8 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                     {/* Viewport - ASPECT SQUARE */}
                     <div
                         ref={containerRef}
-                        className="w-full aspect-square bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
+                        className="w-full bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
+                        style={{ aspectRatio: '1 / 1' }}
                         onMouseMove={handleDrag}
                     >
                         {/* Wrapper handles Translate */}
