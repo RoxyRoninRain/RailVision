@@ -483,7 +483,8 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                     {/* Viewport - ASPECT SQUARE */}
                     <div
                         ref={containerRef}
-                        className="w-[300px] h-[300px] mx-auto bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
+                        className="mx-auto bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
+                        style={{ width: '300px', height: '300px' }}
                         onMouseMove={handleDrag}
                     >
                         {/* Wrapper handles Translate */}
