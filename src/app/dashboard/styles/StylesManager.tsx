@@ -88,18 +88,20 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                             exit={{ opacity: 0, scale: 0.9 }}
                             className={`group relative bg-[#111] rounded-xl overflow-hidden border transition-colors break-inside-avoid mb-6 ${style.is_active === false ? 'border-red-900/50 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
                         >
-                            <div className="w-full bg-black/50 flex items-center justify-center p-2 min-h-[200px]">
+                            <div className="w-full aspect-square bg-black/50 relative overflow-hidden group-hover:opacity-90 transition-opacity">
                                 <img
                                     src={style.image_url}
                                     alt={style.name}
-                                    className="max-w-full max-h-[500px] w-auto h-auto object-contain rounded-lg shadow-lg"
+                                    className="w-full h-full object-cover"
                                 />
                                 {logoUrl && (
-                                    <img
-                                        src={logoUrl}
-                                        className="absolute bottom-4 right-4 w-1/4 max-w-[80px] opacity-70 pointer-events-none drop-shadow-md"
-                                        alt="Watermark"
-                                    />
+                                    <div className="absolute bottom-2 right-2 p-2 bg-black/20 backdrop-blur-sm rounded-lg">
+                                        <img
+                                            src={logoUrl}
+                                            className="w-16 h-auto opacity-70"
+                                            alt="Watermark"
+                                        />
+                                    </div>
                                 )}
                             </div>
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-6 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
@@ -235,10 +237,10 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
                     {/* Main Image */}
                     <div>
                         <label className="text-xs text-[var(--primary)] uppercase font-bold mb-2 block">1. Main Style Image (Visible)</label>
-                        <div className="border border-dashed border-gray-700 p-4 rounded text-center cursor-pointer hover:bg-white/5 relative">
-                            <input type="file" onChange={handleMainFile} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" required />
+                        <div className="border border-dashed border-gray-700 p-4 rounded text-center cursor-pointer hover:bg-white/5 relative aspect-square flex items-center justify-center overflow-hidden bg-black/20">
+                            <input type="file" onChange={handleMainFile} className="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" required />
                             {mainPreview ? (
-                                <img src={mainPreview} className="h-32 object-contain mx-auto" />
+                                <img src={mainPreview} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="text-gray-500 text-sm"><ImageIcon className="mx-auto mb-2" />Click to upload Main Image</div>
                             )}
