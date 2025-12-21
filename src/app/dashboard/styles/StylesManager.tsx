@@ -484,7 +484,7 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                     <div
                         ref={containerRef}
                         className="w-full bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
-                        style={{ aspectRatio: '1 / 1' }}
+                        style={{ height: 0, paddingBottom: '100%' }}
                         onMouseMove={handleDrag}
                     >
                         {/* Wrapper handles Translate */}
