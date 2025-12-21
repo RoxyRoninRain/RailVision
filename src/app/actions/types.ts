@@ -39,7 +39,7 @@ export interface PortfolioItem {
     created_at?: string;
     is_active?: boolean;
     style_metadata?: any;
-    gallery?: string[];
+    reference_images?: string[];
     price_per_ft_min?: number;
     price_per_ft_max?: number;
 }

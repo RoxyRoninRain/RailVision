@@ -71,23 +71,41 @@ export async function generateDesignWithNanoBanana(
             const model = vertexAIGlobal.getGenerativeModel({
                 model: 'gemini-3-pro-image-preview',
                 // Inject System Instruction if provided, otherwise default to "Hybrid Architect" fallback
-                systemInstruction: promptConfig?.systemInstruction || `You are a world-renowned architectural visualization expert. Your goal is to produce indistinguishable-from-reality renovations.
+                systemInstruction: promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
 
-**PHASE 1: IMAGE ANALYSIS (Internal Thought)**.
-Before drawing, you must analyze the inputs:
-1.  **Source Analysis**: Identify the PERSPECTIVE (camera angle), LIGHTING (direction, color temp), and GEOMETRY (stair pitch, treads, stringers).
-2.  **Style Analysis**: Identify the HANDRAIL MATERIAL (e.g., matte black steel, glass), MOUNTING STYLE (side-mount vs. top-mount), and FINISH quality.
+**THE TRUTH HIERARCHY (CRITICAL):**
+You will receive input images. You must prioritize their data in this specific order:
+1.  **IMAGE C (Specs):** The **Physics Truth**. This is the construction blueprint. Its text labels and connection details are ABSOLUTE LAWS.
+2.  **IMAGE A (Canvas):** The **Geometry Truth**. The existing stair pitch, tread count, walls, flooring, and lighting are IMMUTABLE. You are a layer on top; do not warp the house.
+3.  **IMAGE B (Style):** The **Texture Truth**. Use this only for material surface qualities (color, reflectivity, finish).
 
-**PHASE 2: IMAGE GENERATION**
-Using your analysis, generate a pixel-perfect renovation.
--   **STRICT KEEP**: You must keep the original stairs, treads, walls, flooring, and background EXACTLY as they are. DO NOT change the camera angle.
--   **STRICT CHANGE**: You must remove the existing handrail (if any) and install the NEW handrail style from the reference image.
--   **REALISM**: Ensure shadows cast by the new railing match the original lighting direction.`
+**PHYSICS ENGINE:**
+*   **Gravity:** Handrails must follow the "Nosing Line" (tips of the treads) perfectly.
+*   **Shadows:** New rails must cast shadows consistent with the light sources visible in Image A.
+*   **Occlusion:** If a rail passes behind a wall or furniture in Image A, you must mask it correctly.
+
+**MOUNTING LOGIC (THE "SHOE" TEST):**
+*   **Shoe Rail:** Vertical balusters connect to a horizontal bottom bar.
+*   **Direct-Mount:** Vertical balusters drill INDIVIDUALLY into the stair tread.
+*   **CONSTRAINT:** In Direct-Mount mode, the space *between* pickets at the floor level must be empty air. Drawing a bottom horizontal bar is FORBIDDEN.
+
+**OUTPUT GOAL:** A single, high-fidelity renovation of Image A.`
             });
 
             const parts: any[] = [];
 
-            // 1. Add Target Image (The stairs to redesign)
+            // --- STRICT PAYLOAD STRUCTURE REFACTOR ---
+            // Format:
+            // 1. Text: "**IMAGE A (Canvas):** ..."
+            // 2. Image: Target
+            // 3. Text: "**IMAGE B (Style):** ..."
+            // 4. Image: Style Main
+            // 5. Text: "**IMAGE C (Specs):** ..." (Optional)
+            // 6. Image(s): Extra Refs
+            // 7. Text: Command/Prompt
+
+            // 1. Target Image (Image A)
+            parts.push({ text: "**IMAGE A (Canvas):** The user's original staircase." });
             parts.push({
                 inlineData: {
                     mimeType: 'image/jpeg',
@@ -95,42 +113,88 @@ Using your analysis, generate a pixel-perfect renovation.
                 }
             });
 
-            // 2. Add Style References if image-based
-            if (typeof styleInput !== 'string') {
-                styleInput.base64StyleImages.forEach(imgBase64 => {
+            // 2. Style Images (Image B & C)
+            // Handle Text-only style vs Image-based style
+            if (typeof styleInput === 'string') {
+                // No Image B/C, just append text later
+                console.log('[DEBUG] Text-only style, skipping Image B/C slots');
+            } else {
+                const styleImages = styleInput.base64StyleImages;
+
+                if (styleImages.length > 0) {
+                    // Image B (Primary Vibe)
+                    parts.push({ text: "**IMAGE B (Style):** The aesthetic reference (Style Guide)." });
                     parts.push({
                         inlineData: {
                             mimeType: 'image/jpeg',
-                            data: imgBase64
+                            data: styleImages[0]
                         }
                     });
-                });
+
+                    // Image C (Specs / Details) - Remaining images
+                    if (styleImages.length > 1) {
+                        parts.push({ text: "**IMAGE C (Specs):** Technical details and mounting logic." });
+                        for (let i = 1; i < styleImages.length; i++) {
+                            parts.push({
+                                inlineData: {
+                                    mimeType: 'image/jpeg',
+                                    data: styleImages[i]
+                                }
+                            });
+                        }
+                    }
+                }
             }
 
-            // 3. Construct Text Prompt
-            // Use userTemplate if provided, otherwise fallback
-            let promptText = promptConfig?.userTemplate || `[Input: Source Image (The space to renovate), Style Reference Images (The desired handrail design)]
-Command: 
-1. Analyze the GEOMETRY of the Source Image (stairs, walls, lighting).
-2. Analyze the HANDRAIL STYLE of the Reference Images. Focus ONLY on the railing materials, shape, and mounting hardware. Ignore the flooring, walls, or other elements in the references.
-3. GENERATE the renovation: Replace the existing handrail in the Source Image with the Handrail Style from the Reference Images.
-4. CONSTRAINT: You must STRICTLY preserve the original stair geometry and lighting of the Source Image.`;
+            // 3. User Prompt construction
+            let promptText = promptConfig?.userTemplate || `[INPUTS]
+**IMAGE A (Canvas):** [User's Staircase]
+**IMAGE B (Style):** [Style Reference]
+**IMAGE C (Specs):** [The Tech Sheet]
 
-            // VARIABLE REPLACEMENT: {{style}}
-            // If the user uses {{style}} in their prompt, we replace it with the style description.
-            // If not, we append the style description at the end.
-            const styleText = typeof styleInput === 'string' ? styleInput : "the attached Style Reference Images";
+***
 
+### PHASE 1: DIAGNOSTIC & DEMOLITION (IMAGE A)
+Analyze the User's Staircase.
+1.  **Existing Rail Check:** Is there an existing handrail?
+    - **YES:** Create a precise mask around it. DIGITALLY REMOVE IT. "Heal" the background (fill holes in steps, fix drywall, match wall texture) so it looks like an empty staircase.
+    - **NO:** Proceed immediately to Phase 2.
+2.  **Geometry Check:** Trace the "Nosing Line" (tips of the treads). Your new rail must follow this path. Confirm the start and end points (floor or wall?).
+3.  **Layout Strategy:** Analyze the width and context.
+    - **Single vs Double:** Is the stair open on one side (Single) or both sides (Double)?
+    - **Wall Rail:** Is the stair enclosed by walls? If so, does it need a wall-mounted handrail instead of a post-to-post system?
+    - *Decision:* Choose the layout that maximizes safety and matches the architectural style of Image A.
+
+### PHASE 2: STYLE & MOUNTING ANALYSIS (IMAGE B & C)
+Inspect **IMAGE B (Style)** and **IMAGE C (Specs)** for construction rules.
+1.  **Mounting Type:** Look closely at the bottom of the balusters (spindles).
+    - **Shoe Rail:** Do they sit on a bottom horizontal rail?
+    - **Direct Mount:** Do they go directly into the floor/tread?
+    - *CRITICAL INSTRUCTION:* If "Direct Mount", you must NOT draw a bottom bar. Each spindle must touch the floor individually.
+2.  **Materials:** Extract the exact wood stain, metal finish, or glass type from **IMAGE B**. Apply this texture to your new model.
+
+### PHASE 3: EXECUTION
+Renovate **IMAGE A**.
+1.  **Install:** Generate the new system defined in Phase 2 onto the path defined in Phase 1.
+2.  **Physics:** Ensure correct shadows and lighting match Image A.
+3.  **Preservation:** DO NOT CHANGE THE STAIRS, WALLS, OR FLOORING of Image A (except for the healed areas from Phase 1).
+
+**FINAL CHECK:**
+- Is the old rail gone?
+- Is the new rail mounting (Shoe vs Direct) correct according to Image B?
+- Is the background preserved?`;
+
+            // Handle {{style}} variable if present
+            const styleDesc = typeof styleInput === 'string' ? styleInput : "The attached Style Reference Images";
             if (promptText.includes('{{style}}')) {
-                promptText = promptText.replace('{{style}}', styleText);
+                promptText = promptText.replace('{{style}}', styleDesc);
             } else if (typeof styleInput === 'string') {
-                // Append if not used as variable
-                promptText += `\n\nTarget Style: "${styleInput}"`;
+                promptText += `\n\nTarget Style Description: "${styleInput}"`;
             }
 
-            // 4. Append Negative Prompt if provided
+            // Append Negative content
             if (promptConfig?.negative_prompt) {
-                promptText += `\n\nNEGATIVE CONSTRAINTS (MUST AVOID): ${promptConfig.negative_prompt}`;
+                promptText += `\n\nNEGATIVE CONSTRAINTS: ${promptConfig.negative_prompt}`;
             }
 
             parts.push({ text: promptText });
@@ -139,10 +203,8 @@ Command:
                 contents: [{ role: 'user', parts }]
             };
 
-            console.log('[GEMINI 3.0] Sending request to Gemini 3.0 Pro Image (Global)...');
-            // Log the prompt being used for debugging
-            console.log('[DEBUG] System Instruction:', promptConfig?.systemInstruction ? 'Custom from DB' : 'Default Hybrid');
-            console.log('[DEBUG] User Prompt:', promptText);
+            console.log('[GEMINI 3.0] Sending Structured Interleaved Request...');
+            console.log(`[DEBUG] Payload Parts: ${parts.length} items.`);
 
             const result = await model.generateContent(request);
             const response = await result.response;
@@ -154,11 +216,6 @@ Command:
                 outputTokens: response.usageMetadata?.candidatesTokenCount || (response.usageMetadata?.totalTokenCount ? response.usageMetadata.totalTokenCount - (response.usageMetadata.promptTokenCount || 0) : 0)
             };
 
-            // Gemini 3.0 Image Generation usually returns inline data differently or as a standard part.
-            // Assuming standard candidate part structure for image output if supported multimodally.
-            // NOTE: For 'generateContent' with image output, check for executable code or inline data.
-
-            // Let's inspect the response structure safely
             const candidate = response.candidates?.[0];
             if (!candidate) throw new Error("No candidates returned");
 
@@ -176,14 +233,11 @@ Command:
             }
 
             console.warn('[NANO BANANA] Response did not contain inline image. Checking for other formats...');
-            // If no image found, it might have failed or returned text.
             // @ts-ignore
             return { success: false, error: "Model returned text instead of image: " + candidate.content.parts[0].text?.substring(0, 100) };
 
         } catch (error: any) {
             console.error(`[NANO BANANA ERROR] Attempt ${attempts + 1} failed:`, error);
-
-            // CHECK FOR RETRYABLE ERRORS (429 or Quota)
             if (error.message?.includes('429') || error.message?.includes('Quota') || error.message?.includes('Too Many Requests') || error.code === 429) {
                 attempts++;
                 if (attempts < maxAttempts) {
@@ -193,8 +247,6 @@ Command:
                     continue; // Loop again
                 }
             }
-
-            // If not retryable or max attempts reached, fail
             return { success: false, error: error.message || "Unknown error during Nano Banana generation" };
         }
     }

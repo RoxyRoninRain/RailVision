@@ -169,14 +169,20 @@ export async function generateDesign(formData: FormData) {
                 const supabase = await createClient();
                 const { data: styleData } = await supabase
                     .from('portfolio')
-                    .select('gallery, image_url')
+                    .select('reference_images, image_url')
                     .eq('id', styleId)
                     .single();
 
                 if (styleData) {
-                    const imageUrls = styleData.gallery && styleData.gallery.length > 0
-                        ? styleData.gallery
-                        : (styleData.image_url ? [styleData.image_url] : []);
+                    // Combine Main + Hidden Refs
+                    // Note: 'reference_images' (formerly gallery) might contain the main image in legacy data.
+                    // New uploads separate them. Duplicates are harmless for AI vision.
+                    const refs = styleData.reference_images || [];
+                    const main = styleData.image_url;
+
+                    const imageUrls: string[] = [];
+                    if (main) imageUrls.push(main);
+                    if (refs.length > 0) imageUrls.push(...refs);
 
                     if (imageUrls.length > 0) {
                         console.log(`[DEBUG] Found ${imageUrls.length} reference images in gallery/portfolio.`);

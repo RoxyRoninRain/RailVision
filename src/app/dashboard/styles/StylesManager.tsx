@@ -12,16 +12,6 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Form State
-    const [newName, setNewName] = useState('');
-    const [newDesc, setNewDesc] = useState('');
-
-    const [newFiles, setNewFiles] = useState<File[]>([]);
-    const [previews, setPreviews] = useState<string[]>([]);
-    const [errorMsg, setErrorMsg] = useState<string | null>(null);
-    const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-
     // Auto-Seed Defaults
     useEffect(() => {
         if (initialStyles.length === 0) {
@@ -33,195 +23,6 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
             });
         }
     }, [initialStyles.length]);
-
-    // Image Compression Helper
-    const compressImage = async (file: File, maxDim = 1500, quality = 0.85): Promise<File> => {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.src = URL.createObjectURL(file);
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                // Maintain aspect ratio
-                if (width > height) {
-                    if (width > maxDim) {
-                        height *= maxDim / width;
-                        width = maxDim;
-                    }
-                } else {
-                    if (height > maxDim) {
-                        width *= maxDim / height;
-                        height = maxDim;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx?.drawImage(img, 0, 0, width, height);
-
-                canvas.toBlob((blob) => {
-                    if (!blob) {
-                        reject(new Error('Compression failed'));
-                        return;
-                    }
-                    const newFile = new File([blob], file.name, {
-                        type: 'image/jpeg',
-                        lastModified: Date.now(),
-                    });
-                    resolve(newFile);
-                }, 'image/jpeg', quality);
-            };
-            img.onerror = (err) => reject(err);
-        });
-    };
-
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        setErrorMsg(null);
-        if (!e.target.files || e.target.files.length === 0) return;
-
-        setIsProcessing(true);
-        // Don't clear previous files immediately if we want to support adding? 
-        // For simplicity, let's Replace the list on new selection, or Append?
-        // User probably expects "Select Files" to replace.
-        // Let's support clearing via UI later. For now, replace.
-        setNewFiles([]);
-        setPreviews([]);
-
-        const selectedFiles = Array.from(e.target.files);
-        const processedFiles: File[] = [];
-        const processedPreviews: string[] = [];
-
-        try {
-            for (let file of selectedFiles) {
-                // DEBUG LOGGING
-                console.log(`--- PROCESSING FILE: ${file.name} ---`);
-
-                // Fix: iOS/Mobile missing type
-                const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
-                const ext = file.name.split('.').pop()?.toLowerCase() || '';
-
-                if (!file.type.startsWith('image/') && !validExtensions.includes(ext)) {
-                    console.log(`Skipping Invalid File: ${file.name}`);
-                    continue; // Skip invalid
-                }
-
-                if (!file.type && validExtensions.includes(ext)) {
-                    const fixedType = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
-                    file = new File([file.slice(0, file.size, fixedType)], file.name, { type: fixedType, lastModified: Date.now() });
-                }
-
-                // HEIC Conversion
-                const isHeic = file.name.toLowerCase().endsWith('.heic') || file.type === 'image/heic' || file.type === 'image/heif';
-                if (isHeic) {
-                    try {
-                        const formData = new FormData();
-                        formData.append('file', file);
-                        const res = await convertHeicToJpg(formData);
-                        if (res.success && res.base64) {
-                            const base64Data = res.base64.split(',')[1];
-                            const byteCharacters = atob(base64Data);
-                            const byteArrays = [];
-                            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-                                const slice = byteCharacters.slice(offset, offset + 512);
-                                const byteNumbers = new Array(slice.length);
-                                for (let i = 0; i < slice.length; i++) {
-                                    byteNumbers[i] = slice.charCodeAt(i);
-                                }
-                                byteArrays.push(new Uint8Array(byteNumbers));
-                            }
-                            const blob = new Blob(byteArrays, { type: 'image/jpeg' });
-                            file = new File([blob], file.name.replace(/\.(heic|HEIC|heif|HEIF)$/i, '.jpg'), { type: 'image/jpeg', lastModified: Date.now() });
-                        }
-                    } catch (err) {
-                        console.error('HEIC Error', err);
-                    }
-                }
-
-                // Compression
-                try {
-                    if (file.size > 1 * 1024 * 1024) { // 1MB threshold
-                        const compressed = await compressImage(file, 1500, 0.85);
-                        if (compressed.size < file.size) file = compressed;
-                    }
-                } catch (err) {
-                    console.error('Compression Error', err);
-                }
-
-                if (file.size > 4.5 * 1024 * 1024) {
-                    alert(`File ${file.name} is too large (>4.5MB). Skipping.`);
-                    continue;
-                }
-
-                processedFiles.push(file);
-                processedPreviews.push(URL.createObjectURL(file));
-            }
-
-            if (processedFiles.length === 0) {
-                setErrorMsg('No valid images selected.');
-                return;
-            }
-
-            setNewFiles(processedFiles);
-            setPreviews(processedPreviews);
-
-        } catch (err: any) {
-            console.error('File processing error:', err);
-            setErrorMsg(err.message || 'Failed to process images');
-        } finally {
-            setIsProcessing(false);
-        }
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setErrorMsg(null);
-        setSuccessMsg(null);
-
-        // DEBUG LOGGING FOR SUBMIT
-        if (newFiles.length === 0 || !newName) {
-            const missing = [];
-            if (newFiles.length === 0) missing.push('File(s)');
-            if (!newName) missing.push('Name');
-            const msg = `Please provide: ${missing.join(' and ')}`;
-            setErrorMsg(msg);
-            return;
-        }
-
-        setIsSubmitting(true);
-        const formData = new FormData();
-        formData.append('name', newName);
-        formData.append('description', newDesc);
-
-        // Append all files
-        newFiles.forEach(file => {
-            formData.append('files', file);
-        });
-
-        try {
-            const res = await createStyle(formData);
-
-            if (res.error) {
-                console.error('Create Style Error:', res.error);
-                console.log(`Server returned error: ${res.error}`);
-                setErrorMsg(res.error);
-                setIsSubmitting(false);
-            } else {
-                console.log('Upload Success! Reloading...');
-                setSuccessMsg('Style created successfully! updating...');
-                // Slight delay so user sees success message
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            }
-        } catch (err: any) {
-            console.log(`Exception: ${err.message}`);
-            setErrorMsg('Unexpected error: ' + (err.message || String(err)));
-            setIsSubmitting(false);
-        }
-    };
 
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this style?')) return;
@@ -357,31 +158,51 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
 function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
     const [newName, setNewName] = useState('');
     const [newDesc, setNewDesc] = useState('');
-    const [newFiles, setNewFiles] = useState<File[]>([]);
-    const [previews, setPreviews] = useState<string[]>([]);
+    const [mainFile, setMainFile] = useState<File | null>(null);
+    const [refFiles, setRefFiles] = useState<File[]>([]); // New Ref Files
+
+    // UI Previews
+    const [mainPreview, setMainPreview] = useState<string | null>(null);
+    const [refPreviews, setRefPreviews] = useState<string[]>([]);
+
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
 
-    // Reuse helper from parent or duplicate? Creating simple duplicated handler for robust isolation
-    const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleMainFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const f = Array.from(e.target.files);
-            setNewFiles(f);
-            setPreviews(f.map(file => URL.createObjectURL(file)));
+            const f = e.target.files[0];
+            setMainFile(f);
+            setMainPreview(URL.createObjectURL(f));
         }
-    }
+    };
+
+    const handleRefFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files);
+            setRefFiles(files);
+            setRefPreviews(files.map(f => URL.createObjectURL(f)));
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!mainFile) {
+            setErrorMsg("Main Style Image is required.");
+            return;
+        }
+
         setIsSubmitting(true);
         const formData = new FormData();
         formData.append('name', newName);
         formData.append('description', newDesc);
         if (priceMin) formData.append('price_min', priceMin);
         if (priceMax) formData.append('price_max', priceMax);
-        newFiles.forEach(f => formData.append('files', f));
+
+        // Critical Order: Main First, then Refs
+        formData.append('files', mainFile);
+        refFiles.forEach(f => formData.append('files', f));
 
         const res = await createStyle(formData);
         if (res.error) setErrorMsg(res.error);
@@ -391,13 +212,15 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#111] border border-[#333] w-full max-w-md p-6 rounded-2xl relative shadow-2xl">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#111] border border-[#333] w-full max-w-md p-6 rounded-2xl relative shadow-2xl max-h-[90vh] overflow-y-auto">
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20} /></button>
                 <h3 className="text-xl font-bold text-white uppercase mb-6">Add New Style</h3>
                 {errorMsg && <div className="text-red-400 text-sm mb-4">{errorMsg}</div>}
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input value={newName} onChange={e => setNewName(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="Style Name" required />
                     <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white h-20" placeholder="Description" />
+
                     <div className="flex gap-4">
                         <div className="flex-1">
                             <label className="text-xs text-gray-500 uppercase">Min Price ($/ft)</label>
@@ -408,13 +231,46 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
                             <input type="number" value={priceMax} onChange={e => setPriceMax(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
                         </div>
                     </div>
-                    <input type="file" onChange={handleFile} className="text-white text-sm" accept="image/*" multiple required />
+
+                    {/* Main Image */}
+                    <div>
+                        <label className="text-xs text-[var(--primary)] uppercase font-bold mb-2 block">1. Main Style Image (Visible)</label>
+                        <div className="border border-dashed border-gray-700 p-4 rounded text-center cursor-pointer hover:bg-white/5 relative">
+                            <input type="file" onChange={handleMainFile} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" required />
+                            {mainPreview ? (
+                                <img src={mainPreview} className="h-32 object-contain mx-auto" />
+                            ) : (
+                                <div className="text-gray-500 text-sm"><ImageIcon className="mx-auto mb-2" />Click to upload Main Image</div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Reference Images */}
+                    <div>
+                        <label className="text-xs text-gray-400 uppercase font-bold mb-2 block">2. AI Reference Images (Hidden)</label>
+                        <div className="border border-dashed border-gray-700 p-4 rounded text-center cursor-pointer hover:bg-white/5 relative mb-2">
+                            <input type="file" onChange={handleRefFiles} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" multiple />
+                            <div className="text-gray-500 text-sm"><Plus className="mx-auto mb-2" />Add Reference Images</div>
+                        </div>
+                        {refPreviews.length > 0 && (
+                            <div className="flex gap-2 overflow-x-auto py-2">
+                                {refPreviews.map((src, idx) => (
+                                    <img key={idx} src={src} className="w-16 h-16 object-cover rounded border border-gray-800" />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
                     <button disabled={isSubmitting} className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded mt-4">{isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : 'Create Style'}</button>
                 </form>
             </motion.div>
         </div>
     )
 }
+
+// ... (imports remain same)
+
+// ... (StylesManager component remains same until EditStyleModal)
 
 function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, onClose: () => void, onSuccess: () => void }) {
     const [name, setName] = useState(style.name);
@@ -423,13 +279,22 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
     const [priceMax, setPriceMax] = useState(style.price_per_ft_max?.toString() || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Cropper State
+    // Main Image Cropper State
     const [imageSrc, setImageSrc] = useState<string>(style.image_url);
-    const [isDirty, setIsDirty] = useState(false); // If true, we need to upload the cropped result
-    const [crop, setCrop] = useState({ x: 0, y: 0 }); // Normalized Offset (-0.5 to 0.5)
+    const [isDirty, setIsDirty] = useState(false);
+    const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
     const [newFile, setNewFile] = useState<File | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
+
+    // Layout Constraints
+    const [imgAspect, setImgAspect] = useState(1); // Width / Height
+
+    // Reference Images State
+    const [keptRefs, setKeptRefs] = useState<string[]>(style.reference_images || []);
+    const [newRefFiles, setNewRefFiles] = useState<File[]>([]);
+    const [newRefPreviews, setNewRefPreviews] = useState<string[]>([]);
+
 
     // Load new image for cropping
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -440,8 +305,31 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
             setIsDirty(true);
             setZoom(1);
             setCrop({ x: 0, y: 0 });
+            // Aspect will be updated by onLoad
         }
     };
+
+    const handleImgLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+        const { naturalWidth, naturalHeight } = e.currentTarget;
+        setImgAspect(naturalWidth / naturalHeight);
+    };
+
+    const handleNewRefs = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files);
+            setNewRefFiles(prev => [...prev, ...files]);
+            setNewRefPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
+        }
+    }
+
+    const removeKeptRef = (idx: number) => {
+        setKeptRefs(prev => prev.filter((_, i) => i !== idx));
+    }
+
+    const removeNewRef = (idx: number) => {
+        setNewRefFiles(prev => prev.filter((_, i) => i !== idx));
+        setNewRefPreviews(prev => prev.filter((_, i) => i !== idx));
+    }
 
     // Output Function
     const getCroppedImg = async (): Promise<Blob> => {
@@ -451,23 +339,15 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
             image.crossOrigin = "anonymous";
             image.onload = () => {
                 const canvas = document.createElement('canvas');
-                // Target: 4:3 Aspect, e.g. 800x600
+                // Target: Square 800x800
                 canvas.width = 800;
-                canvas.height = 600;
+                canvas.height = 800;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) return;
 
-                // Logic:
-                // We are rendering the image such that the "View Box" (the modal viewport) maps to the canvas.
-                // The viewport is fixed at aspect 4:3.
-                // The image inside is scaled by 'zoom' and translated by 'crop.x/y'.
-
-                // Effective logic:
-                // Draw image scaled and centered.
-
                 // 1. Calculate Image Aspect
                 const imgAspect = image.width / image.height;
-                const targetAspect = 4 / 3; // 1.33
+                const targetAspect = 1; // Square
 
                 let drawWidth, drawHeight;
                 let offsetX = 0, offsetY = 0;
@@ -519,9 +399,7 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
         formData.append('price_min', priceMin);
         formData.append('price_max', priceMax);
 
-        // If newly uploaded or just re-cropped existing, we generate a file
-        // Note: For existing URL (CORS), we might fail to crop if not proxy. 
-        // Assuming Styles are same-origin or CORS enabled. They should be Supabase Storage public URLs.
+        // Main Image Handling
         if (isDirty || newFile) {
             try {
                 const blob = await getCroppedImg();
@@ -533,7 +411,10 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
             }
         }
 
-        // Import locally to avoid circular dep issues in main component body if moved
+        // References Handling
+        newRefFiles.forEach(f => formData.append('reference_files', f));
+        formData.append('kept_reference_urls', JSON.stringify(keptRefs));
+
         const { updateStyle } = await import('@/app/actions');
         const res = await updateStyle(formData);
 
@@ -542,7 +423,7 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
         setIsSubmitting(false);
     }
 
-    // Normalized Pan Handler
+    // Normalized Pan Handler with Constraints
     const handleDrag = (e: React.MouseEvent) => {
         if (e.buttons !== 1 || !containerRef.current) return;
 
@@ -553,28 +434,57 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
         const deltaX = e.movementX / rect.width;
         const deltaY = e.movementY / rect.height;
 
-        setCrop(prev => ({
-            x: prev.x + deltaX,
-            y: prev.y + deltaY
-        }));
+        setCrop(prev => {
+            let nextX = prev.x + deltaX;
+            let nextY = prev.y + deltaY;
+
+            // Constraints Calculation
+            // Target Aspect = 1 (Square).
+            // Image Aspect = imgAspect.
+            // If img is Wider (Aspect > 1):
+            //   Base Width covers container (W_base = H_container * Aspect) -> W% = Aspect * 100%
+            //   Base Height = 100%
+            // If img is Taller (Aspect < 1):
+            //   Base Width = 100%
+            //   Base Height covers container (H_base = W_container / Aspect) -> H% = (1/Aspect) * 100%
+
+            let baseW_ratio = imgAspect > 1 ? imgAspect : 1;
+            let baseH_ratio = imgAspect > 1 ? 1 : (1 / imgAspect);
+
+            const scaledW = baseW_ratio * zoom;
+            const scaledH = baseH_ratio * zoom;
+
+            // Max Deviation from center (0)
+            // Range: [-(Scaled - 1)/2, +(Scaled - 1)/2]
+            const maxX = (scaledW - 1) / 2;
+            const maxY = (scaledH - 1) / 2;
+
+            // Clamp
+            if (nextX > maxX) nextX = maxX;
+            if (nextX < -maxX) nextX = -maxX;
+            if (nextY > maxY) nextY = maxY;
+            if (nextY < -maxY) nextY = -maxY;
+
+            return { x: nextX, y: nextY };
+        });
         setIsDirty(true);
     }
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#111] border border-[#333] w-full max-w-2xl p-6 rounded-2xl relative shadow-2xl flex flex-col md:flex-row gap-6 max-h-[90vh]">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-[#111] border border-[#333] w-full max-w-4xl p-6 rounded-2xl relative shadow-2xl flex flex-col md:flex-row gap-6 max-h-[95vh] overflow-y-auto">
 
-                {/* Left: Image Cropper */}
+                {/* Left: Image Cropper (Main) */}
                 <div className="flex-1 flex flex-col gap-4">
-                    <h4 className="text-white text-sm font-bold uppercase tracking-widest">Adjust Image (4:3)</h4>
+                    <h4 className="text-white text-sm font-bold uppercase tracking-widest">Adjust Main Image (Square)</h4>
 
-                    {/* Viewport */}
+                    {/* Viewport - ASPECT SQUARE */}
                     <div
                         ref={containerRef}
-                        className="w-full aspect-[4/3] bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
+                        className="w-full aspect-square bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
                         onMouseMove={handleDrag}
                     >
-                        {/* Correct Visual Preview: Wrapper handles Translate (Crop), Image handles Scale (Zoom) */}
+                        {/* Wrapper handles Translate */}
                         <div
                             className="absolute inset-0 flex items-center justify-center pointer-events-none"
                             style={{
@@ -582,8 +492,10 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                                 transition: 'transform 0s linear'
                             }}
                         >
+                            {/* Image handles Scale */}
                             <img
                                 src={imageSrc}
+                                onLoad={handleImgLoad}
                                 style={{
                                     transform: `scale(${zoom})`,
                                     transition: 'transform 0.1s ease-out'
@@ -612,7 +524,34 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
 
                     <div className="relative border border-[#333] rounded p-2 text-center hover:bg-[#222] cursor-pointer transition-colors">
                         <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
-                        <span className="text-xs text-gray-400 uppercase font-bold">Upload New Image</span>
+                        <span className="text-xs text-gray-400 uppercase font-bold">Upload Replacement Image</span>
+                    </div>
+
+                    {/* Reference Images Section */}
+                    {/* ... (Kept as is) ... */}
+                    <div className="mt-4 border-t border-[#333] pt-4">
+                        <h4 className="text-white text-sm font-bold uppercase tracking-widest mb-2">AI Reference Images (Hidden)</h4>
+
+                        {/* List Kept Refs */}
+                        <div className="grid grid-cols-4 gap-2 mb-2">
+                            {keptRefs.map((url, idx) => (
+                                <div key={url} className="relative group aspect-square">
+                                    <img src={url} className="w-full h-full object-cover rounded border border-gray-800" />
+                                    <button onClick={() => removeKeptRef(idx)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><X size={10} /></button>
+                                </div>
+                            ))}
+                            {newRefPreviews.map((url, idx) => (
+                                <div key={url} className="relative group aspect-square">
+                                    <img src={url} className="w-full h-full object-cover rounded border border-green-800 opacity-80" />
+                                    <button onClick={() => removeNewRef(idx)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><X size={10} /></button>
+                                </div>
+                            ))}
+
+                            <div className="relative border border-dashed border-gray-800 rounded aspect-square flex items-center justify-center hover:bg-white/5 cursor-pointer">
+                                <input type="file" onChange={handleNewRefs} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" multiple />
+                                <Plus size={20} className="text-gray-500" />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -646,18 +585,13 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                     <div className="flex-1"></div>
 
                     <button
-                        onClick={() => setIsDirty(true)} // Force dirty to re-crop existing image?
-                        className="hidden" // Debug trigger
-                    >Forced Crop</button>
-
-                    <button
                         onClick={handleSubmit}
                         disabled={isSubmitting}
                         className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded hover:brightness-110 transition-all flex justify-center items-center gap-2"
                     >
                         {isSubmitting ? <Loader2 className="animate-spin" /> : 'Save Changes'}
                     </button>
-                    <p className="text-[10px] text-gray-600 text-center">Image will be cropped to visible area.</p>
+                    <p className="text-[10px] text-gray-600 text-center">Image will be cropped to visible area (Square).</p>
                 </div>
 
             </motion.div>

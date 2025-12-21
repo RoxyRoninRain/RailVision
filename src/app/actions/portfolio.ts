@@ -56,8 +56,9 @@ export async function createStyle(formData: FormData) {
     const priceMax = formData.get('price_max') ? parseFloat(formData.get('price_max') as string) : 0;
 
     // 3. Insert into DB
-    // First image is "image_url" (Thumbnail/Main), Rest are "gallery" (including the first one? Or just extras? Let's put ALL in gallery, and first in image_url)
+    // First image is "image_url" (Thumbnail/Main), Rest are "reference_images" (Hidden Context)
     const mainImage = galleryUrls[0];
+    const hiddenRefs = galleryUrls.slice(1);
 
     const { data, error: dbError } = await supabase
         .from('portfolio')
@@ -65,7 +66,7 @@ export async function createStyle(formData: FormData) {
             name,
             description: desc,
             image_url: mainImage,
-            gallery: galleryUrls, // Save all images
+            reference_images: hiddenRefs,
             tenant_id: user.id,
             is_active: true,
             price_per_ft_min: priceMin,
@@ -91,7 +92,7 @@ export async function updateStyle(formData: FormData) {
     const styleId = formData.get('id') as string;
     if (!styleId) return { error: 'Style ID required' };
 
-    // 1. Handle File Upload (Optional)
+    // 1. Handle Main Image Replace (Optional)
     const file = formData.get('file') as File;
     let mainImage = null;
 
@@ -101,19 +102,69 @@ export async function updateStyle(formData: FormData) {
         }
 
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}_update_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `${user.id}/${Date.now()}_update_main_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
         const { error: uploadError } = await supabase.storage
             .from('portfolio')
             .upload(fileName, file, { contentType: file.type, upsert: false });
 
         if (uploadError) {
-            console.error('Update Upload Error:', uploadError);
-            return { error: 'Upload failed' };
+            console.error('Update Main Upload Error:', uploadError);
+            return { error: 'Main image upload failed' };
         }
 
         const { data: publicUrlData } = supabase.storage.from('portfolio').getPublicUrl(fileName);
         mainImage = publicUrlData.publicUrl;
+    }
+
+    // 2. Handle Reference Images (New Uploads)
+    // Support multiple 'reference_files'
+    const referenceFiles = formData.getAll('reference_files') as File[];
+    const newRefUrls: string[] = [];
+
+    if (referenceFiles && referenceFiles.length > 0) {
+        for (const refFile of referenceFiles) {
+            if (refFile.size > 5 * 1024 * 1024) continue; // Skip large files or handle error
+            const ext = refFile.name.split('.').pop();
+            const refName = `${user.id}/${Date.now()}_ref_${Math.random().toString(36).substring(7)}.${ext}`;
+
+            const { error: refErr } = await supabase.storage
+                .from('portfolio')
+                .upload(refName, refFile, { contentType: refFile.type, upsert: false });
+
+            if (!refErr) {
+                const { data: pubData } = supabase.storage.from('portfolio').getPublicUrl(refName);
+                newRefUrls.push(pubData.publicUrl);
+            }
+        }
+    }
+
+    // 3. Handle Existing Reference Images (Preservation)
+    // Client sends 'kept_reference_urls' (JSON array) containing the OLD urls they want to keep.
+    // If not provided, we assume NO changes to existing list? 
+    // Or simpler: We assume 'kept_reference_urls' contains the list of *existing* images to keep.
+    // We combine kept + new.
+    let finalRefList: string[] | undefined = undefined;
+    const keptRefsJson = formData.get('kept_reference_urls') as string;
+
+    if (keptRefsJson || newRefUrls.length > 0) {
+        const keptRefs = keptRefsJson ? JSON.parse(keptRefsJson) : [];
+
+        // However, if the client DID NOT send kept_reference_urls, does it mean "keep all" or "delete all"?
+        // Safe bet: If 'kept_reference_urls' is NOT present, we DO NOT touch the existing list (unless we want to purely append).
+        // But if we want to support deletion, we MUST send the list.
+        // Let's enforce: If you want to modify references, send 'kept_reference_urls' (empty if clearing all).
+        // If undefined, we append new ones to the DB's current list (requires fetch).
+
+        if (keptRefsJson !== null) {
+            // Explicit list provided
+            finalRefList = [...keptRefs, ...newRefUrls];
+        } else {
+            // Just append mode (fetch existing first)
+            const { data: currentStyle } = await supabase.from('portfolio').select('reference_images').eq('id', styleId).single();
+            const currentRefs = currentStyle?.reference_images || [];
+            finalRefList = [...currentRefs, ...newRefUrls];
+        }
     }
 
     const name = formData.get('name') as string;
@@ -121,13 +172,14 @@ export async function updateStyle(formData: FormData) {
     const priceMin = formData.get('price_min') ? parseFloat(formData.get('price_min') as string) : undefined;
     const priceMax = formData.get('price_max') ? parseFloat(formData.get('price_max') as string) : undefined;
 
-    // 2. Prepare Update Object
+    // 4. Prepare Update Object
     const updates: any = {};
     if (name) updates.name = name;
-    if (description !== null) updates.description = description; // Allow empty string
+    if (description !== null) updates.description = description;
     if (priceMin !== undefined) updates.price_per_ft_min = priceMin;
     if (priceMax !== undefined) updates.price_per_ft_max = priceMax;
     if (mainImage) updates.image_url = mainImage;
+    if (finalRefList !== undefined) updates.reference_images = finalRefList;
 
     const { error: dbError } = await supabase
         .from('portfolio')
@@ -253,7 +305,7 @@ export async function getPublicStyles(tenantId: string) {
         const standardClient = await createClient();
         const { data, error } = await standardClient
             .from('portfolio')
-            .select('id, name, description, image_url, gallery, price_per_ft_min, price_per_ft_max')
+            .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
             .eq('tenant_id', tenantId)
             .eq('is_active', true)
             .order('created_at', { ascending: false });
@@ -267,7 +319,7 @@ export async function getPublicStyles(tenantId: string) {
 
     const { data, error } = await supabase
         .from('portfolio')
-        .select('id, name, description, image_url, gallery, price_per_ft_min, price_per_ft_max')
+        .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('created_at', { ascending: false });
@@ -288,7 +340,7 @@ export async function getStyles(tenantId?: string) {
     const supabase = await createClient();
     const { data } = await supabase
         .from('portfolio')
-        .select('id, name, description, image_url, gallery, price_per_ft_min, price_per_ft_max') // Select gallery too
+        .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
         .eq('tenant_id', tenantId);
 
     if (data && data.length > 0) {

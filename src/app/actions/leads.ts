@@ -15,7 +15,7 @@ export async function submitLead(formData: FormData) {
     const email = formData.get('email') as string;
     const customer_name = formData.get('customer_name') as string || 'Guest';
     const styleName = formData.get('style_name') as string;
-    const generatedUrl = formData.get('generated_design_url') as string;
+    let generatedUrl = formData.get('generated_design_url') as string;
     const orgId = formData.get('organization_id') as string;
     const phone = formData.get('phone') as string;
     const message = formData.get('message') as string;
@@ -24,12 +24,53 @@ export async function submitLead(formData: FormData) {
     // File Uploads
     const files = formData.getAll('files') as File[];
     const attachmentUrls: string[] = [];
+    const uploadErrors: string[] = [];
+
+    // --- HANDLE BASE64 GENERATED IMAGE START ---
+    // If the generated URL is a Base64 string (from Nano Banana), upload it to Storage
+    if (generatedUrl && generatedUrl.startsWith('data:image')) {
+        try {
+            console.log('[Upload Debug] Found Base64 generated image. Uploading to Storage...');
+            const matches = generatedUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+
+            if (matches && matches.length === 3) {
+                const ext = matches[1];
+                const base64Data = matches[2];
+                const buffer = Buffer.from(base64Data, 'base64');
+                const fileName = `generated/${orgId || 'public'}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('quote-uploads')
+                    .upload(fileName, buffer, {
+                        contentType: `image/${ext}`
+                    });
+
+                if (!uploadError) {
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('quote-uploads')
+                        .getPublicUrl(fileName);
+
+                    console.log(`[Upload Debug] Generated image uploaded to: ${publicUrl}`);
+                    // OVERWRITE the Base64 string with the clean URL
+                    generatedUrl = publicUrl;
+                    // Note: We need to re-assign the variable, but it's const in the destructuring (actually it's declared with const above)
+                    // Wait, generatedUrl was declared as check previously. Let's fix the variable declaration.
+                } else {
+                    console.error('[Upload Debug] Failed to upload generated image:', uploadError);
+                    uploadErrors.push('Failed to save generated design.');
+                }
+            }
+        } catch (e) {
+            console.error('[Upload Debug] Exception uploading generated image:', e);
+        }
+    }
+    // --- HANDLE BASE64 GENERATED IMAGE END ---
 
     if (!email) {
         return { success: false, error: 'Email is required' };
     }
 
-    const uploadErrors: string[] = [];
+    // Moved uploadErrors to top
 
     // 1. Handle File Uploads
     if (files.length > 0) {
@@ -218,27 +259,46 @@ export async function getOwnerLeads(): Promise<Lead[]> {
 
     if (!user) return [];
 
+    console.log('[DEBUG] getOwnerLeads: Fetching leads.');
+
     const { data, error } = await supabase
         .from('leads')
         .select(`
-      *,
-      portfolio (
-        name
-      )
-    `)
-        // RLS will enforce organization_id = auth.uid(), but explicitly adding filter is safe
+          id, created_at, email, customer_name, status, organization_id, generated_design_url, estimate_json, attachments,
+          portfolio ( name )
+        `)
         .eq('organization_id', user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100);
 
     if (error) {
         console.error('Get Owner Leads Error:', error);
         return [];
     }
 
-    return data.map((lead: any) => ({
-        ...lead,
-        style_name: lead.style_name || lead.portfolio?.name || 'Unknown'
-    }));
+    const leads = data.map((lead: any) => {
+        // Light safeguard: Prune massive URLs if they appear again (prevents crash, but doesn't db-write)
+        let designUrl = lead.generated_design_url;
+        if (designUrl && designUrl.length > 50000) { // 50KB limit (Safe for URL, prevents Base64)
+            console.warn(`[PRUNED] Lead ${lead.id} has massive generated_design_url. Hiding.`);
+            designUrl = undefined;
+        }
+
+        return {
+            id: lead.id,
+            email: lead.email,
+            customer_name: lead.customer_name || 'Unknown',
+            status: lead.status || 'New',
+            created_at: lead.created_at,
+            style_name: lead.portfolio?.name || 'Unknown',
+            organization_id: lead.organization_id,
+            generated_design_url: designUrl,
+            estimate_json: lead.estimate_json || {},
+            attachments: lead.attachments || []
+        };
+    });
+
+    return leads;
 }
 
 export async function updateLeadStatus(leadId: string, status: 'New' | 'Contacted' | 'Closed') {
@@ -251,7 +311,7 @@ export async function updateLeadStatus(leadId: string, status: 'New' | 'Contacte
         .from('leads')
         .update({ status })
         .eq('id', leadId)
-        .eq('organization_id', user.id); // Ensure ownership
+        .eq('organization_id', user.id);
 
     if (error) {
         console.error('Update Status Error:', error);
