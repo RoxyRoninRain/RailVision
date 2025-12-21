@@ -481,38 +481,47 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                     <h4 className="text-white text-sm font-bold uppercase tracking-widest">Adjust Main Image (Square)</h4>
 
                     {/* Viewport - ASPECT SQUARE */}
-                    <div
-                        ref={containerRef}
-                        className="mx-auto bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none"
-                        style={{ width: '300px', height: '300px' }}
-                        onMouseMove={handleDrag}
-                    >
-                        {/* Wrapper handles Translate */}
+                    <div className="w-full flex justify-center py-4">
                         <div
-                            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                            ref={containerRef}
+                            className="bg-black relative overflow-hidden rounded-lg border border-[var(--primary)] cursor-move touch-none flex-shrink-0"
                             style={{
-                                transform: `translate(${crop.x * 100}%, ${crop.y * 100}%)`,
-                                transition: 'transform 0s linear'
+                                width: '300px',
+                                height: '300px',
+                                minWidth: '300px',
+                                minHeight: '300px',
+                                maxWidth: '300px',
+                                maxHeight: '300px'
                             }}
+                            onMouseMove={handleDrag}
                         >
-                            {/* Image handles Scale */}
-                            <img
-                                src={imageSrc}
-                                onLoad={handleImgLoad}
+                            {/* Wrapper handles Translate */}
+                            <div
+                                className="absolute inset-0 flex items-center justify-center pointer-events-none"
                                 style={{
-                                    transform: `scale(${zoom})`,
-                                    transition: 'transform 0.1s ease-out'
+                                    transform: `translate(${crop.x * 100}%, ${crop.y * 100}%)`,
+                                    transition: 'transform 0s linear'
                                 }}
-                                className="max-w-none max-h-none min-w-full min-h-full object-cover opacity-90"
-                                draggable={false}
-                            />
-                        </div>
-                        {/* Grid Overlay */}
-                        <div className="absolute inset-0 pointer-events-none opacity-30">
-                            <div className="w-full h-1/3 border-b border-white"></div>
-                            <div className="w-full h-2/3 border-b border-white text-white/50 text-xs p-1">Rule of Thirds</div>
-                            <div className="absolute top-0 left-1/3 h-full border-r border-white"></div>
-                            <div className="absolute top-0 right-1/3 h-full border-r border-white"></div>
+                            >
+                                {/* Image handles Scale */}
+                                <img
+                                    src={imageSrc}
+                                    onLoad={handleImgLoad}
+                                    style={{
+                                        transform: `scale(${zoom})`,
+                                        transition: 'transform 0.1s ease-out'
+                                    }}
+                                    className="max-w-none max-h-none min-w-full min-h-full object-cover opacity-90"
+                                    draggable={false}
+                                />
+                            </div>
+                            {/* Grid Overlay */}
+                            <div className="absolute inset-0 pointer-events-none opacity-30">
+                                <div className="w-full h-1/3 border-b border-white"></div>
+                                <div className="w-full h-2/3 border-b border-white text-white/50 text-xs p-1">Rule of Thirds</div>
+                                <div className="absolute top-0 left-1/3 h-full border-r border-white"></div>
+                                <div className="absolute top-0 right-1/3 h-full border-r border-white"></div>
+                            </div>
                         </div>
                     </div>
 
