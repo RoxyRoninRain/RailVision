@@ -6,7 +6,7 @@ import { generateDesign, submitLead, convertHeicToJpg } from '@/app/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Upload, Check, Loader2, ArrowRight, MousePointerClick, TrendingUp, AlertCircle, Quote,
-    Download, Image as ImageIcon, Settings, Maximize2, RefreshCw, X, ChevronRight, ChevronLeft
+    Download, Image as ImageIcon, Settings, Maximize2, RefreshCw, X, ChevronRight, ChevronLeft, Share2
 } from 'lucide-react';
 import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
@@ -502,6 +502,41 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         }
     };
 
+    // --- SHARE HANDLER ---
+    const handleShare = async () => {
+        if (!result) return;
+
+        // 1. Check if Web Share API is available (and file sharing specifically)
+        if (!navigator.share) {
+            alert("Sharing is not supported on this browser/device. Please download the image.");
+            return;
+        }
+
+        setIsProcessing(true); // Re-use processing state or local loading
+        try {
+            // 2. Convert result (Base64/URL) to Blob/File
+            const fetchRes = await fetch(result);
+            const blob = await fetchRes.blob();
+            const file = new File([blob], `Railify-Design-${Date.now()}.png`, { type: 'image/png' });
+
+            // 3. Trigger Share
+            // Note: IFRAMES require 'allow="web-share"' attribute to work!
+            await navigator.share({
+                files: [file],
+                title: 'Check out my new staircase design!',
+                text: `Visualized with ${shopName || 'Railify'}.`,
+            });
+        } catch (err: any) {
+            console.error("Share failed:", err);
+            if (err.name !== 'AbortError') {
+                // Don't alert on user cancellation
+                alert("Could not share image. Security restriction or not supported.");
+            }
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
     // --- UTILS ---
     function hexToRgb(hex: string) {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -815,6 +850,9 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             </button>
                                             <button onClick={() => { setFile(null); setPreview(null); setResult(null); setStep(1); }} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
                                                 <RefreshCw className="w-4 h-4" /> Restart
+                                            </button>
+                                            <button onClick={handleShare} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                                <Share2 className="w-4 h-4" /> Share
                                             </button>
                                         </div>
 

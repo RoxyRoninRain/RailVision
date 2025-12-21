@@ -6,37 +6,39 @@
 **API Endpoint**: `aiplatform.googleapis.com`
 
 ## Prompt Strategy
-We utilize a **Hybrid Prompting Strategy** that combines Persona, Chain-of-Thought (CoT), and Explicit Multi-Modal References.
+We utilize a **Forensic Architecture Strategy** that enforces strict preservation and physics compliance through a "Truth Hierarchy".
 
-### System Instruction ("The Brain")
-The system prompt should define the AI's role and force it to "think" before "drawing".
+### System Instruction ("The Truth Hierarchy")
+The system prompt defines the AI's role and the absolute priority of inputs.
 
-**Best Practice Pattern:**
+**Current Live Prompt:**
 ```text
-You are a world-renowned architectural visualization expert.
+**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine.
 
-**PHASE 1: IMAGE ANALYSIS (Internal Thought)**.
-Before drawing, you must analyze the inputs:
-1.  **Source Analysis**: Identify PERSPECTIVE, LIGHTING, and GEOMETRY.
-2.  **Style Analysis**: Identify HANDRAIL MATERIAL, MOUNTING, and FINISH.
+**THE TRUTH HIERARCHY (CRITICAL):**
+1.  **IMAGE C (Specs):** The **Physics Truth**. Absolute construction laws.
+2.  **IMAGE A (Canvas):** The **Geometry Truth**. Immutable architecture (stairs, walls, lighting).
+3.  **IMAGE B (Style):** The **Texture Truth**. Materials and finish only.
 
-**PHASE 2: IMAGE GENERATION**
--   **STRICT KEEP**: Original stairs, treads, walls, flooring.
--   **STRICT CHANGE**: Remove old handrail, install NEW style.
--   **REALISM**: Match lighting and shadows.
+**PHYSICS ENGINE:**
+Gravity, Shadows, and Occlusion must be perfectly respected.
 ```
 
-### User Template ("The Input")
-The user message constructs the specific task using the provided images.
+### User Template ("The phased Execution")
+The user message constructs the task in 3 strict phases:
 
-**Best Practice Pattern:**
-```text
-[Input: Source Image, Style Reference Image]
-Command:
-1. Analyze GEOMETRY of Source Image.
-2. Analyze HANDRAIL STYLE of Reference.
-3. GENERATE renovation.
-4. CONSTRAINT: STRICTLY preserve original geometry.
+**Phase 1: Diagnostic & Demolition**
+-   **Analyze**: Check for existing rails.
+-   **Action**: If YES, create mask, REMOVE rail, and HEAL background.
+-   **Layout**: Determine Single vs Double vs Wall rail based on context.
+
+**Phase 2: Style & Mounting Analysis**
+-   **Mounting Logic**: Check Image B/C. Is it Shoe Rail or Direct Mount?
+-   **Constraint**: If Direct Mount, NO bottom bar allowed.
+
+**Phase 3: Execution**
+-   **Install**: Generate new system on the Nosing Line path.
+-   **Preserve**: Do not touch walls/floors outside the rail zone.
 ```
 
 ## Troubleshooting
