@@ -102,6 +102,17 @@ export async function updateProfile(formData: FormData) {
         }
     }
 
+    // Metered Pricing Updates
+    const enable_overdrive = formData.get('enable_overdrive');
+    if (enable_overdrive !== null) { // Check purely for presence if checkbox logic varies, but usually boolean fields sent as string 'true' or 'on'
+        updates.enable_overdrive = enable_overdrive === 'true' || enable_overdrive === 'on';
+    }
+
+    const max_monthly_spend = formData.get('max_monthly_spend');
+    if (max_monthly_spend !== null) {
+        updates.max_monthly_spend = max_monthly_spend === '' ? null : Number(max_monthly_spend);
+    }
+
     const upsertData: any = {
         id: user.id,
         email: user.email,

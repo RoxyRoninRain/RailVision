@@ -44,7 +44,7 @@ export async function generateDesign(formData: FormData) {
         return { error: 'Missing image or style reference.' };
     }
 
-    // --- CREDIT CONSUMPTION LOGIC (START) ---
+    // --- METERED BILLING LOGIC (START) ---
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -79,70 +79,74 @@ export async function generateDesign(formData: FormData) {
         dbClient = adminClient;
     }
 
-    // 1. Fetch current credits
+    // 1. Fetch current usage & tier details
     const { data: profile, error: dbError } = await dbClient
         .from('profiles')
-        .select('credits_monthly, credits_rollover, credits_booster, auto_boost_enabled, auto_boost_pack')
+        .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend')
         .eq('id', profileIdToBill)
         .single();
 
-    profileError = dbError;
+    // Lazy load pricing configs to avoid top-level await issues if any
+    const { PRICING_TIERS, DEFAULT_TIER } = await import('@/config/pricing');
 
-    if (profileError || !profile) {
-        console.error('[CREDITS] Profile fetch failed:', profileError);
-        return { error: 'Could not fetch profile for credit check.' };
+    if (dbError || !profile) {
+        console.error('[BILLING] Profile fetch failed:', dbError);
+        return { error: 'Could not fetch profile for billing check.' };
     }
 
-    let { credits_monthly, credits_rollover, credits_booster } = profile;
-    let deducted = false;
+    const tierName = (profile.tier_name || DEFAULT_TIER) as keyof typeof PRICING_TIERS;
+    const tier = PRICING_TIERS[tierName] || PRICING_TIERS[DEFAULT_TIER];
 
-    // 2. Deduction Priority Algorithm
-    // Priority 1: Monthly (Expires)
-    if (credits_monthly > 0) {
-        credits_monthly--;
-        deducted = true;
-        console.log('[CREDITS] Deducted from Monthly bucket.');
-    }
-    // Priority 2: Rollover (Tier 3 only)
-    else if (credits_rollover > 0) {
-        credits_rollover--;
-        deducted = true;
-        console.log('[CREDITS] Deducted from Rollover bucket.');
-    }
-    // Priority 3: Booster (Never Expires)
-    else if (credits_booster > 0) {
-        credits_booster--;
-        deducted = true;
-        console.log('[CREDITS] Deducted from Booster bucket.');
+    const currentUsage = profile.current_usage || 0;
+    const allowance = tier.allowance;
+    let isOverage = false;
+    let overageCost = 0;
+
+    // 2. Usage Check Logic
+    if (currentUsage < allowance) {
+        // Within included allowance
+        console.log(`[BILLING] Within allowance (${currentUsage + 1}/${allowance}).`);
+    } else {
+        // Overage Territory
+        if (!profile.enable_overdrive) {
+            console.warn(`[BILLING] Soft Cap Reached. Usage: ${currentUsage}, Limit: ${allowance}. Overdrive OFF.`);
+            // Return 402 - Payment Required equivalent message
+            return { error: 'Monthly allowance reached. Please enable Overdrive in settings to continue.' };
+        }
+
+        // Hard Cap Check (Risk Management)
+        if (profile.max_monthly_spend) {
+            const potentialBalance = (profile.pending_overage_balance || 0) + tier.overageRate;
+            if (potentialBalance > profile.max_monthly_spend) {
+                return { error: `Monthly spend limit ($${profile.max_monthly_spend}) reached. Increase limit to continue.` };
+            }
+        }
+
+        isOverage = true;
+        overageCost = tier.overageRate;
+        console.log(`[BILLING] Overdrive Active. Usage: ${currentUsage}. Charge: $${overageCost}.`);
     }
 
-    if (!deducted) {
-        return { error: 'Insufficient credits. Please upgrade or buy a booster pack.' };
+    // Risk Management: Interim Billing Trigger
+    if ((profile.pending_overage_balance + overageCost) >= 100) {
+        console.warn(`[RISK] User ${profileIdToBill} has accumulated $${profile.pending_overage_balance + overageCost} in overage. Trigger Interim Bill logic here.`);
+        // TODO: Trigger Stripe PaymentIntent capture
     }
 
-    // 3. Commit Update
+    // 3. Commit Usage Update
     const { error: updateError } = await dbClient
         .from('profiles')
         .update({
-            credits_monthly,
-            credits_rollover,
-            credits_booster
+            current_usage: currentUsage + 1,
+            pending_overage_balance: (profile.pending_overage_balance || 0) + overageCost
         })
         .eq('id', profileIdToBill);
 
     if (updateError) {
-        console.error('[CREDITS] Failed to update balance:', updateError);
-        // Fail open or closed? Closed for safety.
+        console.error('[BILLING] Failed to update usage:', updateError);
         return { error: 'Transaction failed. Please try again.' };
     }
-
-    // 4. Auto-Boost Logic (Placeholder)
-    const totalBalance = credits_monthly + credits_rollover + credits_booster;
-    if (profile.auto_boost_enabled && totalBalance < 10) {
-        console.log(`[AUTO-BOOST] Balance low (${totalBalance}). Triggering charge for ${profile.auto_boost_pack}... (TODO)`);
-        // TODO: Call Stripe PaymentIntent -> if success -> add credits
-    }
-    // --- CREDIT CONSUMPTION LOGIC (END) ---
+    // --- METERED BILLING LOGIC (END) ---
 
     // Server-side validation
     const validation = InputSanitizer.validate(file);

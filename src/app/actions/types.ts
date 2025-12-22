@@ -28,6 +28,12 @@ export interface Profile {
     address_zip?: string | null;
     travel_settings?: any;
     confirmation_email_body?: string | null;
+    // Metered Pricing Fields
+    tier_name?: string;
+    enable_overdrive?: boolean;
+    pending_overage_balance?: number;
+    max_monthly_spend?: number | null;
+    current_usage?: number;
 }
 
 export interface PortfolioItem {

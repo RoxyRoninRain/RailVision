@@ -1,76 +1,63 @@
+export type TierName = 'The Estimator' | 'The Shop' | 'The Pro' | 'The Volume' | 'The Industrial';
 
-export const PRICING_TIERS = {
-    SALESMATE: {
-        id: 'salesmate',
-        name: 'The Salesmate',
+export interface PricingTier {
+    name: TierName;
+    price: number;
+    allowance: number;
+    overageRate: number;
+    canEmbed: boolean;
+    isWhiteLabel: boolean;
+    features: string[];
+    popular?: boolean;
+}
+
+export const PRICING_TIERS: Record<TierName, PricingTier> = {
+    'The Estimator': {
+        name: 'The Estimator',
         price: 49,
-        monthlyCredits: 50,
-        allowRollover: false,
-        maxStyleUploads: 5,
-        features: {
-            embedEnabled: false,
-            whiteLabel: false,
-            customWatermark: false,
-        },
-        uiLabel: 'Internal Dashboard Only',
-        cta: 'Get Started',
+        allowance: 50,
+        overageRate: 1.00,
+        canEmbed: false,
+        isWhiteLabel: false,
+        features: ['Dashboard Access Only', 'Standard Processing']
     },
-    WIDGET: {
-        id: 'widget',
-        name: 'The Widget',
+    'The Shop': {
+        name: 'The Shop',
         price: 99,
-        monthlyCredits: 100,
-        allowRollover: false,
-        maxStyleUploads: 5,
-        features: {
-            embedEnabled: true,
-            whiteLabel: false,
-            customWatermark: false,
-        },
-        uiLabel: 'Website Lead Gen',
-        cta: 'Upgrade to Widget',
+        allowance: 100,
+        overageRate: 1.00,
+        canEmbed: true,
+        isWhiteLabel: false,
+        features: ['Embed on your site', 'Powered by Railify Badge', 'Standard Processing']
     },
-    SHOWROOM: {
-        id: 'showroom',
-        name: 'The Showroom',
-        price: 300,
-        monthlyCredits: 500,
-        allowRollover: true,
-        maxRollover: 1000,
-        maxStyleUploads: 10,
-        features: {
-            embedEnabled: true,
-            whiteLabel: true,
-            customWatermark: true,
-        },
-        uiLabel: 'The White-Glove Experience',
-        cta: 'Go Pro',
+    'The Pro': {
+        name: 'The Pro',
+        price: 299,
+        allowance: 400,
+        overageRate: 0.90,
+        canEmbed: true,
+        isWhiteLabel: true,
+        popular: true,
+        features: ['Embed on your site', 'Your Logo Watermark', 'Standard Processing']
     },
+    'The Volume': {
+        name: 'The Volume',
+        price: 500,
+        allowance: 700,
+        overageRate: 0.80,
+        canEmbed: true,
+        isWhiteLabel: true,
+        features: ['Embed on your site', 'Your Logo Watermark', 'Priority Processing']
+    },
+    'The Industrial': {
+        name: 'The Industrial',
+        price: 750,
+        allowance: 1000,
+        overageRate: 0.75,
+        canEmbed: true,
+        isWhiteLabel: true,
+        features: ['Embed on your site', 'Your Logo Watermark', 'Dedicated Support', 'Priority Processing']
+    }
 };
 
-export const BOOSTER_PACKS = {
-    REFILL: {
-        id: 'refill',
-        name: 'The Refill',
-        credits: 50,
-        price: 50,
-        label: 'Standard',
-    },
-    PROJECT: {
-        id: 'project',
-        name: 'The Project Pack',
-        credits: 150,
-        price: 120,
-        label: 'Save 20%',
-    },
-    STOCKPILE: {
-        id: 'stockpile',
-        name: 'The Stockpile',
-        credits: 500,
-        price: 350,
-        label: 'Save 30%',
-    },
-};
-
-export type TierId = keyof typeof PRICING_TIERS;
-export type BoosterId = keyof typeof BOOSTER_PACKS;
+export const DEFAULT_TIER: TierName = 'The Estimator';

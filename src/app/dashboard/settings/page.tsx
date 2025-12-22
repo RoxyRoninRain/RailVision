@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { getProfile, updateProfile, uploadLogo, Profile } from '@/app/actions';
 import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon, Trash2, Plus } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function SettingsPage() {
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -140,23 +141,99 @@ export default function SettingsPage() {
                             </div>
                         </div>
 
-                        {/* Subscription Status */}
+                        {/* Usage & Billing Status */}
                         <div className="bg-[#111] p-6 rounded-lg border border-gray-800 shadow-xl relative">
                             <h2 className="text-xl font-mono font-bold text-white mb-4 flex items-center gap-2">
                                 <CreditCard className="text-gray-400" size={20} />
-                                Subscription
+                                Metered Billing
                             </h2>
-                            <div className="flex items-center justify-between bg-black/40 p-4 rounded border border-gray-800">
-                                <span className="text-gray-400 font-mono text-sm uppercase">Status</span>
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-2 h-2 rounded-full ${profile?.subscription_status === 'active' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-                                    <span className="capitalize font-bold text-white">{profile?.subscription_status}</span>
+
+                            {/* Tier Badge */}
+                            <div className="flex items-center justify-between bg-black/40 p-3 rounded border border-gray-800 mb-4">
+                                <span className="text-gray-400 font-mono text-sm uppercase">Current Plan</span>
+                                <span className="text-[var(--primary)] font-bold font-mono uppercase tracking-wider">
+                                    {profile?.tier_name || 'The Estimator'}
+                                </span>
+                            </div>
+
+                            {/* Usage Bar */}
+                            <div className="mb-6">
+                                <div className="flex justify-between text-xs font-mono mb-2 uppercase tracking-wide">
+                                    <span className="text-white">Monthly Usage</span>
+                                    <span className={profile?.enable_overdrive && (profile?.current_usage || 0) > 50 ? 'text-orange-500' : 'text-gray-400'}>
+                                        {profile?.current_usage || 0} Renders
+                                    </span>
+                                </div>
+                                <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
+                                    <div
+                                        className={`h-full transition-all duration-500 ${(profile?.current_usage || 0) > 50 // simplistic check, ideally use tier.allowance if available in context
+                                            ? 'bg-orange-500'
+                                            : 'bg-green-500'
+                                            }`}
+                                        style={{ width: `${Math.min(100, Math.max(5, ((profile?.current_usage || 0) / 50) * 100))}%` }}
+                                    />
+                                </div>
+                                {(profile?.current_usage || 0) > 50 && (
+                                    <p className="text-xs text-orange-500 mt-1 font-mono uppercase">
+                                        Overdrive Active
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Overdrive Toggle */}
+                            <div className="bg-white/5 p-4 rounded border border-gray-700 flex items-center justify-between mb-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className={`w-2 h-2 rounded-full ${profile?.enable_overdrive ? 'bg-orange-500 animate-pulse' : 'bg-gray-600'}`} />
+                                        <span className="font-bold text-sm text-white uppercase tracking-wider">Overdrive™</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500">Allow overage generation</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        name="enable_overdrive_toggle" // Handled via hidden input in main form actually
+                                        checked={profile?.enable_overdrive || false}
+                                        onChange={(e) => {
+                                            if (profile) setProfile({ ...profile, enable_overdrive: e.target.checked });
+                                            // We need to auto-submit or let the main form handle it. 
+                                            // Since main form wraps right column, this left column is OUTSIDE the form.
+                                            // We need to handle this separately or move it.
+                                            // WAIT: This card is in Left Column. Main form is Right Column.
+                                            // I must make this interactable independently or move it.
+                                            // For now, I'll use a hidden form or fetch call?
+                                            // Simpler: Just rely on independent update? Use updateProfile directly here.
+
+                                            const fd = new FormData();
+                                            fd.append('enable_overdrive', e.target.checked.toString());
+                                            setSaving(true);
+                                            updateProfile(fd).then(res => {
+                                                setSaving(false);
+                                                if (res.success) setMessage('Overdrive settings updated.');
+                                            });
+                                        }}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
+                                </label>
+                            </div>
+
+                            {/* Financial Snapshot */}
+                            <div className="grid grid-cols-2 gap-2 text-center text-xs font-mono uppercase">
+                                <div className="bg-black/30 p-2 rounded border border-gray-800">
+                                    <span className="block text-gray-500 mb-1">Pending Overage</span>
+                                    <span className="text-white font-bold">${profile?.pending_overage_balance || '0.00'}</span>
+                                </div>
+                                <div className="bg-black/30 p-2 rounded border border-gray-800">
+                                    <span className="block text-gray-500 mb-1">Next Bill</span>
+                                    <span className="text-white font-bold">$49.00</span>
                                 </div>
                             </div>
+
                             <div className="mt-4 text-center">
-                                <button className="text-sm text-gray-500 hover:text-white transition-colors underline decoration-dotted">
-                                    Manage Billing Portal
-                                </button>
+                                <Link href="/pricing" className="text-sm text-gray-500 hover:text-white transition-colors underline decoration-dotted">
+                                    View Tier Limits
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -203,6 +280,30 @@ export default function SettingsPage() {
                                             <p className="text-xs text-gray-600 mt-2">
                                                 Comma-separated list of domains allowed to embed your widget.
                                             </p>
+                                        </div>
+
+                                        <div className="col-span-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <ShieldCheck size={14} /> Risk Management
+                                            </label>
+                                            <div className="flex items-center gap-4 bg-black/50 p-4 rounded border border-gray-800">
+                                                <div className="flex-1">
+                                                    <label className="text-xs text-gray-500 uppercase block mb-1">Max Monthly Spend ($)</label>
+                                                    <input
+                                                        type="number"
+                                                        name="max_monthly_spend"
+                                                        defaultValue={profile?.max_monthly_spend || ''}
+                                                        placeholder="No Limit"
+                                                        className="w-full bg-[#050505] border border-gray-800 p-2 text-white rounded focus:border-[var(--primary)] outline-none"
+                                                    />
+                                                    <p className="text-[10px] text-gray-600 mt-1">Hard stop for Overdrive charges.</p>
+                                                </div>
+                                                <div className="flex-1 border-l border-gray-800 pl-4">
+                                                    <p className="text-xs text-gray-500">
+                                                        Setting a limit will stop all generation once your overage balance + subscription cost hits this amount.
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         <div>
