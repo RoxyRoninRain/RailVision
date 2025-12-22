@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Check, Sparkles, Building2, Store, HandCoins, ChevronRight, Zap, ShieldCheck, Palette, Code2 } from 'lucide-react';
+import PricingCarousel from '@/components/PricingCarousel';
 
 export default function LandingPage() {
   return (
