@@ -91,7 +91,7 @@ export default function SettingsPage() {
                     <p className="text-gray-500 text-lg">Manage your commercial profile and branding.</p>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Left Column: Branding & quick status - MODIFIED: Removed Main Logo Card */}
                     <div className="space-y-8">
 
@@ -289,7 +289,7 @@ export default function SettingsPage() {
                 </div>
 
                 {/* Right Column: Main Settings Form */}
-                <div className="lg:col-span-2">
+                <div className="space-y-8">
                     <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
                         <form onSubmit={handleSubmit} className="space-y-8">
                             <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
