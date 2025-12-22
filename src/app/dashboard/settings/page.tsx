@@ -288,7 +288,7 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Right Column: Main Settings Form */}
-                    <div className="space-y-8">
+                    <div className="space-y-8 lg:col-span-2">
                         <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
                             <form onSubmit={handleSubmit} className="space-y-8">
                                 <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
