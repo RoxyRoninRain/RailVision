@@ -286,272 +286,272 @@ export default function SettingsPage() {
                             </Link>
                         </div>
                     </div>
-                </div>
 
-                {/* Right Column: Main Settings Form */}
-                <div className="space-y-8">
-                    <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
-                        <form onSubmit={handleSubmit} className="space-y-8">
-                            <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
-                            <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
-                            <input type="hidden" name="watermark_logo_url" value={profile?.watermark_logo_url || ''} />
-                            <input type="hidden" name="travel_settings" value={JSON.stringify(travelSettings)} />
+                    {/* Right Column: Main Settings Form */}
+                    <div className="space-y-8">
+                        <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
+                            <form onSubmit={handleSubmit} className="space-y-8">
+                                <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
+                                <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
+                                <input type="hidden" name="watermark_logo_url" value={profile?.watermark_logo_url || ''} />
+                                <input type="hidden" name="travel_settings" value={JSON.stringify(travelSettings)} />
 
-                            <div className="space-y-6">
-                                <h3 className="text-lg font-mono text-gray-500 border-b border-gray-800 pb-2 uppercase tracking-wider">
-                                    Business Details
-                                </h3>
+                                <div className="space-y-6">
+                                    <h3 className="text-lg font-mono text-gray-500 border-b border-gray-800 pb-2 uppercase tracking-wider">
+                                        Business Details
+                                    </h3>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="col-span-2">
-                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                            <Building size={14} /> Shop Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="shop_name"
-                                            defaultValue={profile?.shop_name || ''}
-                                            className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
-                                            placeholder="e.g. Acme Ironworks LLC"
-                                        />
-                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="col-span-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <Building size={14} /> Shop Name
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="shop_name"
+                                                defaultValue={profile?.shop_name || ''}
+                                                className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                                placeholder="e.g. Acme Ironworks LLC"
+                                            />
+                                        </div>
 
-                                    <div className="col-span-2">
-                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                            <ShieldCheck size={14} /> Website / Whitelisted Domains
-                                        </label>
-                                        <input
-                                            type="text"
-                                            name="website"
-                                            defaultValue={profile?.website || ''}
-                                            className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
-                                            placeholder="https://mysite.com, https://app.gohighlevel.com"
-                                        />
-                                        <p className="text-xs text-gray-600 mt-2">
-                                            Comma-separated list of domains allowed to embed your widget.
-                                        </p>
-                                    </div>
-
+                                        <div className="col-span-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <ShieldCheck size={14} /> Website / Whitelisted Domains
+                                            </label>
+                                            <input
+                                                type="text"
+                                                name="website"
+                                                defaultValue={profile?.website || ''}
+                                                className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                                placeholder="https://mysite.com, https://app.gohighlevel.com"
+                                            />
+                                            <p className="text-xs text-gray-600 mt-2">
+                                                Comma-separated list of domains allowed to embed your widget.
+                                            </p>
+                                        </div>
 
 
 
 
-                                    <div>
-                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                            <Phone size={14} /> Business Phone
-                                        </label>
-                                        <input
-                                            type="tel"
-                                            name="phone"
-                                            defaultValue={profile?.phone || ''}
-                                            className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
-                                            placeholder="(555) 123-4567"
-                                        />
-                                    </div>
 
-                                    <div className="col-span-2">
-                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                            <MapPin size={14} /> Shop Address & Zip
-                                        </label>
-                                        <div className="flex gap-4">
-                                            <div className="flex-grow">
-                                                <textarea
-                                                    name="address"
-                                                    defaultValue={profile?.address || ''}
-                                                    rows={2}
-                                                    className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-none"
-                                                    placeholder="123 Steel Blvd, Industriville"
-                                                />
-                                            </div>
-                                            <div className="w-32">
-                                                <input
-                                                    type="text"
-                                                    name="address_zip"
-                                                    defaultValue={profile?.address_zip || ''}
-                                                    className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
-                                                    placeholder="Zip"
-                                                />
+                                        <div>
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <Phone size={14} /> Business Phone
+                                            </label>
+                                            <input
+                                                type="tel"
+                                                name="phone"
+                                                defaultValue={profile?.phone || ''}
+                                                className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                                placeholder="(555) 123-4567"
+                                            />
+                                        </div>
+
+                                        <div className="col-span-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <MapPin size={14} /> Shop Address & Zip
+                                            </label>
+                                            <div className="flex gap-4">
+                                                <div className="flex-grow">
+                                                    <textarea
+                                                        name="address"
+                                                        defaultValue={profile?.address || ''}
+                                                        rows={2}
+                                                        className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-none"
+                                                        placeholder="123 Steel Blvd, Industriville"
+                                                    />
+                                                </div>
+                                                <div className="w-32">
+                                                    <input
+                                                        type="text"
+                                                        name="address_zip"
+                                                        defaultValue={profile?.address_zip || ''}
+                                                        className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                                        placeholder="Zip"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Travel Settings Moved */}
-
+                                        {/* Travel Settings Moved */}
 
 
-                                    <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
-                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                            <div className="w-3 h-3 rounded-full bg-green-500"></div> Customer Confirmation Email
-                                        </label>
-                                        <p className="text-xs text-gray-500 mb-4">
-                                            Customize the email sent to customers when they request a quote.
-                                        </p>
-                                        <textarea
-                                            name="confirmation_email_body"
-                                            defaultValue={profile?.confirmation_email_body || "Thank you for your request. We will review your project and get back to you shortly."}
-                                            rows={6}
-                                            className="w-full bg-[#111] border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-y font-sans text-sm"
-                                            placeholder="Enter your confirmation message here..."
-                                        />
-                                    </div>
 
-                                    {/* Travel Settings - Collapsible Moved */}
-                                    <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsTravelCollapsed(!isTravelCollapsed)}
-                                            className="w-full flex items-center justify-between text-left group"
-                                        >
-                                            <label className="text-gray-400 font-mono text-xs uppercase tracking-widest flex items-center gap-2 cursor-pointer group-hover:text-white transition-colors">
-                                                <div className="w-3 h-3 rounded-full bg-blue-500"></div> Travel Fees
+                                        <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
+                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full bg-green-500"></div> Customer Confirmation Email
                                             </label>
-                                            {isTravelCollapsed ? <ChevronDown size={16} className="text-gray-500" /> : <ChevronUp size={16} className="text-gray-500" />}
-                                        </button>
+                                            <p className="text-xs text-gray-500 mb-4">
+                                                Customize the email sent to customers when they request a quote.
+                                            </p>
+                                            <textarea
+                                                name="confirmation_email_body"
+                                                defaultValue={profile?.confirmation_email_body || "Thank you for your request. We will review your project and get back to you shortly."}
+                                                rows={6}
+                                                className="w-full bg-[#111] border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-y font-sans text-sm"
+                                                placeholder="Enter your confirmation message here..."
+                                            />
+                                        </div>
 
-                                        {!isTravelCollapsed && (
-                                            <div className="mt-6 animate-fade-in bg-black/50 rounded border border-gray-800 p-4 space-y-4">
-                                                <div className="flex gap-4 mb-4">
-                                                    <div className="flex-1">
-                                                        <span className="text-xs text-gray-500 uppercase block mb-1">Pricing Strategy</span>
-                                                        <select
-                                                            value={travelSettings.pricing_type || 'radius_tiers'}
-                                                            onChange={e => setTravelSettings({ ...travelSettings, pricing_type: e.target.value })}
-                                                            className="w-full bg-[#050505] border border-gray-800 text-sm rounded p-2 text-white"
-                                                        >
-                                                            <option value="radius_tiers">Radius Tiers</option>
-                                                            <option value="per_mile">Per Mile Rate</option>
-                                                        </select>
+                                        {/* Travel Settings - Collapsible Moved */}
+                                        <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsTravelCollapsed(!isTravelCollapsed)}
+                                                className="w-full flex items-center justify-between text-left group"
+                                            >
+                                                <label className="text-gray-400 font-mono text-xs uppercase tracking-widest flex items-center gap-2 cursor-pointer group-hover:text-white transition-colors">
+                                                    <div className="w-3 h-3 rounded-full bg-blue-500"></div> Travel Fees
+                                                </label>
+                                                {isTravelCollapsed ? <ChevronDown size={16} className="text-gray-500" /> : <ChevronUp size={16} className="text-gray-500" />}
+                                            </button>
+
+                                            {!isTravelCollapsed && (
+                                                <div className="mt-6 animate-fade-in bg-black/50 rounded border border-gray-800 p-4 space-y-4">
+                                                    <div className="flex gap-4 mb-4">
+                                                        <div className="flex-1">
+                                                            <span className="text-xs text-gray-500 uppercase block mb-1">Pricing Strategy</span>
+                                                            <select
+                                                                value={travelSettings.pricing_type || 'radius_tiers'}
+                                                                onChange={e => setTravelSettings({ ...travelSettings, pricing_type: e.target.value })}
+                                                                className="w-full bg-[#050505] border border-gray-800 text-sm rounded p-2 text-white"
+                                                            >
+                                                                <option value="radius_tiers">Radius Tiers</option>
+                                                                <option value="per_mile">Per Mile Rate</option>
+                                                            </select>
+                                                        </div>
+                                                        <div className="flex-1">
+                                                            <span className="text-xs text-gray-500 uppercase block mb-1">Application Method</span>
+                                                            <select
+                                                                value={travelSettings.application_type || 'flat'}
+                                                                onChange={e => setTravelSettings({ ...travelSettings, application_type: e.target.value })}
+                                                                className="w-full bg-[#050505] border border-gray-800 text-sm rounded p-2 text-white"
+                                                            >
+                                                                <option value="flat">Standard (Flat Fee)</option>
+                                                                <option value="per_foot_surcharge">Surcharge (Per Foot)</option>
+                                                            </select>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <span className="text-xs text-gray-500 uppercase block mb-1">Application Method</span>
-                                                        <select
-                                                            value={travelSettings.application_type || 'flat'}
-                                                            onChange={e => setTravelSettings({ ...travelSettings, application_type: e.target.value })}
-                                                            className="w-full bg-[#050505] border border-gray-800 text-sm rounded p-2 text-white"
-                                                        >
-                                                            <option value="flat">Standard (Flat Fee)</option>
-                                                            <option value="per_foot_surcharge">Surcharge (Per Foot)</option>
-                                                        </select>
-                                                    </div>
+
+                                                    {travelSettings.pricing_type === 'per_mile' ? (
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div>
+                                                                <label className="text-xs text-gray-500 uppercase block mb-1">Base Fee ($)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={travelSettings.base_fee === 0 ? 0 : (travelSettings.base_fee || '')}
+                                                                    onChange={e => {
+                                                                        const val = parseFloat(e.target.value);
+                                                                        setTravelSettings({ ...travelSettings, base_fee: isNaN(val) ? '' : val });
+                                                                    }}
+                                                                    className="w-full bg-[#050505] border border-gray-800 rounded p-2 text-white"
+                                                                    placeholder="0.00"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs text-gray-500 uppercase block mb-1">Rate ($/Mile)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={travelSettings.rate_per_mile === 0 ? 0 : (travelSettings.rate_per_mile || '')}
+                                                                    onChange={e => {
+                                                                        const val = parseFloat(e.target.value);
+                                                                        setTravelSettings({ ...travelSettings, rate_per_mile: isNaN(val) ? '' : val });
+                                                                    }}
+                                                                    className="w-full bg-[#050505] border border-gray-800 rounded p-2 text-white"
+                                                                    placeholder="0.00"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-4">
+                                                            <div className="space-y-2">
+                                                                {travelSettings.tiers?.map((tier: any, idx: number) => (
+                                                                    <div key={idx} className="flex items-center gap-2">
+                                                                        <div className="relative flex-1">
+                                                                            <span className="absolute left-3 top-2.5 text-xs text-gray-500">0 -</span>
+                                                                            <input
+                                                                                type="number"
+                                                                                value={tier.radius === 0 ? 0 : (tier.radius || '')}
+                                                                                onChange={e => {
+                                                                                    const newTiers = [...(travelSettings.tiers || [])];
+                                                                                    const val = parseFloat(e.target.value);
+                                                                                    newTiers[idx].radius = isNaN(val) ? '' : val;
+                                                                                    setTravelSettings({ ...travelSettings, tiers: newTiers });
+                                                                                }}
+                                                                                className="w-full bg-[#050505] border border-gray-800 rounded p-2 pl-8 text-sm text-white"
+                                                                                placeholder="Miles"
+                                                                            />
+                                                                            <span className="absolute right-3 top-2.5 text-xs text-gray-500">mi</span>
+                                                                        </div>
+                                                                        <span className="text-gray-500 text-sm">→</span>
+                                                                        <div className="relative flex-1">
+                                                                            <span className="absolute left-3 top-2.5 text-xs text-gray-500">$</span>
+                                                                            <input
+                                                                                type="number"
+                                                                                value={tier.price === 0 ? 0 : (tier.price || '')}
+                                                                                onChange={e => {
+                                                                                    const newTiers = [...(travelSettings.tiers || [])];
+                                                                                    const val = parseFloat(e.target.value);
+                                                                                    newTiers[idx].price = isNaN(val) ? '' : val;
+                                                                                    setTravelSettings({ ...travelSettings, tiers: newTiers });
+                                                                                }}
+                                                                                className="w-full bg-[#050505] border border-gray-800 rounded p-2 pl-6 text-sm text-white"
+                                                                                placeholder="Fee"
+                                                                            />
+                                                                        </div>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const newTiers = travelSettings.tiers.filter((_: any, i: number) => i !== idx);
+                                                                                setTravelSettings({ ...travelSettings, tiers: newTiers });
+                                                                            }}
+                                                                            className="text-red-500 hover:text-red-400 p-2"
+                                                                        >
+                                                                            <Trash2 size={16} />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const newTiers = [...(travelSettings.tiers || []), { radius: 20, price: 50 }];
+                                                                    setTravelSettings({ ...travelSettings, tiers: newTiers });
+                                                                }}
+                                                                className="text-xs font-bold uppercase tracking-wider text-[var(--primary)] hover:underline flex items-center gap-1"
+                                                            >
+                                                                <Plus size={14} /> Add Distance Tier
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
+                                            )}
+                                        </div>
 
-                                                {travelSettings.pricing_type === 'per_mile' ? (
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div>
-                                                            <label className="text-xs text-gray-500 uppercase block mb-1">Base Fee ($)</label>
-                                                            <input
-                                                                type="number"
-                                                                value={travelSettings.base_fee === 0 ? 0 : (travelSettings.base_fee || '')}
-                                                                onChange={e => {
-                                                                    const val = parseFloat(e.target.value);
-                                                                    setTravelSettings({ ...travelSettings, base_fee: isNaN(val) ? '' : val });
-                                                                }}
-                                                                className="w-full bg-[#050505] border border-gray-800 rounded p-2 text-white"
-                                                                placeholder="0.00"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-xs text-gray-500 uppercase block mb-1">Rate ($/Mile)</label>
-                                                            <input
-                                                                type="number"
-                                                                value={travelSettings.rate_per_mile === 0 ? 0 : (travelSettings.rate_per_mile || '')}
-                                                                onChange={e => {
-                                                                    const val = parseFloat(e.target.value);
-                                                                    setTravelSettings({ ...travelSettings, rate_per_mile: isNaN(val) ? '' : val });
-                                                                }}
-                                                                className="w-full bg-[#050505] border border-gray-800 rounded p-2 text-white"
-                                                                placeholder="0.00"
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-4">
-                                                        <div className="space-y-2">
-                                                            {travelSettings.tiers?.map((tier: any, idx: number) => (
-                                                                <div key={idx} className="flex items-center gap-2">
-                                                                    <div className="relative flex-1">
-                                                                        <span className="absolute left-3 top-2.5 text-xs text-gray-500">0 -</span>
-                                                                        <input
-                                                                            type="number"
-                                                                            value={tier.radius === 0 ? 0 : (tier.radius || '')}
-                                                                            onChange={e => {
-                                                                                const newTiers = [...(travelSettings.tiers || [])];
-                                                                                const val = parseFloat(e.target.value);
-                                                                                newTiers[idx].radius = isNaN(val) ? '' : val;
-                                                                                setTravelSettings({ ...travelSettings, tiers: newTiers });
-                                                                            }}
-                                                                            className="w-full bg-[#050505] border border-gray-800 rounded p-2 pl-8 text-sm text-white"
-                                                                            placeholder="Miles"
-                                                                        />
-                                                                        <span className="absolute right-3 top-2.5 text-xs text-gray-500">mi</span>
-                                                                    </div>
-                                                                    <span className="text-gray-500 text-sm">→</span>
-                                                                    <div className="relative flex-1">
-                                                                        <span className="absolute left-3 top-2.5 text-xs text-gray-500">$</span>
-                                                                        <input
-                                                                            type="number"
-                                                                            value={tier.price === 0 ? 0 : (tier.price || '')}
-                                                                            onChange={e => {
-                                                                                const newTiers = [...(travelSettings.tiers || [])];
-                                                                                const val = parseFloat(e.target.value);
-                                                                                newTiers[idx].price = isNaN(val) ? '' : val;
-                                                                                setTravelSettings({ ...travelSettings, tiers: newTiers });
-                                                                            }}
-                                                                            className="w-full bg-[#050505] border border-gray-800 rounded p-2 pl-6 text-sm text-white"
-                                                                            placeholder="Fee"
-                                                                        />
-                                                                    </div>
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            const newTiers = travelSettings.tiers.filter((_: any, i: number) => i !== idx);
-                                                                            setTravelSettings({ ...travelSettings, tiers: newTiers });
-                                                                        }}
-                                                                        className="text-red-500 hover:text-red-400 p-2"
-                                                                    >
-                                                                        <Trash2 size={16} />
-                                                                    </button>
-                                                                </div>
-                                                            ))}
-                                                        </div>
+                                        {/* Logo Size Control (REMOVED) */}
+                                    </div>
+                                </div>
 
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const newTiers = [...(travelSettings.tiers || []), { radius: 20, price: 50 }];
-                                                                setTravelSettings({ ...travelSettings, tiers: newTiers });
-                                                            }}
-                                                            className="text-xs font-bold uppercase tracking-wider text-[var(--primary)] hover:underline flex items-center gap-1"
-                                                        >
-                                                            <Plus size={14} /> Add Distance Tier
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
+                                <div className="pt-6 border-t border-gray-800 flex items-center justify-between">
+                                    <div className="text-sm">
+                                        {message && (
+                                            <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${message.includes('Error') ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'}`}>
+                                                {message.includes('Error') ? '⚠' : '✓'} {message}
+                                            </span>
                                         )}
                                     </div>
-
-                                    {/* Logo Size Control (REMOVED) */}
+                                    <button
+                                        type="submit"
+                                        disabled={saving}
+                                        className="bg-[var(--primary)] hover:bg-white hover:text-black text-black font-bold uppercase font-mono px-8 py-3 rounded transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]"
+                                    >
+                                        {saving ? 'Saving...' : <><Save size={18} /> Save Changes</>}
+                                    </button>
                                 </div>
-                            </div>
-
-                            <div className="pt-6 border-t border-gray-800 flex items-center justify-between">
-                                <div className="text-sm">
-                                    {message && (
-                                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${message.includes('Error') ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'}`}>
-                                            {message.includes('Error') ? '⚠' : '✓'} {message}
-                                        </span>
-                                    )}
-                                </div>
-                                <button
-                                    type="submit"
-                                    disabled={saving}
-                                    className="bg-[var(--primary)] hover:bg-white hover:text-black text-black font-bold uppercase font-mono px-8 py-3 rounded transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]"
-                                >
-                                    {saving ? 'Saving...' : <><Save size={18} /> Save Changes</>}
-                                </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
