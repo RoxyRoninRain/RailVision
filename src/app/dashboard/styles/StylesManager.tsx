@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg } from '@/app/actions'; // Ensure these are exported from actions.ts
 import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { compressImage } from '@/utils/imageUtils';
 
 export default function StylesManager({ initialStyles, serverError, logoUrl }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null }) {
     const [styles, setStyles] = useState<PortfolioItem[]>(initialStyles);
@@ -196,20 +197,33 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
         }
 
         setIsSubmitting(true);
-        const formData = new FormData();
-        formData.append('name', newName);
-        formData.append('description', newDesc);
-        if (priceMin) formData.append('price_min', priceMin);
-        if (priceMax) formData.append('price_max', priceMax);
+        try {
+            const formData = new FormData();
+            formData.append('name', newName);
+            formData.append('description', newDesc);
+            if (priceMin) formData.append('price_min', priceMin);
+            if (priceMax) formData.append('price_max', priceMax);
 
-        // Critical Order: Main First, then Refs
-        formData.append('files', mainFile);
-        refFiles.forEach(f => formData.append('files', f));
+            // Critical Order: Main First, then Refs
+            // Compress Main
+            const compressedMain = await compressImage(mainFile, 1280);
+            formData.append('files', compressedMain);
 
-        const res = await createStyle(formData);
-        if (res.error) setErrorMsg(res.error);
-        else onSuccess();
-        setIsSubmitting(false);
+            // Compress Refs
+            for (const f of refFiles) {
+                const compressedRef = await compressImage(f, 1280);
+                formData.append('files', compressedRef);
+            }
+
+            const res = await createStyle(formData);
+            if (res.error) setErrorMsg(res.error);
+            else onSuccess();
+        } catch (err) {
+            console.error("Submission error:", err);
+            setErrorMsg("Failed to process images. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
     }
 
     return (
@@ -409,12 +423,28 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                 formData.append('file', fileToUpload);
             } catch (err) {
                 console.warn("Crop failed, sending original if new file exists", err);
-                if (newFile) formData.append('file', newFile);
+                if (newFile) {
+                    try {
+                        const compressedFallback = await compressImage(newFile, 1280);
+                        formData.append('file', compressedFallback);
+                    } catch (cErr) {
+                        formData.append('file', newFile);
+                    }
+                }
             }
         }
 
         // References Handling
-        newRefFiles.forEach(f => formData.append('reference_files', f));
+        // newRefFiles.forEach(f => formData.append('reference_files', f));
+        for (const f of newRefFiles) {
+            try {
+                const compressedRef = await compressImage(f, 1280);
+                formData.append('reference_files', compressedRef);
+            } catch (err) {
+                console.warn("Ref compression failed", err);
+                formData.append('reference_files', f);
+            }
+        }
         formData.append('kept_reference_urls', JSON.stringify(keptRefs));
 
         const { updateStyle } = await import('@/app/actions');
