@@ -1,3 +1,5 @@
+import { createClient } from '@/lib/supabase/server';
+import { notFound } from 'next/navigation';
 import AdminLayoutClient from './AdminLayoutClient';
 
 export default async function AdminLayout({
