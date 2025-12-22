@@ -91,7 +91,7 @@ export default function SettingsPage() {
                     <p className="text-gray-500 text-lg">Manage your commercial profile and branding.</p>
                 </header>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left Column: Branding & quick status - MODIFIED: Removed Main Logo Card */}
                     <div className="space-y-8">
 
