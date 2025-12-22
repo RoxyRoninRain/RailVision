@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { getProfile, updateProfile, uploadLogo, Profile } from '@/app/actions';
-import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon, Trash2, Plus } from 'lucide-react';
+import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -13,6 +13,7 @@ export default function SettingsPage() {
     const [uploadingWatermark, setUploadingWatermark] = useState(false);
     const [message, setMessage] = useState('');
     const [travelSettings, setTravelSettings] = useState<any>({ pricing_type: 'radius_tiers', tiers: [] });
+    const [isTravelCollapsed, setIsTravelCollapsed] = useState(true);
     const watermarkInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -93,6 +94,23 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left Column: Branding & quick status - MODIFIED: Removed Main Logo Card */}
                     <div className="space-y-8">
+
+                        {/* Contact Support Block - Moved */}
+                        <div className="bg-[#111] p-6 rounded-lg border border-gray-800 shadow-xl relative overflow-hidden group">
+                            <h2 className="text-xl font-mono font-bold text-white mb-4 flex items-center gap-2">
+                                <Mail className="text-gray-400" size={20} />
+                                Contact
+                            </h2>
+                            <div>
+                                <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest">
+                                    Registered Email
+                                </label>
+                                <div className="w-full bg-[#1a1a1a] border border-gray-800 p-3 text-gray-500 rounded italic text-sm truncate">
+                                    {profile?.email}
+                                </div>
+                                <p className="text-[10px] text-gray-700 mt-2">Managed via Auth Provider</p>
+                            </div>
+                        </div>
 
                         {/* Watermark Logo Card */}
                         <div className="bg-[#111] p-6 rounded-lg border border-gray-800 shadow-2xl relative overflow-hidden group">
@@ -218,153 +236,180 @@ export default function SettingsPage() {
                                 </label>
                             </div>
 
-                            {/* Financial Snapshot */}
-                            <div className="grid grid-cols-2 gap-2 text-center text-xs font-mono uppercase">
-                                <div className="bg-black/30 p-2 rounded border border-gray-800">
-                                    <span className="block text-gray-500 mb-1">Pending Overage</span>
-                                    <span className="text-white font-bold">${profile?.pending_overage_balance || '0.00'}</span>
-                                </div>
-                                <div className="bg-black/30 p-2 rounded border border-gray-800">
-                                    <span className="block text-gray-500 mb-1">Next Bill</span>
-                                    <span className="text-white font-bold">$49.00</span>
-                                </div>
-                            </div>
+                        </div>
 
-                            <div className="mt-4 text-center">
-                                <Link href="/pricing" className="text-sm text-gray-500 hover:text-white transition-colors underline decoration-dotted">
-                                    View Tier Limits
-                                </Link>
+                        {/* Risk Management (Moved) */}
+                        <div className="bg-white/5 p-4 rounded border border-gray-700 mb-4">
+                            <div className="flex items-center gap-2 mb-2">
+                                <ShieldCheck className="text-gray-400" size={16} />
+                                <span className="font-bold text-sm text-white uppercase tracking-wider">Spend Limit</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-gray-500 text-sm">$</span>
+                                <input
+                                    type="number"
+                                    name="max_monthly_spend"
+                                    defaultValue={profile?.max_monthly_spend || ''}
+                                    placeholder="No Limit"
+                                    className="w-full bg-black border border-gray-800 p-1 px-2 text-white rounded focus:border-[var(--primary)] outline-none text-sm font-mono"
+                                    onBlur={(e) => {
+                                        const fd = new FormData();
+                                        fd.append('max_monthly_spend', e.target.value);
+                                        setSaving(true);
+                                        updateProfile(fd).then(res => {
+                                            setSaving(false);
+                                            if (res.success) setMessage('Risk limits updated.');
+                                        });
+                                    }}
+                                />
+                            </div>
+                            <p className="text-[10px] text-gray-600 mt-2">
+                                Hard stop for Overdrive charges.
+                            </p>
+                        </div>
+
+                        {/* Financial Snapshot */}
+                        <div className="grid grid-cols-2 gap-2 text-center text-xs font-mono uppercase">
+                            <div className="bg-black/30 p-2 rounded border border-gray-800">
+                                <span className="block text-gray-500 mb-1">Pending Overage</span>
+                                <span className="text-white font-bold">${profile?.pending_overage_balance || '0.00'}</span>
+                            </div>
+                            <div className="bg-black/30 p-2 rounded border border-gray-800">
+                                <span className="block text-gray-500 mb-1">Next Bill</span>
+                                <span className="text-white font-bold">$49.00</span>
                             </div>
                         </div>
+
+                        <div className="mt-4 text-center">
+                            <Link href="/pricing" className="text-sm text-gray-500 hover:text-white transition-colors underline decoration-dotted">
+                                View Tier Limits
+                            </Link>
+                        </div>
                     </div>
+                </div>
 
-                    {/* Right Column: Main Settings Form */}
-                    <div className="lg:col-span-2">
-                        <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
-                            <form onSubmit={handleSubmit} className="space-y-8">
-                                <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
-                                <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
-                                <input type="hidden" name="watermark_logo_url" value={profile?.watermark_logo_url || ''} />
-                                <input type="hidden" name="travel_settings" value={JSON.stringify(travelSettings)} />
+                {/* Right Column: Main Settings Form */}
+                <div className="lg:col-span-2">
+                    <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
+                        <form onSubmit={handleSubmit} className="space-y-8">
+                            <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
+                            <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
+                            <input type="hidden" name="watermark_logo_url" value={profile?.watermark_logo_url || ''} />
+                            <input type="hidden" name="travel_settings" value={JSON.stringify(travelSettings)} />
 
-                                <div className="space-y-6">
-                                    <h3 className="text-lg font-mono text-gray-500 border-b border-gray-800 pb-2 uppercase tracking-wider">
-                                        Business Details
-                                    </h3>
+                            <div className="space-y-6">
+                                <h3 className="text-lg font-mono text-gray-500 border-b border-gray-800 pb-2 uppercase tracking-wider">
+                                    Business Details
+                                </h3>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="col-span-2">
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <Building size={14} /> Shop Name
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="shop_name"
-                                                defaultValue={profile?.shop_name || ''}
-                                                className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
-                                                placeholder="e.g. Acme Ironworks LLC"
-                                            />
-                                        </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="col-span-2">
+                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                            <Building size={14} /> Shop Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="shop_name"
+                                            defaultValue={profile?.shop_name || ''}
+                                            className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                            placeholder="e.g. Acme Ironworks LLC"
+                                        />
+                                    </div>
 
-                                        <div className="col-span-2">
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <ShieldCheck size={14} /> Website / Whitelisted Domains
-                                            </label>
-                                            <input
-                                                type="text"
-                                                name="website"
-                                                defaultValue={profile?.website || ''}
-                                                className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
-                                                placeholder="https://mysite.com, https://app.gohighlevel.com"
-                                            />
-                                            <p className="text-xs text-gray-600 mt-2">
-                                                Comma-separated list of domains allowed to embed your widget.
-                                            </p>
-                                        </div>
+                                    <div className="col-span-2">
+                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                            <ShieldCheck size={14} /> Website / Whitelisted Domains
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="website"
+                                            defaultValue={profile?.website || ''}
+                                            className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                            placeholder="https://mysite.com, https://app.gohighlevel.com"
+                                        />
+                                        <p className="text-xs text-gray-600 mt-2">
+                                            Comma-separated list of domains allowed to embed your widget.
+                                        </p>
+                                    </div>
 
-                                        <div className="col-span-2">
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <ShieldCheck size={14} /> Risk Management
-                                            </label>
-                                            <div className="flex items-center gap-4 bg-black/50 p-4 rounded border border-gray-800">
-                                                <div className="flex-1">
-                                                    <label className="text-xs text-gray-500 uppercase block mb-1">Max Monthly Spend ($)</label>
-                                                    <input
-                                                        type="number"
-                                                        name="max_monthly_spend"
-                                                        defaultValue={profile?.max_monthly_spend || ''}
-                                                        placeholder="No Limit"
-                                                        className="w-full bg-[#050505] border border-gray-800 p-2 text-white rounded focus:border-[var(--primary)] outline-none"
-                                                    />
-                                                    <p className="text-[10px] text-gray-600 mt-1">Hard stop for Overdrive charges.</p>
-                                                </div>
-                                                <div className="flex-1 border-l border-gray-800 pl-4">
-                                                    <p className="text-xs text-gray-500">
-                                                        Setting a limit will stop all generation once your overage balance + subscription cost hits this amount.
-                                                    </p>
-                                                </div>
+
+
+
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                            <Phone size={14} /> Business Phone
+                                        </label>
+                                        <input
+                                            type="tel"
+                                            name="phone"
+                                            defaultValue={profile?.phone || ''}
+                                            className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                            placeholder="(555) 123-4567"
+                                        />
+                                    </div>
+
+                                    <div className="col-span-2">
+                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                            <MapPin size={14} /> Shop Address & Zip
+                                        </label>
+                                        <div className="flex gap-4">
+                                            <div className="flex-grow">
+                                                <textarea
+                                                    name="address"
+                                                    defaultValue={profile?.address || ''}
+                                                    rows={2}
+                                                    className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-none"
+                                                    placeholder="123 Steel Blvd, Industriville"
+                                                />
+                                            </div>
+                                            <div className="w-32">
+                                                <input
+                                                    type="text"
+                                                    name="address_zip"
+                                                    defaultValue={profile?.address_zip || ''}
+                                                    className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
+                                                    placeholder="Zip"
+                                                />
                                             </div>
                                         </div>
+                                    </div>
 
-                                        <div>
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <Mail size={14} /> Contact Email
-                                            </label>
-                                            <input
-                                                type="email"
-                                                value={profile?.email || ''}
-                                                disabled
-                                                className="w-full bg-[#1a1a1a] border border-gray-800 p-4 text-gray-500 rounded cursor-not-allowed italic"
-                                            />
-                                            <p className="text-xs text-gray-700 mt-1">Managed via Auth Provider</p>
-                                        </div>
+                                    {/* Travel Settings Moved */}
 
-                                        <div>
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <Phone size={14} /> Business Phone
-                                            </label>
-                                            <input
-                                                type="tel"
-                                                name="phone"
-                                                defaultValue={profile?.phone || ''}
-                                                className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
-                                                placeholder="(555) 123-4567"
-                                            />
-                                        </div>
 
-                                        <div className="col-span-2">
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <MapPin size={14} /> Shop Address & Zip
-                                            </label>
-                                            <div className="flex gap-4">
-                                                <div className="flex-grow">
-                                                    <textarea
-                                                        name="address"
-                                                        defaultValue={profile?.address || ''}
-                                                        rows={2}
-                                                        className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-none"
-                                                        placeholder="123 Steel Blvd, Industriville"
-                                                    />
-                                                </div>
-                                                <div className="w-32">
-                                                    <input
-                                                        type="text"
-                                                        name="address_zip"
-                                                        defaultValue={profile?.address_zip || ''}
-                                                        className="w-full bg-black border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] outline-none transition-all placeholder:text-gray-800"
-                                                        placeholder="Zip"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        {/* Travel Settings */}
-                                        <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
-                                            <label className="block text-gray-400 mb-4 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                    <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
+                                        <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                                            <div className="w-3 h-3 rounded-full bg-green-500"></div> Customer Confirmation Email
+                                        </label>
+                                        <p className="text-xs text-gray-500 mb-4">
+                                            Customize the email sent to customers when they request a quote.
+                                        </p>
+                                        <textarea
+                                            name="confirmation_email_body"
+                                            defaultValue={profile?.confirmation_email_body || "Thank you for your request. We will review your project and get back to you shortly."}
+                                            rows={6}
+                                            className="w-full bg-[#111] border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-y font-sans text-sm"
+                                            placeholder="Enter your confirmation message here..."
+                                        />
+                                    </div>
+
+                                    {/* Travel Settings - Collapsible Moved */}
+                                    <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsTravelCollapsed(!isTravelCollapsed)}
+                                            className="w-full flex items-center justify-between text-left group"
+                                        >
+                                            <label className="text-gray-400 font-mono text-xs uppercase tracking-widest flex items-center gap-2 cursor-pointer group-hover:text-white transition-colors">
                                                 <div className="w-3 h-3 rounded-full bg-blue-500"></div> Travel Fees
                                             </label>
+                                            {isTravelCollapsed ? <ChevronDown size={16} className="text-gray-500" /> : <ChevronUp size={16} className="text-gray-500" />}
+                                        </button>
 
-                                            <div className="bg-black/50 rounded border border-gray-800 p-4 space-y-4">
+                                        {!isTravelCollapsed && (
+                                            <div className="mt-6 animate-fade-in bg-black/50 rounded border border-gray-800 p-4 space-y-4">
                                                 <div className="flex gap-4 mb-4">
                                                     <div className="flex-1">
                                                         <span className="text-xs text-gray-500 uppercase block mb-1">Pricing Strategy</span>
@@ -483,85 +528,33 @@ export default function SettingsPage() {
                                                     </div>
                                                 )}
                                             </div>
-                                        </div>
-
-                                        <div className="col-span-1 border-t border-gray-800 pt-6 mt-2">
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full bg-[var(--primary)]"></div> Brand Color
-                                            </label>
-                                            <div className="flex items-center gap-4">
-                                                <input
-                                                    type="color"
-                                                    name="primary_color"
-                                                    defaultValue={profile?.primary_color || '#FFD700'}
-                                                    className="w-16 h-16 p-1 bg-black border border-gray-800 rounded cursor-pointer hover:border-[var(--primary)] transition-colors"
-                                                />
-                                                <div className="text-gray-500 text-sm">
-                                                    <p className="mb-1">Select your primary brand color.</p>
-                                                    <p className="text-xs opacity-60">Default: #FFD700 (Industrial Gold)</p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="col-span-1 border-t border-gray-800 pt-6 mt-2">
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full bg-gray-500"></div> Tool Background
-                                            </label>
-                                            <div className="flex items-center gap-4">
-                                                <input
-                                                    type="color"
-                                                    name="tool_background_color"
-                                                    defaultValue={profile?.tool_background_color || '#050505'}
-                                                    className="w-16 h-16 p-1 bg-black border border-gray-800 rounded cursor-pointer hover:border-gray-500 transition-colors"
-                                                />
-                                                <div className="text-gray-500 text-sm">
-                                                    <p className="mb-1">Background for the visualizer.</p>
-                                                    <p className="text-xs opacity-60">Default: #050505 (Dark)</p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
-                                            <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full bg-green-500"></div> Customer Confirmation Email
-                                            </label>
-                                            <p className="text-xs text-gray-500 mb-4">
-                                                Customize the email sent to customers when they request a quote.
-                                            </p>
-                                            <textarea
-                                                name="confirmation_email_body"
-                                                defaultValue={profile?.confirmation_email_body || "Thank you for your request. We will review your project and get back to you shortly."}
-                                                rows={6}
-                                                className="w-full bg-[#111] border border-gray-800 p-4 text-white rounded focus:border-[var(--primary)] outline-none transition-all placeholder:text-gray-800 resize-y font-sans text-sm"
-                                                placeholder="Enter your confirmation message here..."
-                                            />
-                                        </div>
-
-                                        {/* Logo Size Control (REMOVED) */}
-                                    </div>
-                                </div>
-
-                                <div className="pt-6 border-t border-gray-800 flex items-center justify-between">
-                                    <div className="text-sm">
-                                        {message && (
-                                            <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${message.includes('Error') ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'}`}>
-                                                {message.includes('Error') ? '⚠' : '✓'} {message}
-                                            </span>
                                         )}
                                     </div>
-                                    <button
-                                        type="submit"
-                                        disabled={saving}
-                                        className="bg-[var(--primary)] hover:bg-white hover:text-black text-black font-bold uppercase font-mono px-8 py-3 rounded transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]"
-                                    >
-                                        {saving ? 'Saving...' : <><Save size={18} /> Save Changes</>}
-                                    </button>
+
+                                    {/* Logo Size Control (REMOVED) */}
                                 </div>
-                            </form>
-                        </div>
+                            </div>
+
+                            <div className="pt-6 border-t border-gray-800 flex items-center justify-between">
+                                <div className="text-sm">
+                                    {message && (
+                                        <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${message.includes('Error') ? 'bg-red-900/30 text-red-400' : 'bg-green-900/30 text-green-400'}`}>
+                                            {message.includes('Error') ? '⚠' : '✓'} {message}
+                                        </span>
+                                    )}
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={saving}
+                                    className="bg-[var(--primary)] hover:bg-white hover:text-black text-black font-bold uppercase font-mono px-8 py-3 rounded transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]"
+                                >
+                                    {saving ? 'Saving...' : <><Save size={18} /> Save Changes</>}
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
-            </div >
-        </div >
+            </div>
+        </div>
     );
 }

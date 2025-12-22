@@ -26,9 +26,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const navItems = [
         { name: 'Leads Pipeline', href: '/dashboard/leads', icon: LayoutDashboard },
         { name: 'Visualizer Styles', href: '/dashboard/styles', icon: PenTool },
-        { name: 'Shop Settings', href: '/dashboard/settings', icon: Settings },
         { name: 'Widget Integration', href: '/dashboard/widget', icon: Code2 },
         { name: 'Visualizer Tool', href: '/demo', icon: PenTool },
+        { name: 'Shop Settings', href: '/dashboard/settings', icon: Settings },
     ];
 
     return (

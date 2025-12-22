@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getProfile, updateProfile } from '@/app/actions';
-import { Copy, Check, Globe, Code2 } from 'lucide-react';
+import { Copy, Check, Globe, Code2, Palette } from 'lucide-react';
 
 export default function WidgetPage() {
     const [profile, setProfile] = useState<any>(null);
@@ -14,12 +14,16 @@ export default function WidgetPage() {
     const [success, setSuccess] = useState<string | null>(null);
     const [embedHeight, setEmbedHeight] = useState('800');
     const [isFullScreen, setIsFullScreen] = useState(false);
+    const [primaryColor, setPrimaryColor] = useState('#FFD700');
+    const [toolBackgroundColor, setToolBackgroundColor] = useState('#050505');
 
     useEffect(() => {
         getProfile().then(p => {
             if (p) {
                 setProfile(p);
                 setWebsite(p.website || '');
+                setPrimaryColor(p.primary_color || '#FFD700');
+                setToolBackgroundColor(p.tool_background_color || '#050505');
             }
             setLoading(false);
         });
@@ -33,6 +37,8 @@ export default function WidgetPage() {
 
         const formData = new FormData();
         formData.append('website', website);
+        formData.append('primary_color', primaryColor);
+        formData.append('tool_background_color', toolBackgroundColor);
 
         try {
             const res = await updateProfile(formData);
@@ -109,6 +115,40 @@ export default function WidgetPage() {
                                     <p className="text-xs text-gray-500">
                                         Must match the domain in your browser address bar exactly (including https://).
                                     </p>
+                                </div>
+
+                                <div className="pt-4 border-t border-white/5 space-y-4">
+                                    <h4 className="text-sm font-bold text-gray-300 flex items-center gap-2">
+                                        <Palette size={16} className="text-primary" /> Appearance
+                                    </h4>
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="text-gray-400 block text-xs font-mono uppercase tracking-wider mb-2">Brand Color</label>
+                                            <div className="flex items-center gap-3 bg-[#111] p-2 rounded-lg border border-white/10">
+                                                <input
+                                                    type="color"
+                                                    value={primaryColor}
+                                                    onChange={(e) => setPrimaryColor(e.target.value)}
+                                                    className="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0"
+                                                />
+                                                <span className="text-sm text-gray-300 font-mono">{primaryColor}</span>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="text-gray-400 block text-xs font-mono uppercase tracking-wider mb-2">Background</label>
+                                            <div className="flex items-center gap-3 bg-[#111] p-2 rounded-lg border border-white/10">
+                                                <input
+                                                    type="color"
+                                                    value={toolBackgroundColor}
+                                                    onChange={(e) => setToolBackgroundColor(e.target.value)}
+                                                    className="w-8 h-8 rounded cursor-pointer bg-transparent border-none p-0"
+                                                />
+                                                <span className="text-sm text-gray-300 font-mono">{toolBackgroundColor}</span>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {error && (
