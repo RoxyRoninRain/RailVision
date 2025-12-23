@@ -89,9 +89,9 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                 <Loader2 className="animate-spin w-3 h-3" /> Saving Order...
             </div>}
 
-            <Reorder.Group values={styles} onReorder={handleReorder} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Reorder.Group axis="y" values={styles} onReorder={handleReorder} className="space-y-3">
                 {styles.length === 0 && !isAdding && (
-                    <div className="col-span-full text-center py-12 border border-dashed border-gray-800 rounded-xl bg-white/5 break-inside-avoid">
+                    <div className="text-center py-12 border border-dashed border-gray-800 rounded-xl bg-white/5">
                         <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4">
                             <ImageIcon className="text-gray-600" />
                         </div>
@@ -105,63 +105,68 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                         <Reorder.Item
                             key={style.id}
                             value={style}
-                            initial={{ opacity: 0, scale: 0.9 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.9 }}
-                            className={`group relative bg-[#111] rounded-xl overflow-hidden border transition-colors mb-6 cursor-grab active:cursor-grabbing ${style.is_active === false ? 'border-red-900/50 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
-                            // Prevent drag when interacting with buttons
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className={`group relative bg-[#111] rounded-lg border transition-all flex items-center p-2 gap-4 select-none ${style.is_active === false ? 'border-red-900/30 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
                             dragListener={true}
                         >
-                            <div className="w-full aspect-square bg-black/50 relative overflow-hidden group-hover:opacity-90 transition-opacity">
+                            {/* Drag Handle */}
+                            <div className="cursor-grab active:cursor-grabbing p-2 text-gray-600 hover:text-white transition-colors">
+                                <GripVertical size={20} />
+                            </div>
+
+                            {/* Thumbnail */}
+                            <div className="h-16 w-16 relative rounded overflow-hidden bg-black/50 flex-shrink-0 border border-white/10">
                                 <img
                                     src={style.image_url}
                                     alt={style.name}
-                                    className="w-full h-full object-cover pointer-events-none" // prevent img drag interfering
+                                    className="w-full h-full object-cover pointer-events-none"
                                 />
                                 {logoUrl && (
-                                    <div className="absolute bottom-2 right-2 rounded-lg pointer-events-none">
-                                        <img
-                                            src={logoUrl}
-                                            className="w-16 h-auto opacity-70"
-                                            alt="Watermark"
-                                        />
+                                    <div className="absolute bottom-1 right-1 opacity-50">
+                                        <img src={logoUrl} className="w-4 h-auto" />
                                     </div>
                                 )}
-
-                                <div className="absolute top-2 left-2 bg-black/50 p-1 rounded backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <GripVertical size={16} className="text-white/70" />
-                                </div>
                             </div>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-6 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                <h4 className="text-xl font-bold text-white uppercase select-none">{style.name}</h4>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <p className="text-gray-400 text-xs line-clamp-2 flex-grow select-none">{style.description}</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        // Stop propagation to prevent drag start on click
-                                        onPointerDown={(e) => e.stopPropagation()}
-                                        onClick={(e) => { e.stopPropagation(); setEditingStyle(style); }}
-                                        className="flex-1 flex items-center justify-center gap-2 text-black hover:bg-white text-xs uppercase font-bold bg-[var(--primary)] px-3 py-2 rounded backdrop-blur-sm mb-2"
-                                    >
+
+                            {/* Info */}
+                            <div className="flex-grow min-w-0">
+                                <h4 className="text-white font-bold uppercase truncate">{style.name}</h4>
+                                <p className="text-gray-500 text-xs truncate max-w-md">{style.description}</p>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 pr-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => { e.stopPropagation(); setEditingStyle(style); }}
+                                    className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                    title="Edit"
+                                >
+                                    <div className="flex items-center gap-2 text-xs font-bold uppercase">
                                         Edit
-                                    </button>
-                                    <button
-                                        onPointerDown={(e) => e.stopPropagation()}
-                                        onClick={(e) => { e.stopPropagation(); handleToggleStatus(style.id, style.is_active !== false); }}
-                                        className="flex-1 flex items-center justify-center gap-2 text-white/80 hover:text-white text-xs uppercase font-bold bg-black/50 px-3 py-2 rounded backdrop-blur-sm mb-2"
-                                    >
-                                        {style.is_active !== false ? <Eye size={14} /> : <EyeOff size={14} className="text-gray-500" />}
-                                        {style.is_active !== false ? 'Vis' : 'Hid'}
-                                    </button>
-                                </div>
+                                    </div>
+                                </button>
+
+                                <button
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => { e.stopPropagation(); handleToggleStatus(style.id, style.is_active !== false); }}
+                                    className={`p-2 rounded-lg transition-colors ${style.is_active !== false ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-red-400 hover:bg-red-900/20'}`}
+                                    title={style.is_active !== false ? 'Hide' : 'Show'}
+                                >
+                                    {style.is_active !== false ? <Eye size={18} /> : <EyeOff size={18} />}
+                                </button>
+
+                                <div className="w-px h-6 bg-white/10 mx-1"></div>
 
                                 <button
                                     onPointerDown={(e) => e.stopPropagation()}
                                     onClick={() => handleDelete(style.id)}
-                                    className="self-start flex items-center gap-2 text-red-400 hover:text-red-300 text-xs uppercase font-bold bg-black/50 px-3 py-2 rounded backdrop-blur-sm"
+                                    className="p-2 text-red-900 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-colors"
+                                    title="Delete"
                                 >
-                                    <Trash2 size={14} /> Delete
+                                    <Trash2 size={18} />
                                 </button>
                             </div>
                         </Reorder.Item>
