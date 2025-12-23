@@ -8,6 +8,34 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Public submission
+export async function trackDownload(formData: FormData) {
+    const supabase = await createClient();
+    const orgId = formData.get('organization_id') as string;
+    const styleName = formData.get('style_name') as string;
+    const generatedUrl = formData.get('generated_design_url') as string;
+
+    const payload = {
+        organization_id: orgId,
+        style_name: styleName || 'Unknown',
+        generated_design_url: generatedUrl,
+        customer_name: 'Anonymous Download',
+        email: 'anonymous@download', // Placeholder to satisfy DB constraint if any, and distinguish in UI
+        status: 'New', // Default status
+        created_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+        .from('leads')
+        .insert([payload]);
+
+    if (error) {
+        console.error('Track Download Error:', error);
+        return { success: false, error: error.message };
+    }
+
+    return { success: true };
+}
+
 export async function submitLead(formData: FormData) {
     const supabase = await createClient(); // Use server client
 

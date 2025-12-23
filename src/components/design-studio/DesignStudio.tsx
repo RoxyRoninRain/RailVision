@@ -11,7 +11,6 @@ import {
 import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
 import StyleControls from '@/components/StyleControls';
-import { DownloadGateModal } from '@/components/DownloadGateModal';
 import { EstimateModal } from '@/components/EstimateModal';
 
 interface style {
@@ -388,15 +387,30 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
 
     // --- DOWNLOAD HANDLERS ---
-    const handleDownloadClick = () => {
+    const handleDownloadClick = async () => {
         // Simplified: Result is already watermarked
         if (!result) return;
 
-        // Gate check
-        if (isGateUnlocked) {
-            triggerDirectDownload();
-        } else {
-            setShowGate(true);
+        // 1. Trigger Download Immediately (UX first)
+        triggerDirectDownload();
+
+        // 2. Track Data in Background
+        const formData = new FormData();
+        if (orgId) formData.append('organization_id', orgId);
+        formData.append('style_name', styleList[selectedStyleIndex]?.name || 'Custom');
+        formData.append('generated_design_url', result);
+
+        try {
+            // Import dynamically or use the prop-drilled action if strictly needed, 
+            // but here we use the imported server action.
+            // Note: We need to import trackDownload at the top or assumed it's available.
+            // Since we can't easily add imports in this chunk without being messy, 
+            // we'll assume `submitLead` was used before and we can add `trackDownload` to the imports in a separate chunk if needed.
+            // Actually, let's just use submitLead with the anonymous flag if trackDownload isn't imported?
+            // No, I added trackDownload to leads.ts. I need to update imports.
+            await import('@/app/actions').then(m => m.trackDownload(formData));
+        } catch (e) {
+            console.error("Tracking failed", e);
         }
     };
 
@@ -957,6 +971,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                     setMessage(`I received an estimate of ${estimateData.min} - ${estimateData.max} for ${estimateData.linearFeet}ft of ${styleList[selectedStyleIndex]?.name}. (Zip: ${estimateData.zipCode})`);
                 }}
             />
+
             {/* Manual Download Fallback Modal */}
             <AnimatePresence>
                 {showDownloadModal && downloadUrl && (
