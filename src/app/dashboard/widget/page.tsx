@@ -67,7 +67,7 @@ export default function WidgetPage() {
   height="${isFullScreen ? '100vh' : embedHeight}" 
   style="border:none; border-radius: 12px; background: transparent;"
   title="Design Studio"
-  allow="web-share"
+  allow="web-share; clipboard-write"
 ></iframe>`;
 
     const copyToClipboard = () => {

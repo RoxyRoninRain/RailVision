@@ -402,12 +402,21 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
     const triggerDirectDownload = () => {
         if (!result) return;
-        const link = document.createElement('a');
-        link.download = `Railify-${Date.now()}.jpg`;
-        link.href = result;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+
+        // Mobile/Embedded Fallback: Open in new tab if download is blocked
+        // We try the standard download attribute first
+        try {
+            const link = document.createElement('a');
+            link.download = `Railify-${Date.now()}.jpg`;
+            link.href = result;
+            link.target = '_blank'; // Fallback for some browsers/iframes
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            console.error("Download failed, attempting to open in new tab", e);
+            window.open(result, '_blank');
+        }
     };
 
     const handleGateSubmit = async (data: { name: string; email: string }) => {
@@ -464,7 +473,11 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             console.error("Share failed:", err);
             if (err.name !== 'AbortError') {
                 // Don't alert on user cancellation
-                alert("Could not share image. Security restriction or not supported.");
+                if (err.name === 'NotAllowedError') {
+                    alert("Sharing is blocked. The website embedding this tool must add 'allow=\"web-share\"' to the iframe code.");
+                } else {
+                    alert("Could not share image. Security restriction or not supported.");
+                }
             }
         } finally {
             setIsProcessing(false);
