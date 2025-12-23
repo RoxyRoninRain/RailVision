@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, PenTool, LogOut, Shield, Menu, X, Code2 } from 'lucide-react';
+import { LayoutDashboard, Settings, PenTool, LogOut, Shield, Menu, X, Code2, MessageSquare } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { seedDefaultStyles } from '@/app/actions';
 import SignOutButton from '@/components/SignOutButton';
@@ -67,7 +67,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     })}
                 </nav>
 
-                <div className="p-6 border-t border-gray-800">
+                <div className="p-6 border-t border-gray-800 space-y-2">
+                    <a
+                        href="mailto:railifyai@gmail.com?subject=Railify%20Feedback"
+                        className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-sm font-mono uppercase w-full"
+                    >
+                        <MessageSquare size={16} /> Feedback
+                    </a>
                     <SignOutButton className="flex items-center gap-2 text-gray-500 hover:text-red-400 transition-colors text-sm font-mono uppercase w-full">
                         <LogOut size={16} /> Sign Out
                     </SignOutButton>
@@ -128,7 +134,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             })}
                         </nav>
 
-                        <div className="mt-auto border-t border-gray-800 pt-6">
+                        <div className="mt-auto border-t border-gray-800 pt-6 space-y-2">
+                            <a
+                                href="mailto:railifyai@gmail.com?subject=Railify%20Feedback"
+                                className="w-full flex items-center gap-4 px-4 py-3 text-gray-500 hover:text-white transition-colors text-lg font-mono uppercase tracking-wider"
+                            >
+                                <MessageSquare size={24} /> Feedback
+                            </a>
                             <SignOutButton className="w-full flex items-center justify-center gap-2 text-red-400 hover:bg-red-900/20 p-4 rounded-xl transition-colors text-sm font-mono uppercase font-bold">
                                 <LogOut size={20} /> Sign Out
                             </SignOutButton>

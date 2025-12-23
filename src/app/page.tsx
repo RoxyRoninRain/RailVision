@@ -2,42 +2,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Check, Sparkles, Building2, Store, HandCoins, ChevronRight, Zap, ShieldCheck, Palette, Code2 } from 'lucide-react';
 import PricingCarousel from '@/components/PricingCarousel';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden selection:bg-primary/30 selection:text-white font-sans">
 
       {/* --- NAVBAR --- */}
-      <nav className="fixed top-0 left-0 w-full z-50 border-b border-white/5 bg-[#050505]/80 backdrop-blur-md">
-        <div className="w-full bg-gradient-to-r from-green-400/90 to-green-500/90 text-black text-center py-1.5 text-xs font-bold tracking-widest uppercase">
-          🚀 Launching Soon!
-        </div>
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="relative w-48 h-12">
-              <Image
-                src="/logo.png"
-                alt="Railify Logo"
-                fill
-                className="object-contain object-left"
-                priority
-              />
-            </div>
-          </div>
-
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-400">
-            <Link href="#features" className="hover:text-white transition-colors">Features</Link>
-            <Link href="#pricing" className="hover:text-white transition-colors">Pricing</Link>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link href="/login" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">Log in</Link>
-            <Link href="/signup" className="bg-white text-black px-4 py-2 rounded-full text-sm font-bold hover:bg-gray-200 transition-colors">
-              Get Started
-            </Link>
-          </div>
-        </div>
-      </nav>
+      {/* --- NAVBAR --- */}
+      <Navbar />
 
       {/* --- HERO SECTION --- */}
       <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 px-6 overflow-hidden">
@@ -127,7 +101,7 @@ export default function LandingPage() {
                   <Building2 size={24} />
                 </div>
                 <h3 className="text-2xl font-bold mb-2">100% White Label</h3>
-                <p className="text-gray-400 text-sm">Your logo, your colors, your domain. Removed "Powered by Railify" branding for Pro users.</p>
+                <p className="text-gray-400 text-sm">Your logo, your colors, your domain. Removed &quot;Powered by Railify&quot; branding for Pro users.</p>
               </div>
             </div>
 
@@ -170,69 +144,15 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div className="bg-[#111] border border-white/10 rounded-2xl p-12 text-center max-w-3xl mx-auto relative overflow-hidden group">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-
-            <h3 className="text-3xl font-bold text-white mb-6 relative z-10">Metered Utility Pricing</h3>
-            <p className="text-gray-400 mb-8 max-w-lg mx-auto relative z-10">
-              Pay for what you use. Plans start at just <strong>$49/mo</strong> with included allowances and Overdrive™ scalability.
-            </p>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
-              <Link href="/pricing" className="px-8 py-4 bg-[var(--primary)] hover:bg-white text-black font-bold uppercase tracking-wider rounded-xl transition-all shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.4)]">
-                View All Plans
-              </Link>
-              <Link href="/signup" className="px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl transition-colors">
-                Start Free Trial
-              </Link>
-            </div>
+          <div className="mt-12">
+            <PricingCarousel />
           </div>
         </div>
       </section>
 
       {/* --- FOOTER --- */}
-      <footer className="py-12 border-t border-white/5 bg-black text-gray-500 text-sm">
-        <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="relative w-32 h-10">
-                <Image
-                  src="/logo.png"
-                  alt="Railify Logo"
-                  fill
-                  className="object-contain object-left"
-                />
-              </div>
-            </div>
-            <p>The #1 Handrail Visualization Platform.</p>
-          </div>
-          <div>
-            <h4 className="font-bold text-white mb-4">Product</h4>
-            <ul className="space-y-2">
-              <li><Link href="#features" className="hover:text-primary">Features</Link></li>
-              <li><Link href="#pricing" className="hover:text-primary">Pricing</Link></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold text-white mb-4">Resources</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="hover:text-primary">Documentation</a></li>
-              <li><a href="#" className="hover:text-primary">API</a></li>
-              <li><a href="#" className="hover:text-primary">Support</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold text-white mb-4">Legal</h4>
-            <ul className="space-y-2">
-              <li><a href="#" className="hover:text-primary">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-primary">Terms of Service</a></li>
-            </ul>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto px-6 mt-12 pt-8 border-t border-white/5 text-center">
-          © {new Date().getFullYear()} Railify. All rights reserved.
-        </div>
-      </footer>
+      {/* --- FOOTER --- */}
+      <Footer />
     </div>
   );
 }
