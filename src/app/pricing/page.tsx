@@ -104,6 +104,12 @@ export default function PricingPage() {
                     ))}
                 </div>
 
+                <div className="mt-8 text-center animate-pulse">
+                    <p className="text-xs md:text-sm text-gray-500 font-mono bg-white/5 inline-block px-4 py-2 rounded-full border border-white/10">
+                        ⚠️ Note: Pricing subject to change. Lock in your price today.
+                    </p>
+                </div>
+
                 <div className="mt-24 text-center border-t border-gray-900 pt-16">
                     <h2 className="text-2xl font-mono font-bold text-white mb-8">Frequently Asked Questions</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto">

@@ -264,6 +264,11 @@ export default function LandingPage() {
 
           <div className="mt-12">
             <PricingCarousel />
+            <div className="mt-8 text-center animate-pulse">
+              <p className="text-xs md:text-sm text-gray-500 font-mono bg-white/5 inline-block px-4 py-2 rounded-full border border-white/10">
+                ⚠️ Note: Pricing subject to change. Lock in your price today.
+              </p>
+            </div>
           </div>
         </div>
       </section>
