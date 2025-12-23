@@ -776,17 +776,17 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
                                         {/* Navigation Controls moved here */}
                                         <div className="flex gap-2">
-                                            <button onClick={() => paginate(-1)} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-white hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
-                                                <ChevronLeft className="w-4 h-4" /> Back
+                                            <button onClick={() => paginate(-1)} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-white hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                                <ChevronLeft className="w-4 h-4" /> <span className="hidden md:inline">Back</span>
                                             </button>
-                                            <button onClick={() => { setFile(null); setPreview(null); setResult(null); setStep(1); }} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
-                                                <RefreshCw className="w-4 h-4" /> Restart
+                                            <button onClick={() => { setFile(null); setPreview(null); setResult(null); setStep(1); }} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                                <RefreshCw className="w-4 h-4" /> <span className="hidden md:inline">Restart</span>
                                             </button>
-                                            <button onClick={handleShare} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
-                                                <Share2 className="w-4 h-4" /> Share
+                                            <button onClick={handleShare} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                                <Share2 className="w-4 h-4" /> <span className="hidden md:inline">Share</span>
                                             </button>
-                                            <button onClick={handleDownloadClick} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
-                                                <Download className="w-4 h-4" /> Save
+                                            <button onClick={handleDownloadClick} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                                <Download className="w-4 h-4" /> <span className="hidden md:inline">Save</span>
                                             </button>
                                         </div>
 

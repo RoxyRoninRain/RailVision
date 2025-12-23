@@ -18,6 +18,10 @@ RailVision (rebranded to **Railify**) is a B2B SaaS platform for metal fabricati
 ### 1. Design Studio (The Visualizer)
 - **File**: `src/app/DesignStudio.tsx`
 - **Location**: Root path `/` (Publicly accessible).
+- **Core Pages**:
+    - **Landing (`/`)**: Features "How it Works" flow and ROI/Sales copy.
+    - **Contact (`/contact`)**: Lead capture form sending to `railifyai@gmail.com`.
+    - **Legal (`/privacy`, `/terms`)**: Boilerplate compliance pages.
 - **Logic**:
     - Users upload a "Scene" (their stairs).
     - Users select a "Style" (from the carousel).
