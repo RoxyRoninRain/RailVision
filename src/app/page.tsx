@@ -10,7 +10,6 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden selection:bg-primary/30 selection:text-white font-sans">
 
       {/* --- NAVBAR --- */}
-      {/* --- NAVBAR --- */}
       <Navbar />
 
       {/* --- HERO SECTION --- */}
@@ -43,6 +42,58 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* --- HOW IT WORKS SECTION --- */}
+      <section className="py-24 px-6 bg-[#080808] border-b border-white/5 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">From Photo to Quote in Minutes</h2>
+            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+              Streamline your sales process with our simple 3-step workflow.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Step 1 */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 relative group hover:border-primary/30 transition-colors">
+              <div className="absolute -top-4 -left-4 w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary font-bold text-xl border border-primary/20 shadow-[0_0_20px_rgba(34,197,94,0.3)]">1</div>
+              <div className="h-48 relative mb-6 rounded-lg overflow-hidden bg-black/50 border border-white/5 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                  <ArrowRight className="text-gray-600 rotate-[-45deg]" size={32} />
+                </div>
+                {/* Placeholder for UI graphic */}
+              </div>
+              <h3 className="text-xl font-bold mb-3">Upload User Photo</h3>
+              <p className="text-gray-400 text-sm">Customer uploads a photo of their stairs directly to your site. Our AI instantly analyzes the geometry.</p>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 relative group hover:border-secondary/30 transition-colors">
+              <div className="absolute -top-4 -left-4 w-12 h-12 bg-secondary/20 rounded-xl flex items-center justify-center text-secondary font-bold text-xl border border-secondary/20 shadow-[0_0_20px_rgba(59,130,246,0.3)]">2</div>
+              <div className="h-48 relative mb-6 rounded-lg overflow-hidden bg-black/50 border border-white/5 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                  <Sparkles className="text-secondary" size={32} />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold mb-3">AI Visualization</h3>
+              <p className="text-gray-400 text-sm">They select a style, and our AI renders a realistic preview of your handrail installed in their home.</p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 relative group hover:border-orange-500/30 transition-colors">
+              <div className="absolute -top-4 -left-4 w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center text-orange-400 font-bold text-xl border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.3)]">3</div>
+              <div className="h-48 relative mb-6 rounded-lg overflow-hidden bg-black/50 border border-white/5 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
+                  <HandCoins className="text-orange-400" size={32} />
+                </div>
+              </div>
+              <h3 className="text-xl font-bold mb-3">Get the Lead</h3>
+              <p className="text-gray-400 text-sm">To see the price or download the design, they enter their contact info. You get a qualified lead instantly.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* --- LIVE DEMO EMBED SECTION --- */}
       <section className="py-20 px-6 bg-[#0a0a0a] border-y border-white/5">
         <div className="max-w-7xl mx-auto">
@@ -62,6 +113,73 @@ export default function LandingPage() {
               className="w-full h-full border-0"
               title="Railify Design Studio"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* --- VALUE PROPOSITION SECTION --- */}
+      <section className="py-24 px-6 bg-[#050505] relative overflow-hidden">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="order-2 lg:order-1 relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 blur-[100px] rounded-full opacity-30" />
+            <div className="relative bg-[#111] border border-white/10 rounded-3xl p-8 md:p-12 shadow-2xl">
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <span className="text-red-400 font-bold text-xl">✕</span>
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-300 mb-1">Before Railify</h4>
+                    <p className="text-gray-500 text-sm">Endless emails answering "what will it look like?", driving to sites for tire-kickers, and chasing leads who can't afford you.</p>
+                  </div>
+                </div>
+                <div className="w-full h-px bg-white/5" />
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                    <Check className="text-green-400" size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-white mb-1">With Railify</h4>
+                    <p className="text-gray-400 text-sm">Automated design previews. Pricing estimates upfront. You only talk to customers who are designed, priced, and ready to buy.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="order-1 lg:order-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/10 border border-orange-500/20 text-xs font-medium text-orange-400 mb-6">
+              <Zap size={14} /> The Ultimate Sales Machine
+            </div>
+            <h2 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+              Stop Wasting Time on <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-200 to-gray-500">Tire Kickers</span>.
+            </h2>
+            <p className="text-xl text-gray-400 mb-8 leading-relaxed">
+              Your time is expensive. Let our tool do the selling for you.
+              <br /><br />
+              <span className="text-white font-medium">Think about it:</span> One closed deal found through our automated lead filter pays for the software for the entire year. It's a no-brainer investment for your shop.
+            </p>
+
+            <ul className="space-y-4 mb-10">
+              <li className="flex items-center gap-3 text-gray-300">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Check size={14} className="text-primary" />
+                </div>
+                Filter out low-budget inquiries automatically
+              </li>
+              <li className="flex items-center gap-3 text-gray-300">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Check size={14} className="text-primary" />
+                </div>
+                Give customers the confidence to buy instantly
+              </li>
+              <li className="flex items-center gap-3 text-gray-300">
+                <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Check size={14} className="text-primary" />
+                </div>
+                24/7 Sales Agent on your website
+              </li>
+            </ul>
           </div>
         </div>
       </section>
@@ -150,7 +268,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- FOOTER --- */}
       {/* --- FOOTER --- */}
       <Footer />
     </div>
