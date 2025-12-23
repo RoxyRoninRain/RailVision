@@ -203,6 +203,75 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         }
     };
 
+    // --- WATERMARK COMPOSITING ---
+    const compositeWatermark = async (mainImageSrc: string): Promise<string> => {
+        // 1. Setup Canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return mainImageSrc; // Fallback
+
+        // 2. Load Main Image
+        const loadImage = (src: string): Promise<HTMLImageElement | null> => {
+            return new Promise((resolve) => {
+                const img = new Image();
+                if (!src.startsWith('data:')) img.crossOrigin = "anonymous";
+                img.src = src;
+                img.onload = () => resolve(img);
+                img.onerror = () => resolve(null);
+            });
+        };
+
+        const mainImg = await loadImage(mainImageSrc);
+        if (!mainImg) return mainImageSrc;
+
+        canvas.width = mainImg.width;
+        canvas.height = mainImg.height;
+
+        // 3. Draw Main Image
+        ctx.drawImage(mainImg, 0, 0);
+
+        // 4. Load & Draw Watermarks
+        const padding = canvas.width * 0.03;
+        const logoOpacity = 0.5;
+        const logoSize = Math.max(canvas.width * 0.15, 100);
+
+        // A. Railify Logo (Bottom-Left)
+        const railifyUrl = '/logo.png';
+        const railifyImg = await loadImage(railifyUrl);
+
+        if (railifyImg) {
+            const rRatio = railifyImg.width / railifyImg.height;
+            const rW = logoSize;
+            const rH = logoSize / rRatio;
+
+            ctx.globalAlpha = logoOpacity;
+            ctx.drawImage(railifyImg, padding, canvas.height - rH - padding, rW, rH);
+            ctx.globalAlpha = 1.0;
+        } else {
+            // Fallback Text
+            ctx.font = `bold ${canvas.width * 0.02}px monospace`;
+            ctx.fillStyle = `rgba(255, 255, 255, ${logoOpacity})`;
+            ctx.fillText('RAILIFY', padding, canvas.height - padding);
+        }
+
+        // B. Tenant Logo (Bottom-Right)
+        const tenantUrl = watermarkLogo || logo;
+        if (tenantUrl) {
+            const tenantImg = await loadImage(tenantUrl);
+            if (tenantImg) {
+                const tRatio = tenantImg.width / tenantImg.height;
+                const tW = logoSize;
+                const tH = logoSize / tRatio;
+
+                ctx.globalAlpha = logoOpacity;
+                ctx.drawImage(tenantImg, canvas.width - tW - padding, canvas.height - tH - padding, tW, tH);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        return canvas.toDataURL('image/jpeg', 0.95);
+    };
+
     const handleGenerate = async () => {
         if (!file) return;
         setIsGenerating(true);
@@ -220,8 +289,6 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             if (styleSource === 'preset') {
                 formData.append('styleId', styleList[selectedStyleIndex].id);
                 formData.append('style', styleList[selectedStyleIndex].name);
-                // CRITICAL FIX: Send the image URL so the server can use the actual visual reference
-                // instead of relying on the text name (which fails for custom uploads).
                 if (styleList[selectedStyleIndex].image_url) {
                     formData.append('style_url', styleList[selectedStyleIndex].image_url);
                 }
@@ -258,8 +325,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             }
 
             if (response.success && response.image) {
-                console.log("Success! Setting result.");
-                setResult(response.image);
+                console.log("Success! Compositing watermark...");
+                // BAKE WATERMARK HERE
+                const finalImage = await compositeWatermark(response.image);
+                setResult(finalImage);
             } else {
                 console.error("Generation failed:", response.error);
                 setError(response.error || "Generation failed");
@@ -320,12 +389,25 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
     // --- DOWNLOAD HANDLERS ---
     const handleDownloadClick = () => {
+        // Simplified: Result is already watermarked
         if (!result) return;
+
+        // Gate check
         if (isGateUnlocked) {
-            executeDownload();
+            triggerDirectDownload();
         } else {
             setShowGate(true);
         }
+    };
+
+    const triggerDirectDownload = () => {
+        if (!result) return;
+        const link = document.createElement('a');
+        link.download = `Railify-${Date.now()}.jpg`;
+        link.href = result;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleGateSubmit = async (data: { name: string; email: string }) => {
@@ -347,159 +429,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         }
 
         setIsGateUnlocked(true);
-        // Modal will close itself after success animation, we wait 1s in modal, 
-        // but here we just need to ensure download starts when modal calls onSuccess (or we trigger it here)
-        // Actually modal logic says: setSuccess -> wait 1s -> onClose.
-        // We should trigger download *after* unlocking.
-        // Let's pass a callback or just trigger it here.
         setTimeout(() => {
-            executeDownload();
+            triggerDirectDownload();
             setShowGate(false);
         }, 1000);
-    };
-
-    const executeDownload = () => {
-        if (!result) return;
-        console.log("Starting download execution...");
-
-        const canvas = document.createElement('canvas');
-        const img = new Image();
-
-        // Only set crossOrigin if it's NOT a data URI
-        if (!result.startsWith('data:')) {
-            img.crossOrigin = "anonymous";
-        }
-
-        img.src = result;
-
-        img.onload = async () => {
-            console.log("Main image loaded for download.");
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            if (!ctx) return;
-
-            // 1. Draw Base Image
-            ctx.drawImage(img, 0, 0);
-
-            const padding = canvas.width * 0.03;
-            const logoOpacity = 0.5; // "Light" watermark
-
-            // Helper to load image
-            const loadImage = (src: string): Promise<HTMLImageElement | null> => {
-                return new Promise((resolve) => {
-                    const i = new Image();
-                    if (!src.startsWith('data:')) i.crossOrigin = "anonymous";
-                    i.src = src;
-                    i.onload = () => resolve(i);
-                    i.onerror = () => {
-                        console.warn(`Failed to load watermark: ${src}`);
-                        resolve(null);
-                    };
-                });
-            };
-
-            // 2. Load Watermark Images
-            const railifyLogoUrl = '/logo.png';
-            const tenantLogoUrl = watermarkLogo || logo;
-
-            const [railifyImg, tenantImg] = await Promise.all([
-                loadImage(railifyLogoUrl),
-                tenantLogoUrl ? loadImage(tenantLogoUrl as string) : Promise.resolve(null)
-            ]);
-
-            // 3. Draw Railify Logo (Bottom-Left)
-            if (railifyImg) {
-                const logoSize = Math.max(canvas.width * 0.15, 100);
-                const imgW = railifyImg.width || 300;
-                const imgH = railifyImg.height || 300;
-                const aspectRatio = imgW / imgH;
-                const drawWidth = logoSize;
-                const drawHeight = logoSize / aspectRatio;
-
-                ctx.globalAlpha = logoOpacity;
-                // Bottom-Left
-                ctx.drawImage(railifyImg, padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
-                ctx.globalAlpha = 1.0;
-            } else {
-                // Fallback text for Railify if image missing (unlikely)
-                ctx.font = `bold ${canvas.width * 0.02}px monospace`;
-                ctx.fillStyle = `rgba(255, 255, 255, ${logoOpacity})`;
-                ctx.textAlign = 'left';
-                ctx.fillText('RAILIFY', padding, canvas.height - padding);
-            }
-
-            // 4. Draw Tenant Logo (Bottom-Right)
-            if (tenantImg) {
-                const logoSize = Math.max(canvas.width * 0.15, 100);
-                const imgW = tenantImg.width || 300;
-                const imgH = tenantImg.height || 300;
-                const aspectRatio = imgW / imgH;
-                const drawWidth = logoSize;
-                const drawHeight = logoSize / aspectRatio;
-
-                ctx.globalAlpha = logoOpacity;
-                // Bottom-Right
-                ctx.drawImage(tenantImg, canvas.width - drawWidth - padding, canvas.height - drawHeight - padding, drawWidth, drawHeight);
-                ctx.globalAlpha = 1.0;
-            }
-
-            downloadCanvas(canvas, img);
-        };
-
-        img.onerror = (e) => {
-            console.error("Failed to load main image for download canvas:", e);
-            alert("Could not prepare image for download. Please try right-clicking the image to save.");
-        };
-    };
-
-    const downloadCanvas = (canvas: HTMLCanvasElement, mainImg?: HTMLImageElement) => {
-        let finalDataUrl = '';
-        try {
-            finalDataUrl = canvas.toDataURL('image/png');
-        } catch (e) {
-            console.warn("Canvas tainted by watermark. Falling back to non-watermarked image.", e);
-            if (mainImg) {
-                // Fallback: Create simple canvas with just the main image
-                const simpleCanvas = document.createElement('canvas');
-                simpleCanvas.width = mainImg.width;
-                simpleCanvas.height = mainImg.height;
-                const ctx = simpleCanvas.getContext('2d');
-                if (ctx) {
-                    ctx.drawImage(mainImg, 0, 0);
-                    try {
-                        finalDataUrl = simpleCanvas.toDataURL('image/png');
-                    } catch (e2) {
-                        console.error("Even main image tainted canvas (unlikely for Base64).", e2);
-                    }
-                }
-            }
-        }
-
-        if (!finalDataUrl) {
-            alert("Security policy blocked image processing. Please right-click the preview to save.");
-            return;
-        }
-
-        // Set URL and Show Modal (100% Reliability for Embeds)
-        setDownloadUrl(finalDataUrl);
-        setShowDownloadModal(true);
-
-        // Optional: Still try to auto-trigger for desktop users who tolerate it
-        // But only if NOT in an iframe to avoid confusion
-        const isIframe = window.self !== window.top;
-        if (!isIframe) {
-            try {
-                const link = document.createElement('a');
-                link.download = `Railify-${Date.now()}.png`;
-                link.href = finalDataUrl;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            } catch (e) {
-                console.warn("Auto-download suppressed, modal should handle it.");
-            }
-        }
     };
 
     // --- SHARE HANDLER ---
@@ -515,9 +448,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         setIsProcessing(true); // Re-use processing state or local loading
         try {
             // 2. Convert result (Base64/URL) to Blob/File
+            // Since result is now Data URL (likely), fetch works well
             const fetchRes = await fetch(result);
             const blob = await fetchRes.blob();
-            const file = new File([blob], `Railify-Design-${Date.now()}.png`, { type: 'image/png' });
+            const file = new File([blob], `Railify-Design-${Date.now()}.jpg`, { type: 'image/jpeg' });
 
             // 3. Trigger Share
             // Note: IFRAMES require 'allow="web-share"' attribute to work!
@@ -831,13 +765,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             <img
                                                 src={result}
                                                 className="w-full h-full object-contain max-h-[60vh] rounded-3xl border border-[#333] shadow-2xl"
+                                            // Prevent default drag to allow user to drag-save if they want, but context menu is key
                                             />
                                         )}
-
-                                        {/* Dynamic Watermark - Adjusted position for new borders */}
-                                        {(watermarkLogo || logo) && result && (
-                                            <img src={watermarkLogo || logo as string} className="absolute bottom-10 right-10 w-24 md:w-32 opacity-80 drop-shadow-lg" />
-                                        )}
+                                        {/* NO OVERLAY - Baked In */}
                                     </div>
 
                                     {/* Action Bar */}
@@ -853,6 +784,9 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             </button>
                                             <button onClick={handleShare} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
                                                 <Share2 className="w-4 h-4" /> Share
+                                            </button>
+                                            <button onClick={handleDownloadClick} className="bg-[#222] text-white px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                                <Download className="w-4 h-4" /> Save
                                             </button>
                                         </div>
 
