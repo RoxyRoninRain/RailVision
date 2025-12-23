@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles } from '@/app/actions'; // Ensure these are exported from actions.ts
 import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical } from 'lucide-react';
-import { motion, AnimatePresence, Reorder } from 'framer-motion';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { compressImage } from '@/utils/imageUtils';
 
 export default function StylesManager({ initialStyles, serverError, logoUrl }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null }) {
@@ -102,74 +102,14 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
 
                 <AnimatePresence>
                     {styles.map(style => (
-                        <Reorder.Item
+                        <StyleListItem
                             key={style.id}
-                            value={style}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className={`group relative bg-[#111] rounded-lg border transition-all flex items-center p-2 gap-4 select-none ${style.is_active === false ? 'border-red-900/30 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
-                            dragListener={true}
-                        >
-                            {/* Drag Handle */}
-                            <div className="cursor-grab active:cursor-grabbing p-2 text-gray-600 hover:text-white transition-colors">
-                                <GripVertical size={20} />
-                            </div>
-
-                            {/* Thumbnail */}
-                            <div className="h-16 w-16 relative rounded overflow-hidden bg-black/50 flex-shrink-0 border border-white/10">
-                                <img
-                                    src={style.image_url}
-                                    alt={style.name}
-                                    className="w-full h-full object-cover pointer-events-none"
-                                />
-                                {logoUrl && (
-                                    <div className="absolute bottom-1 right-1 opacity-50">
-                                        <img src={logoUrl} className="w-4 h-auto" />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Info */}
-                            <div className="flex-grow min-w-0">
-                                <h4 className="text-white font-bold uppercase truncate">{style.name}</h4>
-                                <p className="text-gray-500 text-xs truncate max-w-md">{style.description}</p>
-                            </div>
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-2 pr-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                                <button
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    onClick={(e) => { e.stopPropagation(); setEditingStyle(style); }}
-                                    className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                                    title="Edit"
-                                >
-                                    <div className="flex items-center gap-2 text-xs font-bold uppercase">
-                                        Edit
-                                    </div>
-                                </button>
-
-                                <button
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    onClick={(e) => { e.stopPropagation(); handleToggleStatus(style.id, style.is_active !== false); }}
-                                    className={`p-2 rounded-lg transition-colors ${style.is_active !== false ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-red-400 hover:bg-red-900/20'}`}
-                                    title={style.is_active !== false ? 'Hide' : 'Show'}
-                                >
-                                    {style.is_active !== false ? <Eye size={18} /> : <EyeOff size={18} />}
-                                </button>
-
-                                <div className="w-px h-6 bg-white/10 mx-1"></div>
-
-                                <button
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    onClick={() => handleDelete(style.id)}
-                                    className="p-2 text-red-900 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-colors"
-                                    title="Delete"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
-                            </div>
-                        </Reorder.Item>
+                            style={style}
+                            logoUrl={logoUrl}
+                            onEdit={() => setEditingStyle(style)}
+                            onToggle={(current) => handleToggleStatus(style.id, current)}
+                            onDelete={() => handleDelete(style.id)}
+                        />
                     ))}
                 </AnimatePresence>
             </Reorder.Group>
@@ -192,6 +132,90 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
 }
 
 // --- SUB COMPONENTS ---
+
+interface StyleListItemProps {
+    style: PortfolioItem;
+    logoUrl?: string | null;
+    onEdit: () => void;
+    onToggle: (current: boolean) => void;
+    onDelete: () => void;
+}
+
+function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete }: StyleListItemProps) {
+    const controls = useDragControls();
+
+    return (
+        <Reorder.Item
+            value={style}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className={`group relative bg-[#111] rounded-lg border transition-all flex items-center p-2 gap-4 select-none ${style.is_active === false ? 'border-red-900/30 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
+            dragListener={false}
+            dragControls={controls}
+        >
+            {/* Drag Handle */}
+            <div
+                className="cursor-grab active:cursor-grabbing p-2 text-gray-600 hover:text-white transition-colors touch-none"
+                onPointerDown={(e) => controls.start(e)}
+            >
+                <GripVertical size={20} />
+            </div>
+
+            {/* Thumbnail */}
+            <div className="h-16 w-16 relative rounded overflow-hidden bg-black/50 flex-shrink-0 border border-white/10">
+                <img
+                    src={style.image_url}
+                    alt={style.name}
+                    className="w-full h-full object-cover pointer-events-none"
+                    draggable={false}
+                />
+                {logoUrl && (
+                    <div className="absolute bottom-1 right-1 opacity-50">
+                        <img src={logoUrl} className="w-4 h-auto" />
+                    </div>
+                )}
+            </div>
+
+            {/* Info */}
+            <div className="flex-grow min-w-0">
+                <h4 className="text-white font-bold uppercase truncate">{style.name}</h4>
+                <p className="text-gray-500 text-xs truncate max-w-md">{style.description}</p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2 pr-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                    className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                    title="Edit"
+                >
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase">
+                        Edit
+                    </div>
+                </button>
+
+                <button
+                    onClick={(e) => { e.stopPropagation(); onToggle(style.is_active !== false); }}
+                    className={`p-2 rounded-lg transition-colors ${style.is_active !== false ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-red-400 hover:bg-red-900/20'}`}
+                    title={style.is_active !== false ? 'Hide' : 'Show'}
+                >
+                    {style.is_active !== false ? <Eye size={18} /> : <EyeOff size={18} />}
+                </button>
+
+                <div className="w-px h-6 bg-white/10 mx-1"></div>
+
+                <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    className="p-2 text-red-900 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Delete"
+                >
+                    <Trash2 size={18} />
+                </button>
+            </div>
+        </Reorder.Item>
+    );
+}
 
 function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess: () => void }) {
     const [newName, setNewName] = useState('');
