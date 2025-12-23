@@ -82,7 +82,7 @@ export async function generateDesign(formData: FormData) {
     // 1. Fetch current usage & tier details
     const { data: profile, error: dbError } = await dbClient
         .from('profiles')
-        .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend')
+        .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count')
         .eq('id', profileIdToBill)
         .single();
 
@@ -101,6 +101,9 @@ export async function generateDesign(formData: FormData) {
     const allowance = tier.allowance;
     let isOverage = false;
     let overageCost = 0;
+
+    // Track overage units (renders) for this transaction if applicable
+    let transactionOverageCount = 0;
 
     // 2. Usage Check Logic
     if (currentUsage < allowance) {
@@ -124,21 +127,36 @@ export async function generateDesign(formData: FormData) {
 
         isOverage = true;
         overageCost = tier.overageRate;
+        transactionOverageCount = 1;
         console.log(`[BILLING] Overdrive Active. Usage: ${currentUsage}. Charge: $${overageCost}.`);
     }
 
-    // Risk Management: Interim Billing Trigger
-    if ((profile.pending_overage_balance + overageCost) >= 100) {
-        console.warn(`[RISK] User ${profileIdToBill} has accumulated $${profile.pending_overage_balance + overageCost} in overage. Trigger Interim Bill logic here.`);
-        // TODO: Trigger Stripe PaymentIntent capture
+    // 3. Threshold Billing Logic
+    let newPendingBalance = (profile.pending_overage_balance || 0) + overageCost;
+    let newOverageCount = (profile.current_overage_count || 0) + transactionOverageCount;
+    let thresholdTriggered = false;
+
+    if (isOverage && newOverageCount >= tier.billingThreshold) {
+        console.warn(`[BILLING] THRESHOLD HIT! Tier: ${tier.name}, Threshold: ${tier.billingThreshold}, Count: ${newOverageCount}`);
+
+        // TRIGGER IMMEDIATE CHARGE (Mock)
+        console.log(`[PAYMENT] Charging user ${profileIdToBill} for $${newPendingBalance} (Accumulated Overage)`);
+
+        // Reset counters after "payment"
+        // Note: We reset pending balance and overage count as we just "billed" them.
+        // In a real system, we'd only reset if the Stripe charge succeeds.
+        newPendingBalance = 0;
+        newOverageCount = 0;
+        thresholdTriggered = true;
     }
 
-    // 3. Commit Usage Update
+    // 4. Commit Usage Update
     const { error: updateError } = await dbClient
         .from('profiles')
         .update({
             current_usage: currentUsage + 1,
-            pending_overage_balance: (profile.pending_overage_balance || 0) + overageCost
+            pending_overage_balance: newPendingBalance,
+            current_overage_count: newOverageCount
         })
         .eq('id', profileIdToBill);
 

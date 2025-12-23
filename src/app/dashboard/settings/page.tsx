@@ -5,6 +5,7 @@ import { getProfile, updateProfile, uploadLogo, Profile } from '@/app/actions';
 import { Save, Upload, Building, Phone, MapPin, Mail, CreditCard, ShieldCheck, Image as ImageIcon, Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { PRICING_TIERS, DEFAULT_TIER, TierName } from '@/config/pricing';
 
 export default function SettingsPage() {
     const [profile, setProfile] = useState<Profile | null>(null);
@@ -80,6 +81,10 @@ export default function SettingsPage() {
     };
 
     if (loading) return <div className="p-8 text-white font-mono animate-pulse">Loading command center...</div>;
+
+    const tierName = (profile?.tier_name as TierName) || DEFAULT_TIER;
+    const tier = PRICING_TIERS[tierName] || PRICING_TIERS[DEFAULT_TIER];
+    const allowance = tier.allowance;
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] p-6 md:p-12 text-white font-sans">
@@ -178,20 +183,20 @@ export default function SettingsPage() {
                             <div className="mb-6">
                                 <div className="flex justify-between text-xs font-mono mb-2 uppercase tracking-wide">
                                     <span className="text-white">Monthly Usage</span>
-                                    <span className={profile?.enable_overdrive && (profile?.current_usage || 0) > 50 ? 'text-orange-500' : 'text-gray-400'}>
-                                        {profile?.current_usage || 0} Renders
+                                    <span className={profile?.enable_overdrive && (profile?.current_usage || 0) >= allowance ? 'text-orange-500' : 'text-gray-400'}>
+                                        {profile?.current_usage || 0} / {allowance}
                                     </span>
                                 </div>
                                 <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
                                     <div
-                                        className={`h-full transition-all duration-500 ${(profile?.current_usage || 0) > 50 // simplistic check, ideally use tier.allowance if available in context
+                                        className={`h-full transition-all duration-500 ${(profile?.current_usage || 0) >= allowance
                                             ? 'bg-orange-500'
                                             : 'bg-green-500'
                                             }`}
-                                        style={{ width: `${Math.min(100, Math.max(5, ((profile?.current_usage || 0) / 50) * 100))}%` }}
+                                        style={{ width: `${Math.min(100, Math.max(5, ((profile?.current_usage || 0) / allowance) * 100))}%` }}
                                     />
                                 </div>
-                                {(profile?.current_usage || 0) > 50 && (
+                                {(profile?.current_usage || 0) >= allowance && (
                                     <p className="text-xs text-orange-500 mt-1 font-mono uppercase">
                                         Overdrive Active
                                     </p>

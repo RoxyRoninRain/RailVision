@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg } from '@/app/actions'; // Ensure these are exported from actions.ts
-import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles } from '@/app/actions'; // Ensure these are exported from actions.ts
+import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { compressImage } from '@/utils/imageUtils';
 
 export default function StylesManager({ initialStyles, serverError, logoUrl }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null }) {
@@ -12,6 +12,8 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
     const [editingStyle, setEditingStyle] = useState<PortfolioItem | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isSavingOrder, setIsSavingOrder] = useState(false);
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Auto-Seed Defaults
     useEffect(() => {
@@ -46,6 +48,20 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
         await updateStyleStatus(id, !currentStatus);
     };
 
+    const handleReorder = (newOrder: PortfolioItem[]) => {
+        setStyles(newOrder);
+
+        // Debounce server save
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+
+        setIsSavingOrder(true);
+        saveTimeoutRef.current = setTimeout(async () => {
+            const updates = newOrder.map((item, index) => ({ id: item.id, order: index + 1 }));
+            await reorderStyles(updates);
+            setIsSavingOrder(false);
+        }, 1500); // Wait for user to finish dragging
+    };
+
     return (
         <div className="space-y-8">
             <div className="flex justify-between items-center">
@@ -69,9 +85,13 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                 </div>
             )}
 
-            <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
+            {isSavingOrder && <div className="fixed bottom-4 right-4 bg-black/80 border border-white/10 text-white px-4 py-2 rounded-full text-xs font-mono flex items-center gap-2 z-50 backdrop-blur-md animate-pulse">
+                <Loader2 className="animate-spin w-3 h-3" /> Saving Order...
+            </div>}
+
+            <Reorder.Group values={styles} onReorder={handleReorder} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {styles.length === 0 && !isAdding && (
-                    <div className="col-span-full text-center py-12 border border-dashed border-gray-800 rounded-xl bg-white/5">
+                    <div className="col-span-full text-center py-12 border border-dashed border-gray-800 rounded-xl bg-white/5 break-inside-avoid">
                         <div className="w-16 h-16 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-4">
                             <ImageIcon className="text-gray-600" />
                         </div>
@@ -82,21 +102,24 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
 
                 <AnimatePresence>
                     {styles.map(style => (
-                        <motion.div
+                        <Reorder.Item
                             key={style.id}
+                            value={style}
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.9 }}
-                            className={`group relative bg-[#111] rounded-xl overflow-hidden border transition-colors break-inside-avoid mb-6 ${style.is_active === false ? 'border-red-900/50 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
+                            className={`group relative bg-[#111] rounded-xl overflow-hidden border transition-colors mb-6 cursor-grab active:cursor-grabbing ${style.is_active === false ? 'border-red-900/50 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
+                            // Prevent drag when interacting with buttons
+                            dragListener={true}
                         >
                             <div className="w-full aspect-square bg-black/50 relative overflow-hidden group-hover:opacity-90 transition-opacity">
                                 <img
                                     src={style.image_url}
                                     alt={style.name}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover pointer-events-none" // prevent img drag interfering
                                 />
                                 {logoUrl && (
-                                    <div className="absolute bottom-2 right-2 rounded-lg">
+                                    <div className="absolute bottom-2 right-2 rounded-lg pointer-events-none">
                                         <img
                                             src={logoUrl}
                                             className="w-16 h-auto opacity-70"
@@ -104,21 +127,27 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                                         />
                                     </div>
                                 )}
+
+                                <div className="absolute top-2 left-2 bg-black/50 p-1 rounded backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <GripVertical size={16} className="text-white/70" />
+                                </div>
                             </div>
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent p-6 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                <h4 className="text-xl font-bold text-white uppercase">{style.name}</h4>
+                                <h4 className="text-xl font-bold text-white uppercase select-none">{style.name}</h4>
                                 <div className="flex items-center gap-2 mb-4">
-                                    <p className="text-gray-400 text-xs line-clamp-2 flex-grow">{style.description}</p>
-
+                                    <p className="text-gray-400 text-xs line-clamp-2 flex-grow select-none">{style.description}</p>
                                 </div>
                                 <div className="flex gap-2">
                                     <button
+                                        // Stop propagation to prevent drag start on click
+                                        onPointerDown={(e) => e.stopPropagation()}
                                         onClick={(e) => { e.stopPropagation(); setEditingStyle(style); }}
                                         className="flex-1 flex items-center justify-center gap-2 text-black hover:bg-white text-xs uppercase font-bold bg-[var(--primary)] px-3 py-2 rounded backdrop-blur-sm mb-2"
                                     >
                                         Edit
                                     </button>
                                     <button
+                                        onPointerDown={(e) => e.stopPropagation()}
                                         onClick={(e) => { e.stopPropagation(); handleToggleStatus(style.id, style.is_active !== false); }}
                                         className="flex-1 flex items-center justify-center gap-2 text-white/80 hover:text-white text-xs uppercase font-bold bg-black/50 px-3 py-2 rounded backdrop-blur-sm mb-2"
                                     >
@@ -128,16 +157,17 @@ export default function StylesManager({ initialStyles, serverError, logoUrl }: {
                                 </div>
 
                                 <button
+                                    onPointerDown={(e) => e.stopPropagation()}
                                     onClick={() => handleDelete(style.id)}
                                     className="self-start flex items-center gap-2 text-red-400 hover:text-red-300 text-xs uppercase font-bold bg-black/50 px-3 py-2 rounded backdrop-blur-sm"
                                 >
                                     <Trash2 size={14} /> Delete
                                 </button>
                             </div>
-                        </motion.div>
+                        </Reorder.Item>
                     ))}
                 </AnimatePresence>
-            </div>
+            </Reorder.Group>
 
             {/* Add Modal */}
             <AnimatePresence>

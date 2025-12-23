@@ -60,6 +60,17 @@ export async function createStyle(formData: FormData) {
     const mainImage = galleryUrls[0];
     const hiddenRefs = galleryUrls.slice(1);
 
+    // Get current max display_order
+    const { data: maxOrderData } = await supabase
+        .from('portfolio')
+        .select('display_order')
+        .eq('tenant_id', user.id)
+        .order('display_order', { ascending: false })
+        .limit(1)
+        .single();
+
+    const nextOrder = (maxOrderData?.display_order ?? 0) + 1;
+
     const { data, error: dbError } = await supabase
         .from('portfolio')
         .insert({
@@ -70,7 +81,8 @@ export async function createStyle(formData: FormData) {
             tenant_id: user.id,
             is_active: true,
             price_per_ft_min: priceMin,
-            price_per_ft_max: priceMax
+            price_per_ft_max: priceMax,
+            display_order: nextOrder
         })
         .select()
         .single();
@@ -284,6 +296,7 @@ export async function getTenantStyles(tenantId?: string) {
         .from('portfolio')
         .select('*')
         .eq('tenant_id', targetTenantId)
+        .order('display_order', { ascending: true })
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -308,6 +321,7 @@ export async function getPublicStyles(tenantId: string) {
             .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
             .eq('tenant_id', tenantId)
             .eq('is_active', true)
+            .order('display_order', { ascending: true })
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -322,6 +336,7 @@ export async function getPublicStyles(tenantId: string) {
         .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
+        .order('display_order', { ascending: true })
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -341,7 +356,9 @@ export async function getStyles(tenantId?: string) {
     const { data } = await supabase
         .from('portfolio')
         .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
-        .eq('tenant_id', tenantId);
+        .eq('tenant_id', tenantId)
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false });
 
     if (data && data.length > 0) {
         // Map to ensure it matches the format
@@ -357,4 +374,27 @@ export async function getStyles(tenantId?: string) {
         // Fallback for Art Deco since 429 error prevented generation
         { id: '4', name: 'Art Deco', description: 'Geometric patterns and brass', image_url: 'https://images.unsplash.com/photo-1551524559-867bc05417ab?w=400&q=80' }
     ];
+}
+
+export async function reorderStyles(items: { id: string; order: number }[]) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Not authenticated' };
+
+    try {
+        const updates = items.map(item =>
+            supabase
+                .from('portfolio')
+                .update({ display_order: item.order })
+                .eq('id', item.id)
+                .eq('tenant_id', user.id)
+        );
+
+        await Promise.all(updates);
+        return { success: true };
+    } catch (err: any) {
+        console.error('Reorder Error:', err);
+        return { error: 'Failed to reorder styles' };
+    }
 }

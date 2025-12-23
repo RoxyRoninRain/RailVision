@@ -64,6 +64,18 @@ export default function PricingPage() {
                                     </div>
                                 </div>
 
+                                <div className="p-4 bg-white/5 rounded border border-white/10">
+                                    <div className="flex justify-between items-center mb-1">
+                                        <span className="text-sm text-gray-400">Onboarding</span>
+                                        <span className="text-white font-bold">
+                                            {tier.onboardingFee === 0 ? 'Free' : `$${tier.onboardingFee}`}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-gray-500 font-mono">
+                                        {tier.onboardingFee === 0 ? 'Included setup' : 'One-time setup fee'}
+                                    </div>
+                                </div>
+
                                 <ul className="space-y-3 pt-4 border-t border-gray-800">
                                     {tier.features.map((feature, i) => (
                                         <li key={i} className="flex items-start gap-3 text-sm text-gray-400">

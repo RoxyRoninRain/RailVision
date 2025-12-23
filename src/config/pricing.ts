@@ -5,6 +5,8 @@ export interface PricingTier {
     price: number;
     allowance: number;
     overageRate: number;
+    billingThreshold: number;
+    onboardingFee: number;
     canEmbed: boolean;
     isWhiteLabel: boolean;
     features: string[];
@@ -17,6 +19,8 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         price: 49,
         allowance: 50,
         overageRate: 1.00,
+        billingThreshold: 50,
+        onboardingFee: 300,
         canEmbed: false,
         isWhiteLabel: false,
         features: ['Dashboard Access Only', 'Standard Processing']
@@ -26,6 +30,8 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         price: 99,
         allowance: 100,
         overageRate: 1.00,
+        billingThreshold: 100,
+        onboardingFee: 300,
         canEmbed: true,
         isWhiteLabel: false,
         features: ['Embed on your site', 'Powered by Railify Badge', 'Standard Processing']
@@ -35,6 +41,8 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         price: 299,
         allowance: 400,
         overageRate: 0.90,
+        billingThreshold: 400,
+        onboardingFee: 250,
         canEmbed: true,
         isWhiteLabel: true,
         popular: true,
@@ -42,18 +50,22 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
     },
     'The Volume': {
         name: 'The Volume',
-        price: 500,
+        price: 499,
         allowance: 700,
         overageRate: 0.80,
+        billingThreshold: 700,
+        onboardingFee: 150,
         canEmbed: true,
         isWhiteLabel: true,
         features: ['Embed on your site', 'Your Logo Watermark', 'Priority Processing']
     },
     'The Industrial': {
         name: 'The Industrial',
-        price: 750,
+        price: 749,
         allowance: 1000,
         overageRate: 0.75,
+        billingThreshold: 1000,
+        onboardingFee: 0,
         canEmbed: true,
         isWhiteLabel: true,
         features: ['Embed on your site', 'Your Logo Watermark', 'Dedicated Support', 'Priority Processing']
