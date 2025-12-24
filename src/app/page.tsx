@@ -137,8 +137,8 @@ export default function LandingPage() {
       <section id="features" className="py-24 px-6 relative">
         <div className="max-w-7xl mx-auto">
           <div className="mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Built for Metal Fabricators</h2>
-            <p className="text-xl text-gray-400 max-w-2xl">Stop sending PDFs back and forth. Give your customers the power to design, while you control the specs.</p>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6">Tools Built for the Modern Railing Shop</h2>
+            <p className="text-xl text-gray-400 max-w-2xl">Make buying railings easy. Let homeowners see the transformation before they commit.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[250px]">
@@ -151,8 +151,8 @@ export default function LandingPage() {
                   <div className="w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary mb-4">
                     <Sparkles size={24} />
                   </div>
-                  <h3 className="text-2xl font-bold mb-2">AI-Powered Visualization</h3>
-                  <p className="text-gray-400">Customers upload a photo of their stairs, and our AI overlays your handrail designs instantly. No CAD required.</p>
+                  <h3 className="text-2xl font-bold mb-2">Instant "Yes" Generator</h3>
+                  <p className="text-gray-400">Customers don't understand 2D drawings. Show them a photo-realistic preview of your handrail on their stairs, and watch the hesitation disappear.</p>
                 </div>
                 <div className="flex items-center gap-2 text-primary font-medium">
                   Try it yourself <ArrowRight size={16} />
@@ -167,8 +167,8 @@ export default function LandingPage() {
                 <div className="w-12 h-12 bg-secondary/20 rounded-xl flex items-center justify-center text-secondary mb-4">
                   <Building2 size={24} />
                 </div>
-                <h3 className="text-2xl font-bold mb-2">100% White Label</h3>
-                <p className="text-gray-400 text-sm">Your logo, your colors, your domain. Removed &quot;Powered by Railify&quot; branding for Pro users.</p>
+                <h3 className="text-2xl font-bold mb-2">Your Brand, Your Reviews</h3>
+                <p className="text-gray-400 text-sm">It looks 100% like your tool. Clients stay on your site, impressed by your technology. We stay invisible.</p>
               </div>
             </div>
 
@@ -191,8 +191,8 @@ export default function LandingPage() {
                   <div className="w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center text-orange-400 mb-4">
                     <HandCoins size={24} />
                   </div>
-                  <h3 className="text-2xl font-bold mb-2">Capture High-Intent Leads</h3>
-                  <p className="text-gray-400">Users must provide their contact info to download high-res designs or request a quote. Automatically piped to your dashboard.</p>
+                  <h3 className="text-2xl font-bold mb-2">The "Perfect Lead" Pipeline</h3>
+                  <p className="text-gray-400">Stop digging through emails. Get a dashboard full of leads that have already chosen a style, seen the price, and uploaded site photos.</p>
                 </div>
               </div>
             </div>
