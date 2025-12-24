@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import Link from 'next/link';
 import { PRICING_TIERS, PricingTier } from '@/config/pricing';
+import SelectPlanButton from '@/components/SelectPlanButton';
 
 export default function PricingCarousel() {
     // Convert object to array for easier mapping
@@ -111,15 +112,14 @@ export default function PricingCarousel() {
                                     ))}
                                 </ul>
 
-                                <Link
-                                    href="/pricing"
+                                <SelectPlanButton
+                                    tierName={tier.name}
+                                    popular={tier.popular}
                                     className={`block w-full py-3 rounded-xl text-center font-bold transition-all ${tier.popular
                                         ? 'bg-[var(--primary)] text-black hover:bg-white'
                                         : 'bg-white/5 text-white hover:bg-white/10'
                                         }`}
-                                >
-                                    View Details
-                                </Link>
+                                />
                             </motion.div>
                         ))}
                     </AnimatePresence>

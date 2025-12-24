@@ -11,6 +11,8 @@ export interface PricingTier {
     isWhiteLabel: boolean;
     features: string[];
     popular?: boolean;
+    stripePriceId?: string;
+    stripeOnboardingPriceId?: string;
 }
 
 export const PRICING_TIERS: Record<TierName, PricingTier> = {
@@ -23,7 +25,9 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         onboardingFee: 299,
         canEmbed: false,
         isWhiteLabel: false,
-        features: ['Dashboard Access Only', 'Standard Processing']
+        features: ['Dashboard Access Only', 'Standard Processing'],
+        stripePriceId: 'price_1ShxQuCq2ZiMFYWGfAFXEFlJ',
+        stripeOnboardingPriceId: 'price_1ShxQuCq2ZiMFYWGQu6cmxRb'
     },
     'The Shop': {
         name: 'The Shop',
@@ -34,7 +38,9 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         onboardingFee: 299,
         canEmbed: true,
         isWhiteLabel: false,
-        features: ['Embed on your site', 'Powered by Railify Badge', 'Standard Processing']
+        features: ['Embed on your site', 'Powered by Railify Badge', 'Standard Processing'],
+        stripePriceId: 'price_1ShxUxCq2ZiMFYWGZpBOgZ8s',
+        stripeOnboardingPriceId: 'price_1ShxUxCq2ZiMFYWGy1WnHIVQ'
     },
     'The Pro': {
         name: 'The Pro',
@@ -46,7 +52,9 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         canEmbed: true,
         isWhiteLabel: true,
         popular: true,
-        features: ['Embed on your site', 'Your Logo Watermark', 'Standard Processing']
+        features: ['Embed on your site', 'Your Logo Watermark', 'Standard Processing'],
+        stripePriceId: 'price_1ShxZYCq2ZiMFYWGbl4eh9um',
+        stripeOnboardingPriceId: 'price_1ShxZYCq2ZiMFYWGXPiTvif0'
     },
     'The Volume': {
         name: 'The Volume',
@@ -57,7 +65,9 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         onboardingFee: 149,
         canEmbed: true,
         isWhiteLabel: true,
-        features: ['Embed on your site', 'Your Logo Watermark', 'Priority Processing']
+        features: ['Embed on your site', 'Your Logo Watermark', 'Priority Processing'],
+        stripePriceId: 'price_1ShxdICq2ZiMFYWGhfaxaqtY',
+        stripeOnboardingPriceId: 'price_1ShxdICq2ZiMFYWGvBURRh21'
     },
     'The Industrial': {
         name: 'The Industrial',
@@ -68,7 +78,8 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         onboardingFee: 0,
         canEmbed: true,
         isWhiteLabel: true,
-        features: ['Embed on your site', 'Your Logo Watermark', 'Dedicated Support', 'Priority Processing']
+        features: ['Embed on your site', 'Your Logo Watermark', 'Dedicated Support', 'Priority Processing'],
+        stripePriceId: 'price_1ShxfwCq2ZiMFYWGl0j7GBVL'
     },
     'The Unlimited': {
         name: 'The Unlimited',

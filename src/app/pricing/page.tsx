@@ -2,6 +2,7 @@ import { PRICING_TIERS } from '@/config/pricing';
 import { Check, Info } from 'lucide-react';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import SelectPlanButton from '@/components/SelectPlanButton';
 
 export default function PricingPage() {
     return (
@@ -89,18 +90,10 @@ export default function PricingPage() {
                             </div>
 
                             <div>
-                                <Link
-                                    href="/signup"
-                                    className={`
-                                        block w-full py-4 text-center font-mono font-bold uppercase tracking-wider rounded transition-all
-                                        ${tier.popular
-                                            ? 'bg-[var(--primary)] text-black hover:bg-white hover:shadow-[0_0_20px_rgba(255,255,255,0.4)]'
-                                            : 'bg-white/10 text-white hover:bg-white hover:text-black'
-                                        }
-                                    `}
-                                >
-                                    Select Plan
-                                </Link>
+                                <SelectPlanButton
+                                    tierName={tier.name}
+                                    popular={tier.popular}
+                                />
                             </div>
                         </div>
                     ))}
