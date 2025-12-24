@@ -1,7 +1,4 @@
-import { VertexAI } from '@google-cloud/vertexai';
-
-// Initialize Vertex with your Cloud project and location
-
+import type { VertexAI } from '@google-cloud/vertexai';
 
 // Singleton instances
 let vertexAI: VertexAI | null = null;
@@ -9,11 +6,19 @@ let vertexAIGlobal: VertexAI | null = null;
 let routerModel: any = null;
 let imagenModel: any = null;
 
-export function getVertexClient(isGlobal = false): VertexAI {
+// Helper to dynamically load the VertexAI constructor
+async function loadVertexAI() {
+    const { VertexAI } = await import('@google-cloud/vertexai');
+    return VertexAI;
+}
+
+export async function getVertexClient(isGlobal = false): Promise<VertexAI> {
+    const VertexAIConstructor = await loadVertexAI();
+
     if (isGlobal) {
         if (!vertexAIGlobal) {
             const authOptions = getGoogleAuthOptions();
-            vertexAIGlobal = new VertexAI({
+            vertexAIGlobal = new VertexAIConstructor({
                 project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
                 location: 'global',
                 apiEndpoint: 'aiplatform.googleapis.com',
@@ -25,7 +30,7 @@ export function getVertexClient(isGlobal = false): VertexAI {
 
     if (!vertexAI) {
         const authOptions = getGoogleAuthOptions();
-        vertexAI = new VertexAI({
+        vertexAI = new VertexAIConstructor({
             project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
             location: process.env.VERTEX_LOCATION || 'us-central1',
             googleAuthOptions: authOptions.credentials ? { credentials: authOptions.credentials } : undefined
@@ -64,18 +69,20 @@ function getGoogleAuthOptions(): GoogleAuthResult {
     return {};
 }
 
-function getRouterModel() {
+async function getRouterModel() {
     if (!routerModel) {
-        routerModel = getVertexClient(true).getGenerativeModel({
+        const client = await getVertexClient(true);
+        routerModel = client.getGenerativeModel({
             model: 'gemini-2.5-flash-lite'
         });
     }
     return routerModel;
 }
 
-function getImagenModel() {
+async function getImagenModel() {
     if (!imagenModel) {
-        imagenModel = getVertexClient(false).getGenerativeModel({
+        const client = await getVertexClient(false);
+        imagenModel = client.getGenerativeModel({
             model: 'imagen-3.0-capability-001'
         });
     }
@@ -95,7 +102,8 @@ export async function generateDesignWithNanoBanana(
     // Use lazy getter for the model
     let model;
     try {
-        model = getVertexClient(true).getGenerativeModel({
+        const client = await getVertexClient(true);
+        model = client.getGenerativeModel({
             model: 'gemini-3-pro-image-preview',
             systemInstruction: promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
 

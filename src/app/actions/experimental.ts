@@ -54,7 +54,7 @@ export async function generateExperimentalDesign(formData: FormData) {
             }]
         };
 
-        const routerModel = getRouterModel(); // Lazy init
+        const routerModel = await getRouterModel(); // Lazy init
 
         const routerResult = await routerModel.generateContent(routerRequest);
         const routerText = routerResult.response.candidates?.[0].content.parts[0].text;
@@ -89,7 +89,8 @@ export async function generateExperimentalDesign(formData: FormData) {
                     }]
                 };
 
-                const demolitionModel = getVertexClient(true).getGenerativeModel({
+                const client = await getVertexClient(true);
+                const demolitionModel = client.getGenerativeModel({
                     model: 'gemini-3-pro-image-preview',
                     systemInstruction: 'You are an expert image editor. Your ONLY task is to generate the requested image. Do not output text. Do not offer explanations. Just generate the image.'
                 });
@@ -142,7 +143,8 @@ export async function generateExperimentalDesign(formData: FormData) {
             }]
         };
 
-        const constructionModel = getVertexClient(true).getGenerativeModel({
+        const client2 = await getVertexClient(true);
+        const constructionModel = client2.getGenerativeModel({
             model: 'gemini-3-pro-image-preview',
             systemInstruction: 'You are an architectural visualization AI. Your goal is to generate photorealistic images of interior designs. You must always return an image. Do not provide textual descriptions or plans.'
         });
