@@ -92,8 +92,13 @@ export default function PricingCarousel() {
                                         <span className="text-3xl font-bold text-white">${tier.price}</span>
                                         <span className="text-gray-500 text-sm">/mo</span>
                                     </div>
-                                    <div className="text-sm font-mono text-[var(--primary)] mb-4">
+                                    <div className="text-sm font-mono text-[var(--primary)] mb-1">
                                         {tier.allowance} Renders Included
+                                    </div>
+                                    <div className="text-xs text-gray-400">
+                                        {tier.onboardingFee > 0
+                                            ? `+ $${tier.onboardingFee} one-time setup fee`
+                                            : 'No setup fee'}
                                     </div>
                                 </div>
 
@@ -109,8 +114,8 @@ export default function PricingCarousel() {
                                 <Link
                                     href="/pricing"
                                     className={`block w-full py-3 rounded-xl text-center font-bold transition-all ${tier.popular
-                                            ? 'bg-[var(--primary)] text-black hover:bg-white'
-                                            : 'bg-white/5 text-white hover:bg-white/10'
+                                        ? 'bg-[var(--primary)] text-black hover:bg-white'
+                                        : 'bg-white/5 text-white hover:bg-white/10'
                                         }`}
                                 >
                                     View Details

@@ -221,7 +221,7 @@ export default function LandingPage() {
           </div>
           <h2 className="text-3xl md:text-5xl font-bold mb-6">What Does One Wasted Trip Cost You?</h2>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Fuel, travel time, and hours quoting for a client who ghosts you. If Railify filters out just one bad lead a month, it pays for itself.
+            Fuel, travel time, and hours quoting for a client who ghosts you. If Railify filters out just a few bad leads a month, it pays for itself.
           </p>
 
           <div className="mt-12">
