@@ -1,10 +1,12 @@
 import { PRICING_TIERS } from '@/config/pricing';
 import { Check, Info } from 'lucide-react';
 import Link from 'next/link';
+import Navbar from '@/components/Navbar';
 
 export default function PricingPage() {
     return (
         <div className="min-h-screen bg-black text-white font-sans selection:bg-[var(--primary)] selection:text-black">
+            <Navbar />
             <div className="max-w-7xl mx-auto px-4 py-24">
                 <div className="text-center mb-16">
                     <h1 className="text-5xl md:text-7xl font-bold font-mono uppercase tracking-tighter mb-6 text-[var(--primary)]">
@@ -16,7 +18,7 @@ export default function PricingPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
-                    {Object.values(PRICING_TIERS).map((tier) => (
+                    {Object.values(PRICING_TIERS).filter(t => t.name !== 'The Unlimited').map((tier) => (
                         <div
                             key={tier.name}
                             className={`
