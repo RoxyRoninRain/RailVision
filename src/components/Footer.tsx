@@ -42,7 +42,7 @@ export default function Footer() {
                 </div>
             </div>
             <div className="max-w-7xl mx-auto px-6 mt-12 pt-8 border-t border-white/5 text-center">
-                © {new Date().getFullYear()} Railify. All rights reserved.
+                © 2026 Railify. All rights reserved.
             </div>
         </footer>
     );
