@@ -8,68 +8,67 @@ if (!projectId && process.env.NODE_ENV !== 'development') {
     console.warn("VERTEX_PROJECT_ID is not set.");
 }
 
-// Parse credentials from Env Var (Vercel support)
-let googleAuthOptions = {};
-if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-    try {
-        const credsStr = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        // Check if Base64 (starts with non-brace) or JSON
-        const isBase64 = !credsStr.trim().startsWith('{');
-        console.log(`[DEBUG] Found GOOGLE_APPLICATION_CREDENTIALS. Is Base64? ${isBase64}`);
-        const jsonStr = isBase64 ? Buffer.from(credsStr, 'base64').toString('utf-8') : credsStr;
-        googleAuthOptions = { credentials: JSON.parse(jsonStr) };
-        console.log('[DEBUG] Credentials parsed successfully');
-    } catch (e) {
-        console.error("[ERROR] Failed to parse GOOGLE_APPLICATION_CREDENTIALS", e);
+// Singleton instances
+let vertexAI: VertexAI | null = null;
+let vertexAIGlobal: VertexAI | null = null;
+let routerModel: any = null;
+let imagenModel: any = null;
+
+export function getVertexClient(isGlobal = false): VertexAI {
+    if (isGlobal) {
+        if (!vertexAIGlobal) {
+            vertexAIGlobal = new VertexAI({
+                project: projectId || 'mock-project',
+                location: 'global',
+                apiEndpoint: 'aiplatform.googleapis.com',
+                googleAuthOptions: getGoogleAuthOptions()
+            });
+        }
+        return vertexAIGlobal;
     }
+
+    if (!vertexAI) {
+        vertexAI = new VertexAI({
+            project: projectId || 'mock-project',
+            location: location,
+            googleAuthOptions: getGoogleAuthOptions()
+        });
+    }
+    return vertexAI;
 }
 
-// Initialize wrappers to prevent build crashes
-let vertexAI: VertexAI;
-let vertexAIGlobal: VertexAI;
-let routerModel: any;
-let imagenModel: any;
-
-try {
-    vertexAI = new VertexAI({
-        project: projectId || 'mock-project',
-        location: location, // e.g. us-central1
-        googleAuthOptions
-    });
-
-    // CRITICAL: Gemini 3 Pro Image Preview requires GLOBAL endpoint
-    vertexAIGlobal = new VertexAI({
-        project: projectId || 'mock-project',
-        location: 'global',
-        apiEndpoint: 'aiplatform.googleapis.com', // Explicitly set global API endpoint
-        googleAuthOptions
-    });
-
-    // Router Model: Gemini 2.5 Flash Lite (Fast & Cheap)
-    routerModel = vertexAIGlobal.getGenerativeModel({
-        model: 'gemini-2.5-flash-lite'
-    });
-
-    // Auto-Demolition Model: Imagen 3 (Image Editing)
-    imagenModel = vertexAI.getGenerativeModel({
-        model: 'imagen-3.0-capability-001'
-    });
-
-} catch (error) {
-    console.warn("[VERTEX] Initialization failed (Build/Env issues):", error);
-    // Fallback mocks to allow application to build/start, but fail on legitimate AI usage
-    const mockModel = {
-        generateContent: async () => { throw new Error("VertexAI not initialized"); }
-    };
-    vertexAI = { getGenerativeModel: () => mockModel } as any;
-    vertexAIGlobal = { getGenerativeModel: () => mockModel } as any;
-    routerModel = mockModel;
-    imagenModel = mockModel;
+function getGoogleAuthOptions() {
+    if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        try {
+            const credsStr = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+            const isBase64 = !credsStr.trim().startsWith('{');
+            const jsonStr = isBase64 ? Buffer.from(credsStr, 'base64').toString('utf-8') : credsStr;
+            return { credentials: JSON.parse(jsonStr) };
+        } catch (e) {
+            console.error("[ERROR] Failed to parse GOOGLE_APPLICATION_CREDENTIALS", e);
+        }
+    }
+    return {};
 }
 
+function getRouterModel() {
+    if (!routerModel) {
+        routerModel = getVertexClient(true).getGenerativeModel({
+            model: 'gemini-2.5-flash-lite'
+        });
+    }
+    return routerModel;
+}
 
+function getImagenModel() {
+    if (!imagenModel) {
+        imagenModel = getVertexClient(false).getGenerativeModel({
+            model: 'imagen-3.0-capability-001'
+        });
+    }
+    return imagenModel;
+}
 
-// Update return type
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function generateDesignWithNanoBanana(
@@ -80,15 +79,12 @@ export async function generateDesignWithNanoBanana(
     const maxAttempts = 3;
     let attempts = 0;
 
-    while (attempts < maxAttempts) {
-        try {
-            console.log(`[NANO BANANA] Generation attempt ${attempts + 1} of ${maxAttempts}...`);
-            // User requested: gemini-3-pro-image-preview
-            // Must use Global client
-            const model = vertexAIGlobal.getGenerativeModel({
-                model: 'gemini-3-pro-image-preview',
-                // Inject System Instruction if provided, otherwise default to "Hybrid Architect" fallback
-                systemInstruction: promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
+    // Use lazy getter for the model
+    let model;
+    try {
+        model = getVertexClient(true).getGenerativeModel({
+            model: 'gemini-3-pro-image-preview',
+            systemInstruction: promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
 
 **THE TRUTH HIERARCHY (CRITICAL):**
 You will receive input images. You must prioritize their data in this specific order:
@@ -107,19 +103,17 @@ You will receive input images. You must prioritize their data in this specific o
 *   **CONSTRAINT:** In Direct-Mount mode, the space *between* pickets at the floor level must be empty air. Drawing a bottom horizontal bar is FORBIDDEN.
 
 **OUTPUT GOAL:** A single, high-fidelity renovation of Image A.`
-            });
+        });
+    } catch (e) {
+        console.warn("[VERTEX] Lazily init failed:", e);
+        return { success: false, error: "AI Service Unavailable: Initialization Failed" };
+    }
+
+    while (attempts < maxAttempts) {
+        try {
+            console.log(`[NANO BANANA] Generation attempt ${attempts + 1} of ${maxAttempts}...`);
 
             const parts: any[] = [];
-
-            // --- STRICT PAYLOAD STRUCTURE REFACTOR ---
-            // Format:
-            // 1. Text: "**IMAGE A (Canvas):** ..."
-            // 2. Image: Target
-            // 3. Text: "**IMAGE B (Style):** ..."
-            // 4. Image: Style Main
-            // 5. Text: "**IMAGE C (Specs):** ..." (Optional)
-            // 6. Image(s): Extra Refs
-            // 7. Text: Command/Prompt
 
             // 1. Target Image (Image A)
             parts.push({ text: "**IMAGE A (Canvas):** The user's original staircase." });
@@ -131,15 +125,11 @@ You will receive input images. You must prioritize their data in this specific o
             });
 
             // 2. Style Images (Image B & C)
-            // Handle Text-only style vs Image-based style
             if (typeof styleInput === 'string') {
-                // No Image B/C, just append text later
                 console.log('[DEBUG] Text-only style, skipping Image B/C slots');
             } else {
                 const styleImages = styleInput.base64StyleImages;
-
                 if (styleImages.length > 0) {
-                    // Image B (Primary Vibe)
                     parts.push({ text: "**IMAGE B (Style):** The aesthetic reference (Style Guide)." });
                     parts.push({
                         inlineData: {
@@ -148,7 +138,6 @@ You will receive input images. You must prioritize their data in this specific o
                         }
                     });
 
-                    // Image C (Specs / Details) - Remaining images
                     if (styleImages.length > 1) {
                         parts.push({ text: "**IMAGE C (Specs):** Technical details and mounting logic." });
                         for (let i = 1; i < styleImages.length; i++) {
@@ -201,7 +190,6 @@ Renovate **IMAGE A**.
 - Is the new rail mounting (Shoe vs Direct) correct according to Image B?
 - Is the background preserved?`;
 
-            // Handle {{style}} variable if present
             const styleDesc = typeof styleInput === 'string' ? styleInput : "The attached Style Reference Images";
             if (promptText.includes('{{style}}')) {
                 promptText = promptText.replace('{{style}}', styleDesc);
@@ -209,7 +197,6 @@ Renovate **IMAGE A**.
                 promptText += `\n\nTarget Style Description: "${styleInput}"`;
             }
 
-            // Append Negative content
             if (promptConfig?.negative_prompt) {
                 promptText += `\n\nNEGATIVE CONSTRAINTS: ${promptConfig.negative_prompt}`;
             }
@@ -220,13 +207,8 @@ Renovate **IMAGE A**.
                 contents: [{ role: 'user', parts }]
             };
 
-            console.log('[GEMINI 3.0] Sending Structured Interleaved Request...');
-            console.log(`[DEBUG] Payload Parts: ${parts.length} items.`);
-
             const result = await model.generateContent(request);
             const response = await result.response;
-
-            console.log('[DEBUG] Token Usage:', JSON.stringify(response.usageMetadata));
 
             const usage = {
                 inputTokens: response.usageMetadata?.promptTokenCount || 0,
@@ -236,7 +218,6 @@ Renovate **IMAGE A**.
             const candidate = response.candidates?.[0];
             if (!candidate) throw new Error("No candidates returned");
 
-            // Check for images in the parts
             for (const part of candidate.content.parts) {
                 // @ts-ignore
                 if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
@@ -249,7 +230,6 @@ Renovate **IMAGE A**.
                 }
             }
 
-            console.warn('[NANO BANANA] Response did not contain inline image. Checking for other formats...');
             // @ts-ignore
             return { success: false, error: "Model returned text instead of image: " + candidate.content.parts[0].text?.substring(0, 100) };
 
@@ -258,10 +238,10 @@ Renovate **IMAGE A**.
             if (error.message?.includes('429') || error.message?.includes('Quota') || error.message?.includes('Too Many Requests') || error.code === 429) {
                 attempts++;
                 if (attempts < maxAttempts) {
-                    const waitTime = 1000 * Math.pow(2, attempts - 1); // Exponential Backoff: 1s, 2s, 4s
+                    const waitTime = 1000 * Math.pow(2, attempts - 1);
                     console.warn(`[429 RATE LIMIT] Retrying in ${waitTime}ms...`);
                     await sleep(waitTime);
-                    continue; // Loop again
+                    continue;
                 }
             }
             return { success: false, error: error.message || "Unknown error during Nano Banana generation" };
@@ -271,4 +251,4 @@ Renovate **IMAGE A**.
     return { success: false, error: "Max retries exceeded." };
 }
 
-export { vertexAI, vertexAIGlobal, routerModel, imagenModel };
+export { getRouterModel, getImagenModel };

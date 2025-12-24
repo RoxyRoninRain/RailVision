@@ -1,6 +1,6 @@
 'use server';
 
-import { routerModel, imagenModel, vertexAIGlobal } from '@/lib/vertex';
+import { getVertexClient, getRouterModel } from '@/lib/vertex';
 
 const convertToJpg = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -53,9 +53,7 @@ export async function generateExperimentalDesign(formData: FormData) {
             }]
         };
 
-        const routerModel = vertexAIGlobal.getGenerativeModel({
-            model: 'gemini-2.5-flash-lite'
-        });
+        const routerModel = getRouterModel(); // Lazy init
 
         const routerResult = await routerModel.generateContent(routerRequest);
         const routerText = routerResult.response.candidates?.[0].content.parts[0].text;
@@ -90,7 +88,7 @@ export async function generateExperimentalDesign(formData: FormData) {
                     }]
                 };
 
-                const demolitionModel = vertexAIGlobal.getGenerativeModel({
+                const demolitionModel = getVertexClient(true).getGenerativeModel({
                     model: 'gemini-3-pro-image-preview',
                     systemInstruction: 'You are an expert image editor. Your ONLY task is to generate the requested image. Do not output text. Do not offer explanations. Just generate the image.'
                 });
@@ -143,7 +141,7 @@ export async function generateExperimentalDesign(formData: FormData) {
             }]
         };
 
-        const constructionModel = vertexAIGlobal.getGenerativeModel({
+        const constructionModel = getVertexClient(true).getGenerativeModel({
             model: 'gemini-3-pro-image-preview',
             systemInstruction: 'You are an architectural visualization AI. Your goal is to generate photorealistic images of interior designs. You must always return an image. Do not provide textual descriptions or plans.'
         });
