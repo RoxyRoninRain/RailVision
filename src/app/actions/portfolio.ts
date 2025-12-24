@@ -20,7 +20,7 @@ export async function createStyle(formData: FormData) {
     if (files && files.length > 0) allFiles = files;
     else if (singleFile) allFiles = [singleFile];
 
-    if (allFiles.length === 0) return { error: 'No files uploaded' };
+    if (allFiles.length === 0 && !formData.get('image_url')) return { error: 'No files uploaded' };
 
     // Limit: Max 4 images (1 Main + 3 Refs) usually, but code handles N
     if (allFiles.length > 5) return { error: 'Too many files (Max 5)' };
@@ -28,26 +28,39 @@ export async function createStyle(formData: FormData) {
     const galleryUrls: string[] = [];
     const MAX_SIZE = 4.5 * 1024 * 1024;
 
-    // 2. Upload Loop
-    for (const file of allFiles) {
-        if (file.size > MAX_SIZE) {
-            return { error: `File ${file.name} too large. Max 4.5MB.` };
+    // 2. Upload Loop OR Client-Side URL extraction
+    // CHECK FOR PRE-UPLOADED URLs (Scalability Fix)
+    const directMainUrl = formData.get('image_url') as string;
+    const directRefUrlsJson = formData.get('reference_urls') as string;
+
+    if (directMainUrl) {
+        galleryUrls.push(directMainUrl);
+        if (directRefUrlsJson) {
+            const refs = JSON.parse(directRefUrlsJson);
+            galleryUrls.push(...refs);
         }
+    } else {
+        // Fallback: Server-Side Upload (Legacy/Small files)
+        for (const file of allFiles) {
+            if (file.size > MAX_SIZE) {
+                return { error: `File ${file.name} too large. Max 4.5MB.` };
+            }
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
-            .from('portfolio')
-            .upload(fileName, file, { contentType: file.type, upsert: false });
+            const { error: uploadError } = await supabase.storage
+                .from('portfolio')
+                .upload(fileName, file, { contentType: file.type, upsert: false });
 
-        if (uploadError) {
-            console.error('Upload Error:', uploadError);
-            return { error: 'Upload failed for ' + file.name };
+            if (uploadError) {
+                console.error('Upload Error:', uploadError);
+                return { error: 'Upload failed for ' + file.name };
+            }
+
+            const { data: publicUrlData } = supabase.storage.from('portfolio').getPublicUrl(fileName);
+            galleryUrls.push(publicUrlData.publicUrl);
         }
-
-        const { data: publicUrlData } = supabase.storage.from('portfolio').getPublicUrl(fileName);
-        galleryUrls.push(publicUrlData.publicUrl);
     }
 
     const name = formData.get('name') as string;
@@ -105,10 +118,16 @@ export async function updateStyle(formData: FormData) {
     if (!styleId) return { error: 'Style ID required' };
 
     // 1. Handle Main Image Replace (Optional)
+    // 1. Handle Main Image
+    // Check for direct URL first
+    const directMainUrl = formData.get('image_url') as string;
+
     const file = formData.get('file') as File;
     let mainImage = null;
 
-    if (file && file.size > 0) {
+    if (directMainUrl) {
+        mainImage = directMainUrl;
+    } else if (file && file.size > 0) {
         if (file.size > 5 * 1024 * 1024) {
             return { error: `File ${file.name} too large. Max 5MB.` };
         }
@@ -134,6 +153,16 @@ export async function updateStyle(formData: FormData) {
     const referenceFiles = formData.getAll('reference_files') as File[];
     const newRefUrls: string[] = [];
 
+    // 2. Handle Reference Images (New Uploads)
+    // Check for direct URLs for new refs
+    const directNewRefUrlsJson = formData.get('new_reference_urls') as string;
+
+    if (directNewRefUrlsJson) {
+        const refs = JSON.parse(directNewRefUrlsJson);
+        newRefUrls.push(...refs);
+    }
+
+    // Legacy fallback (should we keep it? yes for safety)
     if (referenceFiles && referenceFiles.length > 0) {
         for (const refFile of referenceFiles) {
             if (refFile.size > 5 * 1024 * 1024) continue; // Skip large files or handle error

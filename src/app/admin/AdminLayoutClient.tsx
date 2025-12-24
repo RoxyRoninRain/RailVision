@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Menu, LogOut, X } from 'lucide-react';
+import { Menu, LogOut, X, Presentation } from 'lucide-react';
 import SignOutButton from '@/components/SignOutButton';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -61,6 +61,17 @@ export default function AdminLayoutClient({
                         className={`p-2 rounded transition-colors ${isActive('/admin/costs')}`}
                     >
                         Cost Breakdown
+                    </Link>
+                    <Link
+                        href="/admin/demo-leads"
+                        onClick={closeSidebar}
+                        className={`p-2 rounded transition-colors ${isActive('/admin/demo-leads')}`}
+                        title="Landing Page Demo Leads"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Presentation size={18} />
+                            <span>Demo Leads</span>
+                        </div>
                     </Link>
                     <Link
                         href="/admin/tenants"

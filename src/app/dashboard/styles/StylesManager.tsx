@@ -5,6 +5,7 @@ import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyle
 import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { compressImage } from '@/utils/imageUtils';
+import { createClient } from '@/lib/supabase/client';
 
 export default function StylesManager({ initialStyles, serverError, logoUrl }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null }) {
     const [styles, setStyles] = useState<PortfolioItem[]>(initialStyles);
@@ -229,6 +230,7 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
 
     const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0); // Add Progress State
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
 
@@ -248,6 +250,24 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
         }
     };
 
+    const handleClientUpload = async (file: File): Promise<string> => {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Unauthorized");
+
+        const ext = file.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
+
+        const { error } = await supabase.storage
+            .from('portfolio')
+            .upload(fileName, file, { contentType: file.type });
+
+        if (error) throw error;
+
+        const { data } = supabase.storage.from('portfolio').getPublicUrl(fileName);
+        return data.publicUrl;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!mainFile) {
@@ -256,6 +276,9 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
         }
 
         setIsSubmitting(true);
+        setUploadProgress(0);
+        setErrorMsg(null);
+
         try {
             const formData = new FormData();
             formData.append('name', newName);
@@ -263,25 +286,40 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
             if (priceMin) formData.append('price_min', priceMin);
             if (priceMax) formData.append('price_max', priceMax);
 
-            // Critical Order: Main First, then Refs
-            // Compress Main
+            // Client-Side Upload for Scalability
+            // 1. Main Image
+            setUploadProgress(10);
             const compressedMain = await compressImage(mainFile, 1280);
-            formData.append('files', compressedMain);
+            const mainUrl = await handleClientUpload(compressedMain);
+            formData.append('image_url', mainUrl);
 
-            // Compress Refs
+            // 2. Ref Images
+            const refUrls: string[] = [];
+            let processed = 0;
             for (const f of refFiles) {
+                setUploadProgress(30 + (processed / refFiles.length) * 50);
                 const compressedRef = await compressImage(f, 1280);
-                formData.append('files', compressedRef);
+                const refUrl = await handleClientUpload(compressedRef);
+                refUrls.push(refUrl);
+                processed++;
             }
 
+            if (refUrls.length > 0) {
+                formData.append('reference_urls', JSON.stringify(refUrls));
+            }
+
+            setUploadProgress(90);
+
+            // Submit with URLs
             const res = await createStyle(formData);
             if (res.error) setErrorMsg(res.error);
             else onSuccess();
-        } catch (err) {
+        } catch (err: any) {
             console.error("Submission error:", err);
-            setErrorMsg("Failed to process images. Please try again.");
+            setErrorMsg(err.message || "Failed to process images. Please try again.");
         } finally {
             setIsSubmitting(false);
+            setUploadProgress(0);
         }
     }
 
@@ -336,7 +374,17 @@ function AddStyleModal({ onClose, onSuccess }: { onClose: () => void, onSuccess:
                         )}
                     </div>
 
-                    <button disabled={isSubmitting} className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded mt-4">{isSubmitting ? <Loader2 className="animate-spin mx-auto" /> : 'Create Style'}</button>
+                    <button disabled={isSubmitting} className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded mt-4 relative overflow-hidden">
+                        {isSubmitting ? (
+                            <div className="flex items-center justify-center gap-2 relative z-10">
+                                <Loader2 className="animate-spin" />
+                                {uploadProgress < 100 ? `Uploading ${Math.round(uploadProgress)}%` : 'Saving...'}
+                            </div>
+                        ) : 'Create Style'}
+                        {isSubmitting && (
+                            <div className="absolute inset-0 bg-white/20 transition-all duration-300 left-0" style={{ width: `${uploadProgress}%` }}></div>
+                        )}
+                    </button>
                 </form>
             </motion.div>
         </div>
@@ -353,6 +401,7 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
     const [priceMin, setPriceMin] = useState(style.price_per_ft_min?.toString() || '');
     const [priceMax, setPriceMax] = useState(style.price_per_ft_max?.toString() || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0); // Progress
 
     // Main Image Cropper State
     const [imageSrc, setImageSrc] = useState<string>(style.image_url);
@@ -463,55 +512,91 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
         });
     }
 
+    const handleClientUpload = async (file: File): Promise<string> => {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Unauthorized");
+
+        const ext = file.name.split('.').pop() || 'jpg';
+        const fileName = `${user.id}/${Date.now()}_client_up_${Math.random().toString(36).substring(7)}.${ext}`;
+
+        const { error } = await supabase.storage
+            .from('portfolio')
+            .upload(fileName, file, { contentType: file.type || 'image/jpeg' });
+
+        if (error) throw error;
+
+        const { data } = supabase.storage.from('portfolio').getPublicUrl(fileName);
+        return data.publicUrl;
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
+        setUploadProgress(10);
 
-        const formData = new FormData();
-        formData.append('id', style.id);
-        formData.append('name', name);
-        formData.append('description', desc);
-        formData.append('price_min', priceMin);
-        formData.append('price_max', priceMax);
+        try {
+            const formData = new FormData();
+            formData.append('id', style.id);
+            formData.append('name', name);
+            formData.append('description', desc);
+            formData.append('price_min', priceMin);
+            formData.append('price_max', priceMax);
 
-        // Main Image Handling
-        if (isDirty || newFile) {
-            try {
-                const blob = await getCroppedImg();
-                const fileToUpload = new File([blob], "cropped.jpg", { type: "image/jpeg" });
-                formData.append('file', fileToUpload);
-            } catch (err) {
-                console.warn("Crop failed, sending original if new file exists", err);
-                if (newFile) {
-                    try {
-                        const compressedFallback = await compressImage(newFile, 1280);
-                        formData.append('file', compressedFallback);
-                    } catch (cErr) {
-                        formData.append('file', newFile);
+            // Main Image Handling
+            if (isDirty || newFile) {
+                try {
+                    const blob = await getCroppedImg();
+                    const fileToUpload = new File([blob], "cropped.jpg", { type: "image/jpeg" });
+
+                    // Client Upload
+                    const mainUrl = await handleClientUpload(fileToUpload);
+                    formData.append('image_url', mainUrl);
+                } catch (err) {
+                    console.warn("Crop/Upload failed", err);
+                    if (newFile) {
+                        const mainUrl = await handleClientUpload(newFile);
+                        formData.append('image_url', mainUrl);
                     }
                 }
             }
-        }
 
-        // References Handling
-        // newRefFiles.forEach(f => formData.append('reference_files', f));
-        for (const f of newRefFiles) {
-            try {
-                const compressedRef = await compressImage(f, 1280);
-                formData.append('reference_files', compressedRef);
-            } catch (err) {
-                console.warn("Ref compression failed", err);
-                formData.append('reference_files', f);
+            // References Handling
+            const newRefUrls: string[] = [];
+            let processed = 0;
+            for (const f of newRefFiles) {
+                setUploadProgress(30 + (processed / newRefFiles.length) * 50);
+                try {
+                    const compressedRef = await compressImage(f, 1280);
+                    const refUrl = await handleClientUpload(compressedRef);
+                    newRefUrls.push(refUrl);
+                } catch (err) {
+                    console.warn("Ref compression/upload failed", err);
+                    const refUrl = await handleClientUpload(f);
+                    newRefUrls.push(refUrl);
+                }
+                processed++;
             }
+
+            if (newRefUrls.length > 0) {
+                formData.append('new_reference_urls', JSON.stringify(newRefUrls));
+            }
+
+            formData.append('kept_reference_urls', JSON.stringify(keptRefs));
+
+            setUploadProgress(90);
+
+            const { updateStyle } = await import('@/app/actions');
+            const res = await updateStyle(formData);
+
+            if (res.error) alert(res.error);
+            else onSuccess();
+        } catch (err: any) {
+            alert(err.message || 'Update failed');
+        } finally {
+            setIsSubmitting(false);
+            setUploadProgress(0);
         }
-        formData.append('kept_reference_urls', JSON.stringify(keptRefs));
-
-        const { updateStyle } = await import('@/app/actions');
-        const res = await updateStyle(formData);
-
-        if (res.error) alert(res.error);
-        else onSuccess();
-        setIsSubmitting(false);
     }
 
     // Normalized Pan Handler with Constraints
@@ -688,9 +773,17 @@ function EditStyleModal({ style, onClose, onSuccess }: { style: PortfolioItem, o
                     <button
                         onClick={handleSubmit}
                         disabled={isSubmitting}
-                        className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded hover:brightness-110 transition-all flex justify-center items-center gap-2"
+                        className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded hover:brightness-110 transition-all flex justify-center items-center gap-2 relative overflow-hidden"
                     >
-                        {isSubmitting ? <Loader2 className="animate-spin" /> : 'Save Changes'}
+                        {isSubmitting ? (
+                            <div className="flex items-center justify-center gap-2 relative z-10">
+                                <Loader2 className="animate-spin" />
+                                {uploadProgress < 100 ? `Uploading ${Math.round(uploadProgress)}%` : 'Saving...'}
+                            </div>
+                        ) : 'Save Changes'}
+                        {isSubmitting && (
+                            <div className="absolute inset-0 bg-white/20 transition-all duration-300 left-0" style={{ width: `${uploadProgress}%` }}></div>
+                        )}
                     </button>
                     <p className="text-[10px] text-gray-600 text-center">Image will be cropped to visible area (Square).</p>
                 </div>
