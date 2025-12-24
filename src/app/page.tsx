@@ -25,13 +25,12 @@ export default function LandingPage() {
           </div> */}
 
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 leading-[1.1]">
-            <span className="block text-transparent bg-clip-text bg-gradient-to-b from-white to-white/50">Close More Deals with</span>
-            <span className="block text-white">Instant Visualization</span>
+            <span className="block text-transparent bg-clip-text bg-gradient-to-b from-white to-white/50">Hook Them With Visuals.</span>
+            <span className="block text-white">Filter Them With Price.</span>
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Empower your potential customers to visualize their dream handrails in real-time.
-            Embed our white-label Design Studio directly on your website.
+            Show customers exactly what they’re getting, and show them the cost upfront. You only hear from the ones who love the design and can afford the bid.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -42,57 +41,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* --- HOW IT WORKS SECTION --- */}
-      <section className="py-24 px-6 bg-[#080808] border-b border-white/5 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-        <div className="max-w-7xl mx-auto relative z-10">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">From Photo to Quote in Minutes</h2>
-            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              Streamline your sales process with our simple 3-step workflow.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 relative group hover:border-primary/30 transition-colors">
-              <div className="absolute -top-4 -left-4 w-12 h-12 bg-primary/20 rounded-xl flex items-center justify-center text-primary font-bold text-xl border border-primary/20 shadow-[0_0_20px_rgba(34,197,94,0.3)]">1</div>
-              <div className="h-48 relative mb-6 rounded-lg overflow-hidden bg-black/50 border border-white/5 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-                  <ArrowRight className="text-gray-600 rotate-[-45deg]" size={32} />
-                </div>
-                {/* Placeholder for UI graphic */}
-              </div>
-              <h3 className="text-xl font-bold mb-3">Upload User Photo</h3>
-              <p className="text-gray-400 text-sm">Customer uploads a photo of their stairs directly to your site. Our AI instantly analyzes the geometry.</p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 relative group hover:border-secondary/30 transition-colors">
-              <div className="absolute -top-4 -left-4 w-12 h-12 bg-secondary/20 rounded-xl flex items-center justify-center text-secondary font-bold text-xl border border-secondary/20 shadow-[0_0_20px_rgba(59,130,246,0.3)]">2</div>
-              <div className="h-48 relative mb-6 rounded-lg overflow-hidden bg-black/50 border border-white/5 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-                  <Sparkles className="text-secondary" size={32} />
-                </div>
-              </div>
-              <h3 className="text-xl font-bold mb-3">AI Visualization</h3>
-              <p className="text-gray-400 text-sm">They select a style, and our AI renders a realistic preview of your handrail installed in their home.</p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="bg-[#111] border border-white/10 rounded-2xl p-8 relative group hover:border-orange-500/30 transition-colors">
-              <div className="absolute -top-4 -left-4 w-12 h-12 bg-orange-500/20 rounded-xl flex items-center justify-center text-orange-400 font-bold text-xl border border-orange-500/20 shadow-[0_0_20px_rgba(249,115,22,0.3)]">3</div>
-              <div className="h-48 relative mb-6 rounded-lg overflow-hidden bg-black/50 border border-white/5 flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center">
-                  <HandCoins className="text-orange-400" size={32} />
-                </div>
-              </div>
-              <h3 className="text-xl font-bold mb-3">Get the Lead</h3>
-              <p className="text-gray-400 text-sm">To see the price or download the design, they enter their contact info. You get a qualified lead instantly.</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* --- LIVE DEMO EMBED SECTION --- */}
       <section className="py-20 px-6 bg-[#0a0a0a] border-y border-white/5">
@@ -255,12 +204,13 @@ export default function LandingPage() {
       {/* --- PRICING SECTION --- */}
       <section id="pricing" className="py-24 px-6 bg-[#080808]">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-bold mb-6">Simple, Transparent Pricing</h2>
-            <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              Choose the plan that fits your business. From solo operators to industrial fabricators.
-            </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs font-medium text-red-400 mb-6">
+            <ShieldCheck size={14} /> Stop losing money on free estimates
           </div>
+          <h2 className="text-3xl md:text-5xl font-bold mb-6">What Does One Wasted Trip Cost You?</h2>
+          <p className="text-xl text-gray-400 max-w-2xl mx-auto">
+            Fuel, travel time, and hours quoting for a client who ghosts you. If Railify filters out just one bad lead a month, it pays for itself.
+          </p>
 
           <div className="mt-12">
             <PricingCarousel />
