@@ -7,7 +7,7 @@ This app allows users to upload a photo of their stairs, select a "Style" from a
 
 ## Current Objective
 We need to refined the **Styles Manager** UI and Data processing.
-*Note: Landing Page, Contact Form, and Legal Pages have been implemented (v1).*
+*Note: Landing Page refined (Hero/Pricing copy updated, 'How It Works' removed). Contact & Legal pages live.*
 
 ## Tasks
 Please execute the following updates in order:

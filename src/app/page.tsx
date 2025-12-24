@@ -7,7 +7,7 @@ import Footer from '@/components/Footer';
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#050505] text-white overflow-x-hidden selection:bg-primary/30 selection:text-white font-sans">
+    <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden selection:bg-primary/30 selection:text-white font-sans">
 
       {/* --- NAVBAR --- */}
       <Navbar />
@@ -44,7 +44,7 @@ export default function LandingPage() {
 
 
       {/* --- LIVE DEMO EMBED SECTION --- */}
-      <section className="py-20 px-6 bg-[#0a0a0a] border-y border-white/5">
+      <section className="py-20 px-6 bg-[#121212] border-y border-white/5">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-5xl font-bold mb-4">Try It Right Here</h2>
@@ -67,7 +67,7 @@ export default function LandingPage() {
       </section>
 
       {/* --- VALUE PROPOSITION SECTION --- */}
-      <section className="py-24 px-6 bg-[#050505] relative overflow-hidden">
+      <section className="py-24 px-6 bg-[#0a0a0a] relative overflow-hidden">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="order-2 lg:order-1 relative">
             <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-secondary/20 blur-[100px] rounded-full opacity-30" />
