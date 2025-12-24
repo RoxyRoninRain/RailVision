@@ -1,12 +1,7 @@
 import { VertexAI } from '@google-cloud/vertexai';
 
 // Initialize Vertex with your Cloud project and location
-const projectId = process.env.VERTEX_PROJECT_ID;
-const location = process.env.VERTEX_LOCATION || 'us-central1';
 
-if (!projectId && process.env.NODE_ENV !== 'development') {
-    console.warn("VERTEX_PROJECT_ID is not set.");
-}
 
 // Singleton instances
 let vertexAI: VertexAI | null = null;
@@ -17,33 +12,51 @@ let imagenModel: any = null;
 export function getVertexClient(isGlobal = false): VertexAI {
     if (isGlobal) {
         if (!vertexAIGlobal) {
+            const authOptions = getGoogleAuthOptions();
             vertexAIGlobal = new VertexAI({
-                project: projectId || 'mock-project',
+                project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
                 location: 'global',
                 apiEndpoint: 'aiplatform.googleapis.com',
-                googleAuthOptions: getGoogleAuthOptions()
+                googleAuthOptions: authOptions.credentials ? { credentials: authOptions.credentials } : undefined
             });
         }
         return vertexAIGlobal;
     }
 
     if (!vertexAI) {
+        const authOptions = getGoogleAuthOptions();
         vertexAI = new VertexAI({
-            project: projectId || 'mock-project',
-            location: location,
-            googleAuthOptions: getGoogleAuthOptions()
+            project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
+            location: process.env.VERTEX_LOCATION || 'us-central1',
+            googleAuthOptions: authOptions.credentials ? { credentials: authOptions.credentials } : undefined
         });
     }
     return vertexAI;
 }
 
-function getGoogleAuthOptions() {
+interface GoogleAuthResult {
+    credentials?: {
+        client_email: string;
+        private_key: string;
+    };
+    projectId?: string;
+}
+
+function getGoogleAuthOptions(): GoogleAuthResult {
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
         try {
             const credsStr = process.env.GOOGLE_APPLICATION_CREDENTIALS;
             const isBase64 = !credsStr.trim().startsWith('{');
             const jsonStr = isBase64 ? Buffer.from(credsStr, 'base64').toString('utf-8') : credsStr;
-            return { credentials: JSON.parse(jsonStr) };
+            const creds = JSON.parse(jsonStr);
+            console.log('[DEBUG] Credentials parsed successfully (Lazy Load)');
+            return {
+                credentials: {
+                    client_email: creds.client_email,
+                    private_key: creds.private_key,
+                },
+                projectId: creds.project_id
+            };
         } catch (e) {
             console.error("[ERROR] Failed to parse GOOGLE_APPLICATION_CREDENTIALS", e);
         }
