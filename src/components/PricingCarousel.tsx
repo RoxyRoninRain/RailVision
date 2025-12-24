@@ -8,7 +8,7 @@ import { PRICING_TIERS, PricingTier } from '@/config/pricing';
 
 export default function PricingCarousel() {
     // Convert object to array for easier mapping
-    const tiers = Object.values(PRICING_TIERS);
+    const tiers = Object.values(PRICING_TIERS).filter(tier => tier.name !== 'The Unlimited');
     const [currentIndex, setCurrentIndex] = useState(0);
     const [visibleCards, setVisibleCards] = useState(1);
 
