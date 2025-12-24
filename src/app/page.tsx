@@ -79,7 +79,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h4 className="text-lg font-bold text-gray-300 mb-1">Before Railify</h4>
-                    <p className="text-gray-500 text-sm">Endless emails answering "what will it look like?", driving to sites for tire-kickers, and chasing leads who can't afford you.</p>
+                    <p className="text-gray-500 text-sm">Phone calls asking "how much?" Wasting hours driving to job sites and writing quotes, only to be ghosted because they couldn't afford you.</p>
                   </div>
                 </div>
                 <div className="w-full h-px bg-white/5" />
@@ -89,7 +89,7 @@ export default function LandingPage() {
                   </div>
                   <div>
                     <h4 className="text-lg font-bold text-white mb-1">With Railify</h4>
-                    <p className="text-gray-400 text-sm">Automated design previews. Pricing estimates upfront. You only talk to customers who are designed, priced, and ready to buy.</p>
+                    <p className="text-gray-400 text-sm">Tire-kickers see the price and filter themselves out. You only hear from leads who are hooked by the design and happy with the estimate.</p>
                   </div>
                 </div>
               </div>
@@ -114,19 +114,19 @@ export default function LandingPage() {
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
                   <Check size={14} className="text-primary" />
                 </div>
-                Filter out low-budget inquiries automatically
+                Customers see the design on their own home instantly
               </li>
               <li className="flex items-center gap-3 text-gray-300">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
                   <Check size={14} className="text-primary" />
                 </div>
-                Give customers the confidence to buy instantly
+                Budget-shoppers filter themselves out before calling
               </li>
               <li className="flex items-center gap-3 text-gray-300">
                 <div className="w-6 h-6 rounded-full bg-primary/20 flex items-center justify-center">
                   <Check size={14} className="text-primary" />
                 </div>
-                24/7 Sales Agent on your website
+                Every lead is already sold on the look and the price
               </li>
             </ul>
           </div>
