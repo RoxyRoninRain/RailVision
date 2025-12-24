@@ -112,21 +112,30 @@ export default async function DemoAnalyticsPage() {
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-[#111] text-gray-500 font-mono text-xs uppercase border-b border-white/5">
                                     <tr>
-                                        <th className="p-3 pl-4">Time</th>
+                                        <th className="p-3 pl-4">Time (CST)</th>
                                         <th className="p-3">IP Address</th>
-                                        <th className="p-3">Result</th>
                                         <th className="p-3 text-right pr-4">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5 font-mono text-xs">
                                     {recentUsage?.map((gen) => {
                                         const isBlocked = blockedIps.some((b: any) => b.ip_address === gen.ip_address);
+                                        const date = new Date(gen.created_at);
                                         return (
                                             <tr key={gen.id} className="hover:bg-white/[0.02]">
                                                 <td className="p-3 pl-4 text-gray-400">
-                                                    {new Date(gen.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    {date.toLocaleTimeString('en-US', {
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                        timeZone: 'America/Chicago'
+                                                    })}
                                                     <div className="text-[10px] text-gray-600">
-                                                        {new Date(gen.created_at).toLocaleDateString()}
+                                                        {date.toLocaleDateString('en-US', {
+                                                            month: 'numeric',
+                                                            day: 'numeric',
+                                                            year: '2-digit',
+                                                            timeZone: 'America/Chicago'
+                                                        })}
                                                     </div>
                                                 </td>
                                                 <td className="p-3 text-blue-400">
@@ -136,11 +145,6 @@ export default async function DemoAnalyticsPage() {
                                                             BLOCKED
                                                         </span>
                                                     )}
-                                                </td>
-                                                <td className="p-3">
-                                                    <a href={gen.image_url} target="_blank" className="text-gray-400 hover:text-white underline decoration-dotted">
-                                                        View Image
-                                                    </a>
                                                 </td>
                                                 <td className="p-3 text-right pr-4">
                                                     {!isBlocked && gen.ip_address && (
