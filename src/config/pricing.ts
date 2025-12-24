@@ -20,7 +20,7 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         allowance: 50,
         overageRate: 1.00,
         billingThreshold: 50,
-        onboardingFee: 300,
+        onboardingFee: 299,
         canEmbed: false,
         isWhiteLabel: false,
         features: ['Dashboard Access Only', 'Standard Processing']
@@ -31,7 +31,7 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         allowance: 100,
         overageRate: 1.00,
         billingThreshold: 100,
-        onboardingFee: 300,
+        onboardingFee: 299,
         canEmbed: true,
         isWhiteLabel: false,
         features: ['Embed on your site', 'Powered by Railify Badge', 'Standard Processing']
@@ -42,7 +42,7 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         allowance: 400,
         overageRate: 0.90,
         billingThreshold: 400,
-        onboardingFee: 250,
+        onboardingFee: 249,
         canEmbed: true,
         isWhiteLabel: true,
         popular: true,
@@ -54,7 +54,7 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         allowance: 700,
         overageRate: 0.80,
         billingThreshold: 700,
-        onboardingFee: 150,
+        onboardingFee: 149,
         canEmbed: true,
         isWhiteLabel: true,
         features: ['Embed on your site', 'Your Logo Watermark', 'Priority Processing']
