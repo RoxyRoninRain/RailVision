@@ -1,4 +1,4 @@
-export type TierName = 'The Estimator' | 'The Shop' | 'The Pro' | 'The Volume' | 'The Industrial';
+export type TierName = 'The Estimator' | 'The Shop' | 'The Pro' | 'The Volume' | 'The Industrial' | 'The Unlimited';
 
 export interface PricingTier {
     name: TierName;
@@ -65,6 +65,17 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         allowance: 1000,
         overageRate: 0.75,
         billingThreshold: 1000,
+        onboardingFee: 0,
+        canEmbed: true,
+        isWhiteLabel: true,
+        features: ['Embed on your site', 'Your Logo Watermark', 'Dedicated Support', 'Priority Processing']
+    },
+    'The Unlimited': {
+        name: 'The Unlimited',
+        price: 0,
+        allowance: 0,
+        overageRate: 0.16,
+        billingThreshold: 100,
         onboardingFee: 0,
         canEmbed: true,
         isWhiteLabel: true,
