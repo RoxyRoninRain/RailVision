@@ -198,6 +198,18 @@ export default function LandingPage() {
             </div>
 
           </div>
+
+          {/* Community Block */}
+          <div className="mt-6 bg-gradient-to-r from-[#111] to-[#161616] border border-white/10 rounded-2xl p-8 text-center relative overflow-hidden group hover:border-white/20 transition-colors">
+            <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] opacity-5" />
+            <div className="relative z-10 flex flex-col items-center justify-center">
+              <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mb-4 text-white">
+                <Store size={24} />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">Shape The Future of Railify</h3>
+              <p className="text-gray-400 max-w-2xl">Our roadmap is driven by our users. Join our community to request features and ensure the tool evolves to fit your shop perfectly.</p>
+            </div>
+          </div>
         </div>
       </section>
 
