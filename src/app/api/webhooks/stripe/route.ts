@@ -3,6 +3,9 @@ import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { supabase, adminSupabase } from '@/lib/supabase'; // Use admin client for DB updates
 
+// Force dynamic to prevent build-time static analysis execution attempts
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: Request) {
     const body = await req.text();
     const signature = (await headers()).get('Stripe-Signature') as string;
