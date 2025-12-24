@@ -24,31 +24,48 @@ if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     }
 }
 
-const vertexAI = new VertexAI({
-    project: projectId || 'mock-project',
-    location: location, // e.g. us-central1
-    googleAuthOptions
-});
+// Initialize wrappers to prevent build crashes
+let vertexAI: VertexAI;
+let vertexAIGlobal: VertexAI;
+let routerModel: any;
+let imagenModel: any;
 
-// CRITICAL: Gemini 3 Pro Image Preview requires GLOBAL endpoint
-const vertexAIGlobal = new VertexAI({
-    project: projectId || 'mock-project',
-    location: 'global',
-    apiEndpoint: 'aiplatform.googleapis.com', // Explicitly set global API endpoint
-    googleAuthOptions
-});
+try {
+    vertexAI = new VertexAI({
+        project: projectId || 'mock-project',
+        location: location, // e.g. us-central1
+        googleAuthOptions
+    });
 
-// Router Model: Gemini 2.5 Flash Lite (Fast & Cheap)
-// Using global endpoint as requested to fix 404
-const routerModel = vertexAIGlobal.getGenerativeModel({
-    model: 'gemini-2.5-flash-lite'
-});
+    // CRITICAL: Gemini 3 Pro Image Preview requires GLOBAL endpoint
+    vertexAIGlobal = new VertexAI({
+        project: projectId || 'mock-project',
+        location: 'global',
+        apiEndpoint: 'aiplatform.googleapis.com', // Explicitly set global API endpoint
+        googleAuthOptions
+    });
 
-// Auto-Demolition Model: Imagen 3 (Image Editing)
-// Using standard regional endpoint
-const imagenModel = vertexAI.getGenerativeModel({
-    model: 'imagen-3.0-capability-001'
-});
+    // Router Model: Gemini 2.5 Flash Lite (Fast & Cheap)
+    routerModel = vertexAIGlobal.getGenerativeModel({
+        model: 'gemini-2.5-flash-lite'
+    });
+
+    // Auto-Demolition Model: Imagen 3 (Image Editing)
+    imagenModel = vertexAI.getGenerativeModel({
+        model: 'imagen-3.0-capability-001'
+    });
+
+} catch (error) {
+    console.warn("[VERTEX] Initialization failed (Build/Env issues):", error);
+    // Fallback mocks to allow application to build/start, but fail on legitimate AI usage
+    const mockModel = {
+        generateContent: async () => { throw new Error("VertexAI not initialized"); }
+    };
+    vertexAI = { getGenerativeModel: () => mockModel } as any;
+    vertexAIGlobal = { getGenerativeModel: () => mockModel } as any;
+    routerModel = mockModel;
+    imagenModel = mockModel;
+}
 
 
 
