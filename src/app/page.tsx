@@ -106,7 +106,7 @@ export default function LandingPage() {
             <p className="text-xl text-gray-400 mb-8 leading-relaxed">
               Your time is expensive. Let our tool do the selling for you.
               <br /><br />
-              <span className="text-white font-medium">Think about it:</span> One closed deal found through our automated lead filter pays for the software for the entire year. It's a no-brainer investment for your shop.
+              <span className="text-white font-medium">This tool pays for itself even if you never close a single deal.</span> Why? Because it stops you from bleeding money on tire-kickers. The time and fuel you save by filtering out bad clients covers your bill instantly. The quality leads are just extra profit on top.
             </p>
 
             <ul className="space-y-4 mb-10">
