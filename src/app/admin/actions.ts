@@ -481,12 +481,14 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
 }
 
 // STORAGE
+// STORAGE
 export async function listBucketFiles(bucket: string, path: string = '') {
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
     try {
-        const { data, error } = await supabase
+        // 1. Fetch Root Items (Files & Folders)
+        const { data: rootItems, error } = await supabase
             .storage
             .from(bucket)
             .list(path, {
@@ -497,13 +499,39 @@ export async function listBucketFiles(bucket: string, path: string = '') {
 
         if (error) throw error;
 
-        // Generate public URLs for viewing
-        const dataWithUrls = data.map(file => {
-            const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(`${path ? path + '/' : ''}${file.name}`);
-            return { ...file, publicUrl };
-        });
+        // 2. Identify Folders (items without metadata are typically folders/placeholders in Supabase Storage)
+        // Note: Supabase ID logic for folders can be tricky. Often, if 'id' is null, it's a folder, OR we check if it has no metadata.
+        // However, a robust way is to try and list its content if it looks like a folder (no mimetype etc).
+        // Let's assume items with `id: null` are folders or valid separate entities.
 
-        return { data: dataWithUrls };
+        const allFiles = [];
+
+        for (const item of rootItems) {
+            if (!item.id) {
+                // It is likely a folder. Fetch its contents.
+                const folderPath = path ? `${path}/${item.name}` : item.name;
+                const { data: folderItems, error: folderError } = await supabase
+                    .storage
+                    .from(bucket)
+                    .list(folderPath, { limit: 100 });
+
+                if (!folderError && folderItems) {
+                    // Add folder items to list, flattening the structure
+                    for (const fItem of folderItems) {
+                        const fileFullPath = `${folderPath}/${fItem.name}`;
+                        const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileFullPath);
+                        allFiles.push({ ...fItem, name: `${item.name}/${fItem.name}`, publicUrl });
+                    }
+                }
+            } else {
+                // It is a file in the root of 'path'
+                const fileFullPath = path ? `${path}/${item.name}` : item.name;
+                const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileFullPath);
+                allFiles.push({ ...item, publicUrl });
+            }
+        }
+
+        return { data: allFiles };
     } catch (error: any) {
         console.error(`List Bucket (${bucket}) Failed:`, error);
         return { error: error.message };
