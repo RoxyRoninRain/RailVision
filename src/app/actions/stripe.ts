@@ -93,13 +93,20 @@ export async function createCheckoutSession(tierName: TierName) {
     console.log('[STRIPE] Creating checkout session for user:', user.id);
     console.log('[STRIPE] Line Items:', JSON.stringify(lineItems, null, 2));
 
+    // Ensure we have a valid base URL
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://railify.app';
+    if (!baseUrl.startsWith('http')) {
+        baseUrl = `https://${baseUrl}`;
+    }
+    console.log('[STRIPE] Using Success/Cancel Base URL:', baseUrl);
+
     try {
         const session = await stripe.checkout.sessions.create({
             customer: customerId,
             line_items: lineItems,
             mode: 'subscription',
-            success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?checkout=success`,
-            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?checkout=cancel`,
+            success_url: `${baseUrl}/dashboard?checkout=success`,
+            cancel_url: `${baseUrl}/pricing?checkout=cancel`,
             subscription_data: {
                 metadata: {
                     tierName: tierName,
