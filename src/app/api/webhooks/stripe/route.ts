@@ -1,10 +1,12 @@
 import { headers } from 'next/headers';
 import type Stripe from 'stripe';
-// import { stripe } from '@/lib/stripe';
-// import { supabase, adminSupabase } from '@/lib/supabase'; // Use admin client for DB updates
+import { Resend } from 'resend';
+import { WelcomeEmail } from '@/emails/WelcomeEmail';
 
 // Force dynamic to prevent build-time static analysis execution attempts
 export const dynamic = 'force-dynamic';
+
+const resend = new Resend(process.env.RESEND_API_KEY!);
 
 export async function POST(req: Request) {
     const { stripe } = await import('@/lib/stripe');
@@ -55,6 +57,24 @@ export async function POST(req: Request) {
                                 subscription_status: sub.status,
                             })
                             .eq('id', userId);
+                    }
+                }
+
+                // Send Welcome Email
+                const customerEmail = session.customer_details?.email;
+                const customerName = session.customer_details?.name || 'Customer';
+
+                if (customerEmail) {
+                    try {
+                        await resend.emails.send({
+                            from: 'Railify <onboarding@railify.app>',
+                            to: customerEmail,
+                            subject: 'Welcome to Railify - Important Next Steps',
+                            react: WelcomeEmail({ name: customerName }),
+                        });
+                        console.log(`Welcome email sent to ${customerEmail}`);
+                    } catch (emailError) {
+                        console.error('Failed to send welcome email:', emailError);
                     }
                 }
                 break;
