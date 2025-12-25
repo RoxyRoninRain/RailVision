@@ -100,8 +100,9 @@ export async function createCheckoutSession(tierName: TierName) {
     }
     console.log('[STRIPE] Using Success/Cancel Base URL:', baseUrl);
 
+    let session;
     try {
-        const session = await stripe.checkout.sessions.create({
+        session = await stripe.checkout.sessions.create({
             customer: customerId,
             line_items: lineItems,
             mode: 'subscription',
@@ -118,17 +119,16 @@ export async function createCheckoutSession(tierName: TierName) {
             },
             allow_promotion_codes: true, // Optional: allow promo codes
         });
-
-        if (!session.url) {
-            throw new Error('Failed to create checkout session');
-        }
-
-        redirect(session.url);
     } catch (err: any) {
         console.error('[STRIPE] Checkout Session Creation Failed:', err);
-        // Rethrow with more detail if possible, though Next.js might swallow it in prod
         throw new Error(`Stripe Checkout Failed: ${err.message}`);
     }
+
+    if (!session?.url) {
+        throw new Error('Failed to create checkout session');
+    }
+
+    redirect(session.url);
 }
 
 export async function reportUsage(userId: string, quantity: number = 1) {
