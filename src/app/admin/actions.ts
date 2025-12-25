@@ -519,15 +519,15 @@ export async function listBucketFiles(bucket: string, path: string = '') {
                     // Add folder items to list, flattening the structure
                     for (const fItem of folderItems) {
                         const fileFullPath = `${folderPath}/${fItem.name}`;
-                        const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileFullPath);
-                        allFiles.push({ ...fItem, name: `${item.name}/${fItem.name}`, publicUrl });
+                        const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(fileFullPath, 3600);
+                        allFiles.push({ ...fItem, name: `${item.name}/${fItem.name}`, publicUrl: signedData?.signedUrl });
                     }
                 }
             } else {
                 // It is a file in the root of 'path'
                 const fileFullPath = path ? `${path}/${item.name}` : item.name;
-                const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(fileFullPath);
-                allFiles.push({ ...item, publicUrl });
+                const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(fileFullPath, 3600);
+                allFiles.push({ ...item, publicUrl: signedData?.signedUrl });
             }
         }
 

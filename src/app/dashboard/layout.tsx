@@ -12,15 +12,25 @@ import SignOutButton from '@/components/SignOutButton';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [shopName, setShopName] = useState<string>('');
 
-    // Auto-Seed Defaults on Dashboard Access
+    // Auto-Seed Defaults on Dashboard Access & Fetch Profile
     useEffect(() => {
-        seedDefaultStyles().then(res => {
-            if (res.seeded) {
-                console.log('Default styles seeded successfully.');
-                // Optionally trigger a router refresh if strictly needed, but usually silent is fine for global state
+        const init = async () => {
+            await seedDefaultStyles();
+
+            // Fetch Shop Name for Display
+            const { createClient } = await import('@/lib/supabase/client');
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data: profile } = await supabase.from('profiles').select('shop_name').eq('id', user.id).single();
+                if (profile?.shop_name) {
+                    setShopName(profile.shop_name);
+                }
             }
-        });
+        };
+        init();
     }, []);
 
     const navItems = [
@@ -80,7 +90,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <LogOut size={16} /> Sign Out
                     </SignOutButton>
                     <p className="mt-4 text-[10px] text-gray-700 font-mono">
-                        v2.5.0 • Mississippi Metal
+                        v2.5.0 • {shopName || '...'}
                     </p>
                 </div>
             </aside>
