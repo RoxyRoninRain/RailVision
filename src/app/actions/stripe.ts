@@ -89,29 +89,38 @@ export async function createCheckoutSession(tierName: TierName) {
     }
 
     // 5. Create Checkout Session
-    const session = await stripe.checkout.sessions.create({
-        customer: customerId,
-        line_items: lineItems,
-        mode: 'subscription',
-        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?checkout=success`,
-        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?checkout=cancel`,
-        subscription_data: {
-            metadata: {
-                tierName: tierName,
+    console.log('[STRIPE] Creating checkout session for user:', user.id);
+    console.log('[STRIPE] Line Items:', JSON.stringify(lineItems, null, 2));
+
+    try {
+        const session = await stripe.checkout.sessions.create({
+            customer: customerId,
+            line_items: lineItems,
+            mode: 'subscription',
+            success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?checkout=success`,
+            cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/pricing?checkout=cancel`,
+            subscription_data: {
+                metadata: {
+                    tierName: tierName,
+                },
             },
-        },
-        metadata: {
-            userId: user.id,
-            tierName: tierName
-        },
-        allow_promotion_codes: true, // Optional: allow promo codes
-    });
+            metadata: {
+                userId: user.id,
+                tierName: tierName
+            },
+            allow_promotion_codes: true, // Optional: allow promo codes
+        });
 
-    if (!session.url) {
-        throw new Error('Failed to create checkout session');
+        if (!session.url) {
+            throw new Error('Failed to create checkout session');
+        }
+
+        redirect(session.url);
+    } catch (err: any) {
+        console.error('[STRIPE] Checkout Session Creation Failed:', err);
+        // Rethrow with more detail if possible, though Next.js might swallow it in prod
+        throw new Error(`Stripe Checkout Failed: ${err.message}`);
     }
-
-    redirect(session.url);
 }
 
 export async function reportUsage(userId: string, quantity: number = 1) {
