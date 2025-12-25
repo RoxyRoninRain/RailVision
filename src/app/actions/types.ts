@@ -2,7 +2,7 @@ export interface Lead {
     id: string;
     email: string;
     customer_name: string;
-    status: 'New' | 'Contacted' | 'Closed';
+    status: 'New' | 'Pending' | 'Contacted' | 'Sold' | 'Backed Out' | 'On Hold' | 'Closed';
     created_at: string;
     style_id?: string;
     style_name?: string; // joined

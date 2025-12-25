@@ -10,7 +10,11 @@ interface LeadCardProps {
 export function LeadCard({ lead, onClick, onDelete }: LeadCardProps) {
     const statusColors = {
         'New': 'bg-green-500/20 text-green-400 border-green-500/50',
+        'Pending': 'bg-blue-500/20 text-blue-400 border-blue-500/50',
         'Contacted': 'bg-yellow-500/20 text-yellow-400 border-yellow-500/50',
+        'Sold': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50',
+        'Backed Out': 'bg-red-500/20 text-red-400 border-red-500/50',
+        'On Hold': 'bg-orange-500/20 text-orange-400 border-orange-500/50',
         'Closed': 'bg-gray-500/20 text-gray-400 border-gray-500/50',
     };
 

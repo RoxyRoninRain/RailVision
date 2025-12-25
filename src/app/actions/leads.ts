@@ -281,15 +281,17 @@ export async function submitLead(formData: FormData) {
     return { success: true, warnings: uploadErrors };
 }
 
-export async function getOwnerLeads(): Promise<Lead[]> {
+
+
+export async function getOwnerLeads(limit: number = 100, statusFilter?: string): Promise<Lead[]> {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) return [];
 
-    console.log('[DEBUG] getOwnerLeads: Fetching leads.');
+    console.log(`[DEBUG] getOwnerLeads: Fetching leads. Limit: ${limit}, Status: ${statusFilter}`);
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('leads')
         .select(`
           id, created_at, email, customer_name, status, organization_id, generated_design_url, estimate_json, attachments,
@@ -297,7 +299,13 @@ export async function getOwnerLeads(): Promise<Lead[]> {
         `)
         .eq('organization_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(limit);
+
+    if (statusFilter && statusFilter !== 'All') {
+        query = query.eq('status', statusFilter);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
         console.error('Get Owner Leads Error:', error);
@@ -329,7 +337,7 @@ export async function getOwnerLeads(): Promise<Lead[]> {
     return leads;
 }
 
-export async function updateLeadStatus(leadId: string, status: 'New' | 'Contacted' | 'Closed') {
+export async function updateLeadStatus(leadId: string, status: Lead['status']) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -344,6 +352,29 @@ export async function updateLeadStatus(leadId: string, status: 'New' | 'Contacte
     if (error) {
         console.error('Update Status Error:', error);
         return { success: false, error: 'Database error' };
+    }
+
+    return { success: true };
+}
+
+export async function markLeadOpened(leadId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    // Only update to 'Pending' if currently 'New'
+    const { error } = await supabase
+        .from('leads')
+        .update({ status: 'Pending' })
+        .eq('id', leadId)
+        .eq('organization_id', user.id)
+        .eq('status', 'New');
+
+    if (error) {
+        // Ignore error if row doesn't match filter (already opened)
+        console.error('Mark Opened Error:', error);
+        return { success: false };
     }
 
     return { success: true };
