@@ -41,10 +41,26 @@ export async function generateDesign(formData: FormData) {
     const file = formData.get('image') as File;
     const style = formData.get('style') as string;
     const styleFile = formData.get('style_image') as File;
+    const styleId = formData.get('styleId') as string;
 
     if (!file || (!style && !styleFile)) {
         return { error: 'Missing image or style reference.' };
     }
+
+    // --- SECURITY VALIDATION ---
+    const { generationSchema } = await import('@/lib/validations');
+    const validationResult = generationSchema.safeParse({
+        style,
+        styleId: styleId || undefined, // undefined if empty string to allow optional check
+        style_url: formData.get('style_url') || undefined,
+        organization_id: formData.get('organization_id') || undefined
+    });
+
+    if (!validationResult.success) {
+        const errorMsg = (validationResult.error as any).errors.map((e: any) => e.message).join(', ');
+        return { error: `Invalid Request: ${errorMsg}` };
+    }
+    // ---------------------------
 
     // --- METERED BILLING LOGIC (START) ---
     const supabase = await createClient();

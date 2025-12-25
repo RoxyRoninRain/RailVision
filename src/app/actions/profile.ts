@@ -64,54 +64,68 @@ export async function updateProfile(formData: FormData) {
 
     if (!user) return { error: 'Not authenticated' };
 
-    const shop_name = formData.get('shop_name') as string;
-    const phone = formData.get('phone') as string;
-    const address = formData.get('address') as string;
-    const primary_color = formData.get('primary_color') as string;
-    const tool_background_color = formData.get('tool_background_color') as string;
-    const logo_size = formData.get('logo_size') ? Number(formData.get('logo_size')) : null;
-    const logo_url = formData.get('logo_url') as string; // From client upload
-    const watermark_logo_url = formData.get('watermark_logo_url') as string;
-    const website = formData.get('website') as string;
-    const address_zip = formData.get('address_zip') as string;
-    const confirmation_email_body = formData.get('confirmation_email_body') as string;
-    const travel_settings_raw = formData.get('travel_settings') as string;
+    // Extract raw data for validation
+    const rawData: any = {
+        shop_name: formData.get('shop_name') as string,
+        phone: formData.get('phone') as string,
+        address: formData.get('address') as string,
+        primary_color: formData.get('primary_color') as string,
+        tool_background_color: formData.get('tool_background_color') as string,
+        logo_url: formData.get('logo_url') as string, // Client upload URL
+        watermark_logo_url: formData.get('watermark_logo_url') as string,
+        website: formData.get('website') as string,
+        address_zip: formData.get('address_zip') as string,
+        confirmation_email_body: formData.get('confirmation_email_body') as string,
+        enable_overdrive: formData.get('enable_overdrive') === 'true' || formData.get('enable_overdrive') === 'on',
+    };
 
-    console.log('[DEBUG] updateProfile - User:', user.email);
-    console.log('[DEBUG] updateProfile - Website Input:', website);
-    console.log('[DEBUG] updateProfile - FormData Keys:', Array.from(formData.keys()));
+    // Number conversion
+    const logoSize = formData.get('logo_size');
+    if (logoSize) rawData.logo_size = Number(logoSize);
 
-    const updates: Partial<Profile> = {};
-    if (shop_name) updates.shop_name = shop_name;
-    if (phone) updates.phone = phone;
-    if (address) updates.address = address;
-    if (primary_color) updates.primary_color = primary_color;
-    if (tool_background_color) updates.tool_background_color = tool_background_color;
+    const maxSpend = formData.get('max_monthly_spend');
+    if (maxSpend !== null && maxSpend !== '') rawData.max_monthly_spend = Number(maxSpend);
+    else if (maxSpend === '') rawData.max_monthly_spend = null;
 
-    if (logo_size) updates.logo_size = logo_size;
-    if (logo_url) updates.logo_url = logo_url;
-    if (watermark_logo_url) updates.watermark_logo_url = watermark_logo_url;
-    if (website !== undefined) updates.website = website;
-    if (address_zip) updates.address_zip = address_zip;
-    if (confirmation_email_body !== undefined) updates.confirmation_email_body = confirmation_email_body;
-    if (travel_settings_raw) {
+    // JSON Parsing
+    const travelSettingsRaw = formData.get('travel_settings') as string;
+    if (travelSettingsRaw) {
         try {
-            updates.travel_settings = JSON.parse(travel_settings_raw);
+            rawData.travel_settings = JSON.parse(travelSettingsRaw);
         } catch (e) {
             console.error('Invalid travel_settings JSON', e);
         }
     }
 
-    // Metered Pricing Updates
-    const enable_overdrive = formData.get('enable_overdrive');
-    if (enable_overdrive !== null) { // Check purely for presence if checkbox logic varies, but usually boolean fields sent as string 'true' or 'on'
-        updates.enable_overdrive = enable_overdrive === 'true' || enable_overdrive === 'on';
+    // --- ZOD VALIDATION ---
+    const { profileSchema } = await import('@/lib/validations');
+    const result = profileSchema.safeParse(rawData);
+
+    if (!result.success) {
+        const errorMsg = (result.error as any).errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ');
+        return { error: `Validation Failed: ${errorMsg}` };
     }
 
-    const max_monthly_spend = formData.get('max_monthly_spend');
-    if (max_monthly_spend !== null) {
-        updates.max_monthly_spend = max_monthly_spend === '' ? null : Number(max_monthly_spend);
-    }
+    const val = result.data;
+
+    // Construct updates object from VALIDATED data
+    const updates: Partial<Profile> = {};
+    if (val.shop_name !== undefined) updates.shop_name = val.shop_name;
+    if (val.phone !== undefined) updates.phone = val.phone;
+    if (val.address !== undefined) updates.address = val.address;
+    if (val.primary_color !== undefined) updates.primary_color = val.primary_color;
+    if (val.tool_background_color !== undefined) updates.tool_background_color = val.tool_background_color;
+    if (val.logo_size !== undefined) updates.logo_size = val.logo_size;
+    if (val.logo_url !== undefined) updates.logo_url = val.logo_url;
+    if (val.watermark_logo_url !== undefined) updates.watermark_logo_url = val.watermark_logo_url;
+    if (val.website !== undefined) updates.website = val.website;
+    if (val.address_zip !== undefined) updates.address_zip = val.address_zip;
+    if (val.confirmation_email_body !== undefined) updates.confirmation_email_body = val.confirmation_email_body;
+    if (val.travel_settings !== undefined) updates.travel_settings = val.travel_settings;
+    if (val.enable_overdrive !== undefined) updates.enable_overdrive = val.enable_overdrive;
+    if (val.max_monthly_spend !== undefined) updates.max_monthly_spend = val.max_monthly_spend;
+
+
 
     const upsertData: any = {
         id: user.id,

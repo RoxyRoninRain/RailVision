@@ -1,81 +1,60 @@
-# Handoff Guide for RailVision (Railify)
+# Security Audit Handover
 
-## Overview
-RailVision (rebranded to **Railify**) is a B2B SaaS platform for metal fabrication shops. It allows shop owners ("Tenants") to embed a high-end AI visualizer on their website.
-- **Visualizer Tool**: Visitors upload a photo of their stairs/deck and visualize different handrail styles.
-- **Tenant Dashboard**: Shop owners manage their leads (people who used the tool), configure their branding, and manage the styles available in the visualizer carousel.
-- **Admin Dashboard**: Super Admins manage tenants and global AI prompts.
+**Role**: Senior Security Engineer & Full Stack Developer
+**Project**: Railify (Next.js 14, Supabase, Stripe, Resend)
+**Status**: Pre-launch (Golden Master candidate)
 
-## Technology Stack
-- **Frontend**: Next.js 14+ (App Router), TypeScript, Tailwind CSS, Framer Motion.
-- **Backend/Db**: Supabase (Auth, PostgreSQL, Storage, Row Level Security).
-- **AI/ML**: 
-    - **Google Vertex AI (Gemini 3.0 Pro / "Nano Banana")**: Used for both image analysis and generation.
-    - **Actions**: `src/app/actions.ts` contains the core server actions for generation.
+## Objective
+Perform a comprehensive security audit of the entire stack to ensure the application is launch-ready, secure against common attacks, and protected against IP theft.
 
-## Core Features & Logic
+## Context
+- **Middleware**: Currently `src/middleware.ts` appears to be disabled/missing (`src/middleware.ts.disabled` exists). This is a **CRITICAL** area to investigate.
+- **CI/CD**: No GitHub Actions (`.github` directory missing).
+- **Environment**: Next.js App Router, hosted on Vercel. Database on Supabase.
 
-### 1. Design Studio (The Visualizer)
-- **File**: `src/app/DesignStudio.tsx`
-- **Location**: Root path `/` (Publicly accessible).
-- **Core Pages**:
-    - **Landing (`/`)**: "Hook & Filter" strategy with "ROI/Cost of Inaction" copy. Features "How it Works" (Removed), Features Grid, and Pricing.
-    - **Contact (`/contact`)**: Lead capture form sending to `railifyai@gmail.com`.
-    - **Legal (`/privacy`, `/terms`)**: Boilerplate compliance pages.
-- **Logic**:
-    - Users upload a "Scene" (their stairs).
-    - Users select a "Style" (from the carousel).
-        - **Presets**: Industrial, Modern, etc. (Default images).
-        - **Custom**: Tenants can upload their own portfolio images.
-    - **Generation**: The app calls `generateDesign` (Server Action).
-    - **CRITICAL**: The generated Prompt combines:
-        1. A "System Instruction" (from Admin DB).
-        2. A "User Template" (from Admin DB).
-        3. The visual data of the **User's Scene**.
-        4. The visual data of the **Selected Style** (we explicitly fetch the style image URL and pass it to the model so it can "see" the reference).
+## Audit Checklist
 
-### 2. Portfolio Management (Carousel Sync)
-- **Role**: Tenants manage the images shown in the Visualizer Carousel.
-- **File**: `src/app/dashboard/styles/StylesManager.tsx`
-- **Logic**:
-    - Styles are stored in the `portfolio` table in Supabase.
-    - New tenants are auto-seeded with 5 default styles.
-    - Tenants can "Hide" or "Delete" defaults and upload their own.
-    - The `DesignStudio` component automatically fetches the tenant's specific styles based on the URL or logged-in session.
+### 1. Codebase & Application Security
+- [ ] **Middleware & Auth**:
+    - Re-enable and configure `middleware.ts` to protect private routes.
+    - Ensure `supabase-ssr` is correctly handling session refreshing.
+    - Validate that strictly authenticated routes return 401/403 for unauthenticated users.
+- [ ] **Data Validation**:
+    - Verify all Server Actions (`src/app/actions`) use Zod (or equivalent) for input sanitization.
+    - Check for SQL injection vulnerabilities (ensure we aren't using raw SQL strings with user input).
+- [ ] **API Security**:
+    - Verify Stripe Webhooks verify signatures (already implemented, but double-check error handling).
+    - Rate Limiting: Is there protection against DDoW/Brute force? (Consider `@vercel/kv` or Upstash).
 
-### 3. Prompt Management
-- **Role**: Admins fine-tune the AI's behavior without code changes.
-- **File**: `src/app/admin/prompts/page.tsx`
-- **Logic**:
-    - Prompts are stored in the `system_prompts` table.
-    - Key prompt: `gemini-handrail-main`.
-    - Modify the "System Instruction" (Persona/Role) and "User Template" (Task) here to improve output quality.
-    
-### 4. Analytics
-- **Generations Tracking**: Every AI generation is logged in the `generations` table with `image_url` (base64/path), `prompt_used`, and `style_id`.
-- **Admin Stats**: The Admin Dashboard connects to this table to show accurate usage metrics.
+### 2. Database (Supabase)
+- [ ] **Row Level Security (RLS)**:
+    - Audit **ALL** tables. Ensure no table has RLS disabled.
+    - Verify policies are not overly permissive (e.g., `true` for `update`).
+    - Specifically check `profiles`, `subscriptions`, and any sensitive user data.
+- [ ] **Access Control**:
+    - Ensure `service_role` key is **NEVER** exposed to the client.
+    - Check if "Expose schema" is enabled for schemas other than `public`.
 
-## Instructions for the Next Agent
+### 3. Infrastructure & Platform
+- [ ] **Vercel**:
+    - Review `next.config.ts` for Security Headers (Content-Security-Policy, X-Frame-Options, X-Content-Type-Options).
+    - Ensure "Attack Challenge Mode" or Firewall rules are considered for login pages.
+- [ ] **GitHub**:
+    - Setup Branch Protection rules (require PR review, strict status checks).
+    - Enable Dependabot for vulnerability scanning.
+    - **IP Protection**: Add a license file (e.g., proprietary/closed source) to the repo root.
+- [ ] **Google Cloud / Vertex AI** (if used):
+    - Ensure API keys are restricted to specific domains/IPs.
+    - Verify OAuth consent screen settings if applicable.
 
-### Your Mission
-Your primary goal is to **Analyze and Fine-Tune the AI Prompts** to achieve photorealistic, architecturally accurate results that strictly adhere to the uploaded geometry while applying the new style.
+## Deliverables
+1.  **Security Audit Report**: A markdown document listing identified vulnerabilities categorized by severity (Critical, High, Medium, Low).
+2.  **Fix Implementation**:
+    - Re-enable/Fix `middleware.ts`.
+    - Apply missing RLS policies.
+    - Add security headers to `next.config.ts`.
+3.  **Final Verification**: Proof that the app is secure (e.g., "I tried to access /dashboard without login and was redirected").
 
-### Resources
-- **Admin Dashboard**: `/admin/prompts` (Use this to edit prompts live).
-- **Files to Study**: 
-    - `src/lib/vertex.ts` (How we call Google Vertex AI).
-    - `src/app/actions.ts` (How we construct the payload).
-
-### Best Practices for Gemini 3.0 ("Nano Banana")
-1.  **Multi-Modal Inputs**: We are already sending both the Scene Image and the Style Image. Your prompts should explicitly refer to them (e.g., "Analyze the geometry in Image A and apply the texture from Image B").
-2.  **Chain of Thought**: Encourage the model to "Plan" before generating. (e.g., "First, identify the vanishing points. Second, mask the handrail area...").
-3.  **Persona**: Use a strong persona (e.g., "World-class Architectural Visualizer").
-4.  **Negative Prompting**: Explicitly list what to avoid (e.g., "Do not alter the stairs geometry", "Do not add background noise").
-
-### Workflow for You
-1.  Read the current prompt in the Admin Dashboard.
-2.  Test the tool with various difficult angles (stairs, decks).
-3.  Iterate on the prompt in the Admin Dashboard.
-4.  Create a guide/document with your findings, successful prompt patterns, and "before/after" examples.
-
-**Good luck! Build something magical.**
+**"I need to make sure I can't be attacked or copied."**
+- **Attacked**: Focus on RLS, Input Validation, and DDoS protection.
+- **Copied**: Focus on Legal (License), Code Obfuscation (Client-side, though difficult), and robust Terms of Service.
