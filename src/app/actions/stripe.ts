@@ -79,6 +79,15 @@ export async function createCheckoutSession(tierName: TierName) {
         });
     }
 
+    // Add Metered Price (Overage Tracker) if configured
+    if (tier.stripeMeteredPriceId) {
+        lineItems.push({
+            price: tier.stripeMeteredPriceId,
+            // For metered prices, we usually don't verify quantity 1, 
+            // but Stripe requires us to subscribe to the price to start tracking.
+        });
+    }
+
     // 5. Create Checkout Session
     const session = await stripe.checkout.sessions.create({
         customer: customerId,

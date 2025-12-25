@@ -13,6 +13,7 @@ export interface PricingTier {
     popular?: boolean;
     stripePriceId?: string;
     stripeOnboardingPriceId?: string;
+    stripeMeteredPriceId?: string;
 }
 
 export const PRICING_TIERS: Record<TierName, PricingTier> = {
@@ -26,8 +27,9 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         canEmbed: false,
         isWhiteLabel: false,
         features: ['Dashboard Access Only', 'Standard Processing'],
-        stripePriceId: 'price_1ShxQuCq2ZiMFYWGfAFXEFlJ',
-        stripeOnboardingPriceId: 'price_1ShxQuCq2ZiMFYWGQu6cmxRb'
+        stripePriceId: 'price_1Si37QEJNh6NAPEX9hQtVCAH',
+        stripeOnboardingPriceId: 'price_1Si37QEJNh6NAPEXqosKo482',
+        stripeMeteredPriceId: 'price_1Si3UKEJNh6NAPEXPesKmVsW'
     },
     'The Shop': {
         name: 'The Shop',
@@ -39,8 +41,9 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         canEmbed: true,
         isWhiteLabel: false,
         features: ['Embed on your site', 'Powered by Railify Badge', 'Standard Processing'],
-        stripePriceId: 'price_1ShxUxCq2ZiMFYWGZpBOgZ8s',
-        stripeOnboardingPriceId: 'price_1ShxUxCq2ZiMFYWGy1WnHIVQ'
+        stripePriceId: 'price_1Si3B5EJNh6NAPEXrPkcLG6p',
+        stripeOnboardingPriceId: 'price_1Si3B5EJNh6NAPEXB7YDphCE',
+        stripeMeteredPriceId: 'price_1Si3TrEJNh6NAPEXwx8g4R5V'
     },
     'The Pro': {
         name: 'The Pro',
@@ -53,8 +56,9 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         isWhiteLabel: true,
         popular: true,
         features: ['Embed on your site', 'Your Logo Watermark', 'Standard Processing'],
-        stripePriceId: 'price_1ShxZYCq2ZiMFYWGbl4eh9um',
-        stripeOnboardingPriceId: 'price_1ShxZYCq2ZiMFYWGXPiTvif0'
+        stripePriceId: 'price_1Si3CtEJNh6NAPEXkl4D5OiW',
+        stripeOnboardingPriceId: 'price_1Si3CtEJNh6NAPEXdDM5TLiS',
+        stripeMeteredPriceId: 'price_1Si3TFEJNh6NAPEXJ2url4ce'
     },
     'The Volume': {
         name: 'The Volume',
@@ -66,8 +70,9 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         canEmbed: true,
         isWhiteLabel: true,
         features: ['Embed on your site', 'Your Logo Watermark', 'Priority Processing'],
-        stripePriceId: 'price_1ShxdICq2ZiMFYWGhfaxaqtY',
-        stripeOnboardingPriceId: 'price_1ShxdICq2ZiMFYWGvBURRh21'
+        stripePriceId: 'price_1Si3PLEJNh6NAPEXJ8WVTNE3',
+        stripeOnboardingPriceId: 'price_1Si3PLEJNh6NAPEXryKTBmdp',
+        stripeMeteredPriceId: 'price_1Si3PLEJNh6NAPEXnlbAf0id'
     },
     'The Industrial': {
         name: 'The Industrial',
@@ -79,7 +84,8 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         canEmbed: true,
         isWhiteLabel: true,
         features: ['Embed on your site', 'Your Logo Watermark', 'Dedicated Support', 'Priority Processing'],
-        stripePriceId: 'price_1ShxfwCq2ZiMFYWGl0j7GBVL'
+        stripePriceId: 'price_1Si3EfEJNh6NAPEXSAqHORxt',
+        stripeMeteredPriceId: 'price_1Si3SMEJNh6NAPEXKRyMif8W'
     },
     'The Unlimited': {
         name: 'The Unlimited',

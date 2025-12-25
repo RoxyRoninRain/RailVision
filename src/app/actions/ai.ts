@@ -145,7 +145,20 @@ export async function generateDesign(formData: FormData) {
         isOverage = true;
         overageCost = tier.overageRate;
         transactionOverageCount = 1;
-        console.log(`[BILLING] Overdrive Active. Usage: ${currentUsage}. Charge: $${overageCost}.`);
+
+        // Report Usage to Stripe
+        try {
+            if (profileIdToBill) {
+                const { reportUsage } = await import('@/app/actions/stripe');
+                await reportUsage(profileIdToBill, 1);
+                console.log(`[BILLING] Overdrive Active. Reported usage +1 to Stripe for user ${profileIdToBill}.`);
+            }
+        } catch (err) {
+            console.error('[BILLING] Failed to report usage to Stripe:', err);
+            // We continue execution; don't block the user generation for a billing glitch, 
+            // but strictly we might want to? For now, fail open or soft block?
+            // Since we have local pending_overage_balance tracking, we are okay to proceed.
+        }
     }
 
     // 3. Threshold Billing Logic
