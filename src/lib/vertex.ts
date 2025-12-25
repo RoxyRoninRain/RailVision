@@ -1,8 +1,9 @@
-import type { VertexAI } from '@google-cloud/vertexai';
+// STRICT LAZY LOAD: Do NOT import types from @google-cloud/vertexai at top level
+// This prevents the build system from trying to resolve the module during static analysis.
 
-// Singleton instances
-let vertexAI: VertexAI | null = null;
-let vertexAIGlobal: VertexAI | null = null;
+// Singleton instances (typed as any to avoid top-level import)
+let vertexAI: any = null;
+let vertexAIGlobal: any = null;
 let routerModel: any = null;
 let imagenModel: any = null;
 
@@ -12,7 +13,7 @@ async function loadVertexAI() {
     return VertexAI;
 }
 
-export async function getVertexClient(isGlobal = false): Promise<VertexAI> {
+export async function getVertexClient(isGlobal = false): Promise<any> {
     const VertexAIConstructor = await loadVertexAI();
 
     if (isGlobal) {

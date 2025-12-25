@@ -99,7 +99,8 @@ export async function generateExperimentalDesign(formData: FormData) {
                 console.log('[Step 2] Gemini 3 response received.');
 
                 const candidates = demolitionResult.response.candidates;
-                const imagePart = candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+                // @ts-ignore
+                const imagePart = candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
 
                 if (imagePart?.inlineData) {
                     const imgPart = imagePart.inlineData;
@@ -107,7 +108,7 @@ export async function generateExperimentalDesign(formData: FormData) {
                     steps.step2 = { status: 'complete', image: `data:${imgPart.mimeType};base64,${imgPart.data}` };
                     console.log('[Step 2] Demolition successful.');
                 } else {
-                    const textPart = candidates?.[0]?.content?.parts?.map(p => p.text).join(' ') || 'Unknown';
+                    const textPart = candidates?.[0]?.content?.parts?.map((p: any) => p.text).join(' ') || 'Unknown';
                     console.warn('[Step 2] No image returned. Model Output:', textPart);
                     steps.step2 = { status: 'failed', image: null };
                 }
@@ -152,14 +153,15 @@ export async function generateExperimentalDesign(formData: FormData) {
         const constructionResult = await constructionModel.generateContent(constructionRequest);
         const finalList_candidates = constructionResult.response.candidates;
 
-        const finalImagePart = finalList_candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+        // @ts-ignore
+        const finalImagePart = finalList_candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData);
 
         if (finalImagePart?.inlineData) {
             const imgPart = finalImagePart.inlineData;
             steps.step3 = { status: 'complete', image: `data:${imgPart.mimeType};base64,${imgPart.data}` };
             console.log('[Step 3] Final design generated.');
         } else {
-            const textPart = finalList_candidates?.[0]?.content?.parts?.map(p => p.text).join(' ') || 'Unknown';
+            const textPart = finalList_candidates?.[0]?.content?.parts?.map((p: any) => p.text).join(' ') || 'Unknown';
             console.error('[Step 3] Failed to generate image. Model Output:', textPart);
             steps.step3 = { status: 'failed', image: null };
         }
