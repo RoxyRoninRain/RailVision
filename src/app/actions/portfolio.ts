@@ -10,6 +10,23 @@ export async function createStyle(formData: FormData) {
 
     if (!user) return { error: 'Not authenticated' };
 
+    // --- ADMIN OVERRIDE ---
+    const adminTenantId = formData.get('admin_tenant_id') as string;
+    let targetTenantId = user.id;
+    let actingSupabase = supabase;
+
+    if (adminTenantId) {
+        const { checkIsAdmin } = await import('@/lib/auth-utils');
+        const isAdmin = await checkIsAdmin();
+        if (!isAdmin) return { error: 'Unauthorized Admin Access' };
+
+        targetTenantId = adminTenantId;
+        const { createAdminClient } = await import('@/lib/supabase/admin');
+        const adminClient = createAdminClient();
+        if (adminClient) actingSupabase = adminClient;
+    }
+    // ----------------------
+
     // 1. Validate Files
     // Support legacy 'file' or new 'files' keys
     const files = formData.getAll('files') as File[];
@@ -47,9 +64,9 @@ export async function createStyle(formData: FormData) {
             }
 
             const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const fileName = `${targetTenantId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-            const { error: uploadError } = await supabase.storage
+            const { error: uploadError } = await actingSupabase.storage
                 .from('portfolio')
                 .upload(fileName, file, { contentType: file.type, upsert: false });
 
@@ -58,7 +75,7 @@ export async function createStyle(formData: FormData) {
                 return { error: 'Upload failed for ' + file.name };
             }
 
-            const { data: publicUrlData } = supabase.storage.from('portfolio').getPublicUrl(fileName);
+            const { data: publicUrlData } = actingSupabase.storage.from('portfolio').getPublicUrl(fileName);
             galleryUrls.push(publicUrlData.publicUrl);
         }
     }
@@ -74,24 +91,24 @@ export async function createStyle(formData: FormData) {
     const hiddenRefs = galleryUrls.slice(1);
 
     // Get current max display_order
-    const { data: maxOrderData } = await supabase
+    const { data: maxOrderData } = await actingSupabase
         .from('portfolio')
         .select('display_order')
-        .eq('tenant_id', user.id)
+        .eq('tenant_id', targetTenantId)
         .order('display_order', { ascending: false })
         .limit(1)
         .single();
 
     const nextOrder = (maxOrderData?.display_order ?? 0) + 1;
 
-    const { data, error: dbError } = await supabase
+    const { data, error: dbError } = await actingSupabase
         .from('portfolio')
         .insert({
             name,
             description: desc,
             image_url: mainImage,
             reference_images: hiddenRefs,
-            tenant_id: user.id,
+            tenant_id: targetTenantId,
             is_active: true,
             price_per_ft_min: priceMin,
             price_per_ft_max: priceMax,
@@ -117,8 +134,25 @@ export async function updateStyle(formData: FormData) {
     const styleId = formData.get('id') as string;
     if (!styleId) return { error: 'Style ID required' };
 
+    // --- ADMIN OVERRIDE ---
+    const adminTenantId = formData.get('admin_tenant_id') as string;
+    let targetTenantId = user.id;
+    let actingSupabase = supabase;
+
+    if (adminTenantId) {
+        const { checkIsAdmin } = await import('@/lib/auth-utils');
+        const isAdmin = await checkIsAdmin();
+        if (!isAdmin) return { error: 'Unauthorized Admin Access' };
+
+        targetTenantId = adminTenantId;
+        const { createAdminClient } = await import('@/lib/supabase/admin');
+        const adminClient = createAdminClient();
+        if (adminClient) actingSupabase = adminClient;
+    }
+    // ----------------------
+
     // 1. Handle Main Image Replace (Optional)
-    // 1. Handle Main Image
+
     // Check for direct URL first
     const directMainUrl = formData.get('image_url') as string;
 
@@ -133,9 +167,9 @@ export async function updateStyle(formData: FormData) {
         }
 
         const fileExt = file.name.split('.').pop();
-        const fileName = `${user.id}/${Date.now()}_update_main_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const fileName = `${targetTenantId}/${Date.now()}_update_main_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
-        const { error: uploadError } = await supabase.storage
+        const { error: uploadError } = await actingSupabase.storage
             .from('portfolio')
             .upload(fileName, file, { contentType: file.type, upsert: false });
 
@@ -144,7 +178,7 @@ export async function updateStyle(formData: FormData) {
             return { error: 'Main image upload failed' };
         }
 
-        const { data: publicUrlData } = supabase.storage.from('portfolio').getPublicUrl(fileName);
+        const { data: publicUrlData } = actingSupabase.storage.from('portfolio').getPublicUrl(fileName);
         mainImage = publicUrlData.publicUrl;
     }
 
@@ -153,7 +187,6 @@ export async function updateStyle(formData: FormData) {
     const referenceFiles = formData.getAll('reference_files') as File[];
     const newRefUrls: string[] = [];
 
-    // 2. Handle Reference Images (New Uploads)
     // Check for direct URLs for new refs
     const directNewRefUrlsJson = formData.get('new_reference_urls') as string;
 
@@ -162,47 +195,37 @@ export async function updateStyle(formData: FormData) {
         newRefUrls.push(...refs);
     }
 
-    // Legacy fallback (should we keep it? yes for safety)
+    // Legacy fallback
     if (referenceFiles && referenceFiles.length > 0) {
         for (const refFile of referenceFiles) {
             if (refFile.size > 5 * 1024 * 1024) continue; // Skip large files or handle error
             const ext = refFile.name.split('.').pop();
-            const refName = `${user.id}/${Date.now()}_ref_${Math.random().toString(36).substring(7)}.${ext}`;
+            const refName = `${targetTenantId}/${Date.now()}_ref_${Math.random().toString(36).substring(7)}.${ext}`;
 
-            const { error: refErr } = await supabase.storage
+            const { error: refErr } = await actingSupabase.storage
                 .from('portfolio')
                 .upload(refName, refFile, { contentType: refFile.type, upsert: false });
 
             if (!refErr) {
-                const { data: pubData } = supabase.storage.from('portfolio').getPublicUrl(refName);
+                const { data: pubData } = actingSupabase.storage.from('portfolio').getPublicUrl(refName);
                 newRefUrls.push(pubData.publicUrl);
             }
         }
     }
 
     // 3. Handle Existing Reference Images (Preservation)
-    // Client sends 'kept_reference_urls' (JSON array) containing the OLD urls they want to keep.
-    // If not provided, we assume NO changes to existing list? 
-    // Or simpler: We assume 'kept_reference_urls' contains the list of *existing* images to keep.
-    // We combine kept + new.
     let finalRefList: string[] | undefined = undefined;
     const keptRefsJson = formData.get('kept_reference_urls') as string;
 
     if (keptRefsJson || newRefUrls.length > 0) {
         const keptRefs = keptRefsJson ? JSON.parse(keptRefsJson) : [];
 
-        // However, if the client DID NOT send kept_reference_urls, does it mean "keep all" or "delete all"?
-        // Safe bet: If 'kept_reference_urls' is NOT present, we DO NOT touch the existing list (unless we want to purely append).
-        // But if we want to support deletion, we MUST send the list.
-        // Let's enforce: If you want to modify references, send 'kept_reference_urls' (empty if clearing all).
-        // If undefined, we append new ones to the DB's current list (requires fetch).
-
         if (keptRefsJson !== null) {
             // Explicit list provided
             finalRefList = [...keptRefs, ...newRefUrls];
         } else {
             // Just append mode (fetch existing first)
-            const { data: currentStyle } = await supabase.from('portfolio').select('reference_images').eq('id', styleId).single();
+            const { data: currentStyle } = await actingSupabase.from('portfolio').select('reference_images').eq('id', styleId).single();
             const currentRefs = currentStyle?.reference_images || [];
             finalRefList = [...currentRefs, ...newRefUrls];
         }
@@ -222,11 +245,11 @@ export async function updateStyle(formData: FormData) {
     if (mainImage) updates.image_url = mainImage;
     if (finalRefList !== undefined) updates.reference_images = finalRefList;
 
-    const { error: dbError } = await supabase
+    const { error: dbError } = await actingSupabase
         .from('portfolio')
         .update(updates)
         .eq('id', styleId)
-        .eq('tenant_id', user.id);
+        .eq('tenant_id', targetTenantId);
 
     if (dbError) {
         console.error('DB Update Error:', dbError);
@@ -286,30 +309,36 @@ export async function deleteStyle(styleId: string) {
 
     if (!user) return { error: 'Not authenticated' };
 
-    // Get style to find image path (optional cleanup, but good practice)
-    const { data: style } = await supabase
-        .from('portfolio')
-        .select('image_url')
-        .eq('id', styleId)
-        .eq('tenant_id', user.id)
-        .single();
+    // --- ADMIN CHECK ---
+    let actingSupabase = supabase;
 
-    if (style) {
-        // Extract path from URL if needed, or just delete row.
-        // For now, just delete row. Storage cleanup can be a separate cron or trigger.
+    // Check if user owns it
+    const { count } = await supabase.from('portfolio').select('id', { count: 'exact', head: true }).eq('id', styleId).eq('tenant_id', user.id);
+
+    if (count === 0) {
+        // Not owner. Check Admin.
+        const { checkIsAdmin } = await import('@/lib/auth-utils');
+        const isAdmin = await checkIsAdmin();
+        if (isAdmin) {
+            const { createAdminClient } = await import('@/lib/supabase/admin');
+            const adminClient = createAdminClient();
+            if (adminClient) {
+                actingSupabase = adminClient;
+            }
+        } else {
+            return { error: 'Unauthorized or Style not found' };
+        }
     }
 
-    const { error } = await supabase
+    const { error } = await actingSupabase
         .from('portfolio')
         .delete()
-        .eq('id', styleId)
-        .eq('tenant_id', user.id);
+        .eq('id', styleId);
 
     if (error) return { error: error.message };
     return { success: true };
 }
 
-// Enhanced fetch for debugging
 export async function getTenantStyles(tenantId?: string) {
     const supabase = await createClient();
     let targetTenantId = tenantId;
@@ -377,10 +406,6 @@ export async function getPublicStyles(tenantId: string) {
 }
 
 export async function getStyles(tenantId?: string) {
-    // Since getStyles is used in public visualizer, we likely need public access.
-    // But createClient() in server actions usually has full access or user context.
-    // For public visualizer (unauthenticated visitor), createClient() follows RLS for anon.
-    // We need to ensure 'portfolio' table has PUBLIC SELECT policy for tenant_id rows.
     const supabase = await createClient();
     const { data } = await supabase
         .from('portfolio')

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getTenantDetails, updateSubscriptionStatus } from '@/app/admin/actions';
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, ExternalLink, Palette } from 'lucide-react';
 import Link from 'next/link';
 
 export default function TenantShadowPage() {
@@ -126,6 +126,56 @@ export default function TenantShadowPage() {
                             >
                                 Contact Owner
                             </a>
+                        </div>
+                    </div>
+
+                    <div className="bg-[#111] border border-white/10 rounded-lg p-6">
+                        <h3 className="text-sm font-mono text-gray-500 uppercase tracking-widest mb-4">Storage Access</h3>
+                        <div className="space-y-3">
+                            {(() => {
+                                const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+                                // Robust extraction: https://xyz.supabase.co -> xyz
+                                const projectRef = supabaseUrl.replace('https://', '').split('.')[0];
+                                const baseUrl = `https://supabase.com/dashboard/project/${projectRef}/storage/buckets`;
+
+                                return (
+                                    <>
+                                        <a
+                                            href={`${baseUrl}/logos?path=${id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-center gap-2 w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-gray-300 rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors"
+                                        >
+                                            <ExternalLink size={14} /> View Logos
+                                        </a>
+                                        <a
+                                            href={`${baseUrl}/quote-uploads?path=${id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-center gap-2 w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-gray-300 rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors"
+                                        >
+                                            <ExternalLink size={14} /> View Quote Files
+                                        </a>
+                                        <a
+                                            href={`${baseUrl}/tenant-assets?path=${id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center justify-center gap-2 w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-gray-300 rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors"
+                                        >
+                                            <ExternalLink size={14} /> View Onboarding Assets
+                                        </a>
+
+                                        <div className="pt-4 mt-4 border-t border-white/10">
+                                            <Link
+                                                href={`/admin/tenants/${id}/styles`}
+                                                className="flex items-center justify-center gap-2 w-full bg-[var(--primary)] text-black hover:brightness-110 border border-[var(--primary)] rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors"
+                                            >
+                                                <Palette size={14} /> Manage Tenant Styles
+                                            </Link>
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
