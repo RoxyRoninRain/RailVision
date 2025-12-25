@@ -342,15 +342,37 @@ export async function deleteStyle(styleId: string) {
 export async function getTenantStyles(tenantId?: string) {
     const supabase = await createClient();
     let targetTenantId = tenantId;
+    let actingSupabase = supabase;
+
+    // Resolve User
+    const { data: { user } } = await supabase.auth.getUser();
 
     if (!targetTenantId) {
-        const { data: { user } } = await supabase.auth.getUser();
         if (user) targetTenantId = user.id;
     }
 
     if (!targetTenantId) return { data: [], error: 'No tenant ID found' };
 
-    const { data, error } = await supabase
+    // --- ADMIN OVERRIDE ---
+    // If asking for a different tenant, check Admin privileges
+    if (user && targetTenantId !== user.id) {
+        try {
+            const { checkIsAdmin } = await import('@/lib/auth-utils');
+            const isAdmin = await checkIsAdmin();
+
+            if (isAdmin) {
+                const { createAdminClient } = await import('@/lib/supabase/admin');
+                const adminClient = createAdminClient();
+                if (adminClient) actingSupabase = adminClient;
+            }
+        } catch (e) {
+            console.warn("Admin check failed in getTenantStyles", e);
+            // Fall through to standard client (which will likely return empty via RLS)
+        }
+    }
+    // ----------------------
+
+    const { data, error } = await actingSupabase
         .from('portfolio')
         .select('*')
         .eq('tenant_id', targetTenantId)
