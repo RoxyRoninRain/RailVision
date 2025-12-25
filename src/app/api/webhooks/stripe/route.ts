@@ -1,12 +1,15 @@
 import { headers } from 'next/headers';
-import Stripe from 'stripe';
-import { stripe } from '@/lib/stripe';
-import { supabase, adminSupabase } from '@/lib/supabase'; // Use admin client for DB updates
+import type Stripe from 'stripe';
+// import { stripe } from '@/lib/stripe';
+// import { supabase, adminSupabase } from '@/lib/supabase'; // Use admin client for DB updates
 
 // Force dynamic to prevent build-time static analysis execution attempts
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+    const { stripe } = await import('@/lib/stripe');
+    const { supabase, adminSupabase } = await import('@/lib/supabase');
+
     const body = await req.text();
     const signature = (await headers()).get('Stripe-Signature') as string;
 
