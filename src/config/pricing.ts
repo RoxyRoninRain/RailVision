@@ -41,7 +41,7 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         canEmbed: true,
         isWhiteLabel: false,
         features: ['Embed on your site', 'Powered by Railify Badge', 'Standard Processing'],
-        stripePriceId: 'price_1Si3B5EJNh6NAPEXrPkcLG6p',
+        stripePriceId: 'price_1Si3B5EJNh6NAPEXrPKcLG6p',
         stripeOnboardingPriceId: 'price_1Si3B5EJNh6NAPEXB7YDphCE',
         stripeMeteredPriceId: 'price_1Si3TrEJNh6NAPEXwx8g4R5V'
     },
