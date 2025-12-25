@@ -479,3 +479,33 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
         return { error: error.message };
     }
 }
+
+// STORAGE
+export async function listBucketFiles(bucket: string, path: string = '') {
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    try {
+        const { data, error } = await supabase
+            .storage
+            .from(bucket)
+            .list(path, {
+                limit: 100,
+                offset: 0,
+                sortBy: { column: 'name', order: 'asc' },
+            });
+
+        if (error) throw error;
+
+        // Generate public URLs for viewing
+        const dataWithUrls = data.map(file => {
+            const { data: { publicUrl } } = supabase.storage.from(bucket).getPublicUrl(`${path ? path + '/' : ''}${file.name}`);
+            return { ...file, publicUrl };
+        });
+
+        return { data: dataWithUrls };
+    } catch (error: any) {
+        console.error(`List Bucket (${bucket}) Failed:`, error);
+        return { error: error.message };
+    }
+}
