@@ -58,7 +58,7 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         features: ['Embed on your site', 'Your Logo Watermark', 'Standard Processing'],
         stripePriceId: 'price_1Si3CtEJNh6NAPEXkl4D5OiW',
         stripeOnboardingPriceId: 'price_1Si3CtEJNh6NAPEXdDM5TLiS',
-        stripeMeteredPriceId: 'price_1Si3TFEJNh6NAPEXJ2url4ce'
+        stripeMeteredPriceId: 'price_1Si3TFEJNh6NAPEXJ2urI4ce'
     },
     'The Volume': {
         name: 'The Volume',
