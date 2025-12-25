@@ -15,7 +15,7 @@ function cn(...inputs: (string | undefined | null | false)[]) {
 export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] }) {
     const [leads, setLeads] = useState<Lead[]>(initialLeads);
     const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
-    const [filterStatus, setFilterStatus] = useState<string>('All');
+    const [filterStatus, setFilterStatus] = useState<string>('Active');
     const [limit, setLimit] = useState<number>(10);
     const [loading, setLoading] = useState(false);
 
@@ -88,12 +88,26 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
                 </div>
                 <div className="flex items-center gap-3 flex-wrap">
                     {/* Filter Status */}
+
+                    <button
+                        onClick={() => setFilterStatus('Active')}
+                        className={cn(
+                            "px-4 py-2 text-sm font-medium rounded-md transition-colors font-mono uppercase tracking-widest text-xs",
+                            filterStatus === 'Active'
+                                ? "bg-[var(--primary)] text-black shadow-sm font-bold"
+                                : "bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-white"
+                        )}
+                    >
+                        Active Leads
+                    </button>
+
                     <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
                         className="bg-zinc-900 text-gray-300 border border-zinc-800 px-3 py-2 rounded text-xs font-mono uppercase focus:border-[var(--primary)] outline-none"
                     >
                         <option value="All">All Statuses</option>
+                        <option value="Active">Active (New/Pending)</option>
                         <option value="New">New</option>
                         <option value="Pending">Pending</option>
                         <option value="Contacted">Contacted</option>

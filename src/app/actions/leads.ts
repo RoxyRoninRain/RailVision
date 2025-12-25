@@ -302,7 +302,11 @@ export async function getOwnerLeads(limit: number = 100, statusFilter?: string):
         .limit(limit);
 
     if (statusFilter && statusFilter !== 'All') {
-        query = query.eq('status', statusFilter);
+        if (statusFilter === 'Active') {
+            query = query.in('status', ['New', 'Pending', 'Contacted']);
+        } else {
+            query = query.eq('status', statusFilter);
+        }
     }
 
     const { data, error } = await query;
