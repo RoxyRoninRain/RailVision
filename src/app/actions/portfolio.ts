@@ -5,27 +5,38 @@ import { createClient } from '@/lib/supabase/server';
 // --- Portfolio Actions ---
 
 export async function createStyle(formData: FormData) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { checkIsAdmin } = await import('@/lib/auth-utils');
+    const { getActingUser } = await import('@/lib/auth-context');
+
+    // Use the centralized acting user context
+    // This handles:
+    // 1. Regular User (acting as themselves)
+    // 2. Impersonating Admin (acting as target tenant via cookie)
+    // 3. Admin Override (legacy check for explicitly passed mismatching IDs can be handled below if strict mode is needed, but Impersonation is preferred)
+
+    let {
+        user,
+        tenantId: targetTenantId,
+        supabase: actingSupabase,
+        isImpersonating,
+        isAdmin
+    } = await getActingUser();
 
     if (!user) return { error: 'Not authenticated' };
 
-    // --- ADMIN OVERRIDE ---
-    const adminTenantId = formData.get('admin_tenant_id') as string;
-    let targetTenantId = user.id;
-    let actingSupabase = supabase;
-
-    if (adminTenantId) {
-        const { checkIsAdmin } = await import('@/lib/auth-utils');
-        const isAdmin = await checkIsAdmin();
+    // --- LEGACY/EXPLICIT ADMIN OVERRIDE CHECK ---
+    // If we are NOT impersonating via cookie, but an admin_tenant_id was passed in form,
+    // we should respect that for continuity with existing Admin UIs (non-impersonation mode)
+    const formAdminTenantId = formData.get('admin_tenant_id') as string;
+    if (!isImpersonating && formAdminTenantId && formAdminTenantId !== user.id) {
         if (!isAdmin) return { error: 'Unauthorized Admin Access' };
 
-        targetTenantId = adminTenantId;
+        targetTenantId = formAdminTenantId;
         const { createAdminClient } = await import('@/lib/supabase/admin');
         const adminClient = createAdminClient();
         if (adminClient) actingSupabase = adminClient;
     }
-    // ----------------------
+    // ------------------------------------------
 
     // 1. Validate Files
     // Support legacy 'file' or new 'files' keys
@@ -126,30 +137,33 @@ export async function createStyle(formData: FormData) {
 }
 
 export async function updateStyle(formData: FormData) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) return { error: 'Not authenticated' };
+    const { checkIsAdmin } = await import('@/lib/auth-utils');
+    const { getActingUser } = await import('@/lib/auth-context');
 
     const styleId = formData.get('id') as string;
     if (!styleId) return { error: 'Style ID required' };
 
-    // --- ADMIN OVERRIDE ---
-    const adminTenantId = formData.get('admin_tenant_id') as string;
-    let targetTenantId = user.id;
-    let actingSupabase = supabase;
+    let {
+        user,
+        tenantId: targetTenantId,
+        supabase: actingSupabase,
+        isImpersonating,
+        isAdmin
+    } = await getActingUser();
 
-    if (adminTenantId) {
-        const { checkIsAdmin } = await import('@/lib/auth-utils');
-        const isAdmin = await checkIsAdmin();
+    if (!user) return { error: 'Not authenticated' };
+
+    // --- LEGACY/EXPLICIT ADMIN OVERRIDE CHECK ---
+    const formAdminTenantId = formData.get('admin_tenant_id') as string;
+    if (!isImpersonating && formAdminTenantId && formAdminTenantId !== user.id) {
         if (!isAdmin) return { error: 'Unauthorized Admin Access' };
 
-        targetTenantId = adminTenantId;
+        targetTenantId = formAdminTenantId;
         const { createAdminClient } = await import('@/lib/supabase/admin');
         const adminClient = createAdminClient();
         if (adminClient) actingSupabase = adminClient;
     }
-    // ----------------------
+    // ------------------------------------------
 
     // 1. Handle Main Image Replace (Optional)
 
@@ -304,31 +318,36 @@ export async function seedDefaultStyles() {
 }
 
 export async function deleteStyle(styleId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase, isAdmin, isImpersonating } = await getActingUser();
 
     if (!user) return { error: 'Not authenticated' };
 
-    // --- ADMIN CHECK ---
-    let actingSupabase = supabase;
-
-    // Check if user owns it
-    const { count } = await supabase.from('portfolio').select('id', { count: 'exact', head: true }).eq('id', styleId).eq('tenant_id', user.id);
+    // Check if the acting tenant owns it
+    // If impersonating, 'tenantId' is the target tenant, so this check passes if they own it.
+    const { count } = await actingSupabase.from('portfolio').select('id', { count: 'exact', head: true }).eq('id', styleId).eq('tenant_id', tenantId);
 
     if (count === 0) {
-        // Not owner. Check Admin.
-        const { checkIsAdmin } = await import('@/lib/auth-utils');
-        const isAdmin = await checkIsAdmin();
-        if (isAdmin) {
+        // Not owner (or not acting as owner)
+        // If we are a real Admin NOT successfully impersonating the owner, we might check if we can Force Delete
+        // But for now, if 'count' is 0 with an Admin Client (which actingSupabase is if impersonating), 
+        // it really means the style doesn't belong to the targeted tenant.
+
+        // However, fallback: If I am Admin and NOT impersonating, maybe I want to delete it by ID regardless of owner?
+        if (isAdmin && !isImpersonating) {
             const { createAdminClient } = await import('@/lib/supabase/admin');
-            const adminClient = createAdminClient();
-            if (adminClient) {
-                actingSupabase = adminClient;
+            const adminSupabase = createAdminClient();
+            if (adminSupabase) {
+                // Direct delete by ID (God Mode)
+                const { error: adminDelError } = await adminSupabase.from('portfolio').delete().eq('id', styleId);
+                if (adminDelError) return { error: adminDelError.message };
+                return { success: true };
             }
-        } else {
-            return { error: 'Unauthorized or Style not found' };
         }
+
+        return { error: 'Unauthorized or Style not found' };
     }
+
 
     const { error } = await actingSupabase
         .from('portfolio')
@@ -340,37 +359,42 @@ export async function deleteStyle(styleId: string) {
 }
 
 export async function getTenantStyles(tenantId?: string) {
-    const supabase = await createClient();
-    let targetTenantId = tenantId;
-    let actingSupabase = supabase;
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId: actingTenantId, supabase: actingSupabase, isAdmin, isImpersonating } = await getActingUser();
 
-    // Resolve User
-    const { data: { user } } = await supabase.auth.getUser();
+    let targetTenantId = tenantId || actingTenantId; // Use argument if present, else acting ID
 
-    if (!targetTenantId) {
-        if (user) targetTenantId = user.id;
+    // If argument provided AND it's different from who we are acting as
+    if (tenantId && tenantId !== actingTenantId) {
+        // If we are Impersonating Tenant A, and we request Tenant B... we probably shouldn't allow that lightly?
+        // Or if we are Admin (not impersonating), and we request Tenant B -> Allow it (Explicit Admin View)
+
+        if (isAdmin) {
+            const { createAdminClient } = await import('@/lib/supabase/admin');
+            const adminClient = createAdminClient();
+            // We use the admin client to fetch the requested tenant's data
+            // We do NOT update actingSupabase here because 'actingSupabase' is bound to the 'actingTenantId' context.
+            // Instead we'll just redefine the query to use the admin client.
+            if (adminClient) {
+                const { data, error } = await adminClient
+                    .from('portfolio')
+                    .select('*')
+                    .eq('tenant_id', targetTenantId)
+                    .order('display_order', { ascending: true })
+                    .order('created_at', { ascending: false });
+
+                if (error) return { data: [], error: error.message };
+                return { data, error: null };
+            }
+        }
+        // If not admin, we can't see other tenant's data
+        return { data: [], error: 'Unauthorized' };
     }
 
     if (!targetTenantId) return { data: [], error: 'No tenant ID found' };
 
-    // --- ADMIN OVERRIDE ---
-    // If asking for a different tenant, check Admin privileges
-    if (user && targetTenantId !== user.id) {
-        try {
-            const { checkIsAdmin } = await import('@/lib/auth-utils');
-            const isAdmin = await checkIsAdmin();
-
-            if (isAdmin) {
-                const { createAdminClient } = await import('@/lib/supabase/admin');
-                const adminClient = createAdminClient();
-                if (adminClient) actingSupabase = adminClient;
-            }
-        } catch (e) {
-            console.warn("Admin check failed in getTenantStyles", e);
-            // Fall through to standard client (which will likely return empty via RLS)
-        }
-    }
-    // ----------------------
+    // Standard Path (Acting as target, or Target is Self)
+    // actingSupabase is already configured correct via getActingUser (Admin Client if impersonating, Anon if not)
 
     const { data, error } = await actingSupabase
         .from('portfolio')

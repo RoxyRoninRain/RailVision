@@ -132,6 +132,17 @@ export default function TenantShadowPage() {
                     <div className="bg-[#111] border border-white/10 rounded-lg p-6">
                         <h3 className="text-sm font-mono text-gray-500 uppercase tracking-widest mb-4">Storage Access</h3>
                         <div className="space-y-3">
+                            <form action={async () => {
+                                await import('@/app/actions/impersonation').then(mod => mod.impersonateTenant(id));
+                            }}>
+                                <button
+                                    type="submit"
+                                    className="flex items-center justify-center gap-2 w-full bg-purple-900/20 hover:bg-purple-900/40 border border-purple-500/50 text-purple-400 rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors mb-2"
+                                >
+                                    <Shield size={14} /> Impersonate (View As Tenant)
+                                </button>
+                            </form>
+
                             <Link
                                 href={`/admin/tenants/${id}/assets`}
                                 className="flex items-center justify-center gap-2 w-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-gray-300 rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors"

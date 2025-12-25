@@ -1,170 +1,41 @@
-'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Settings, PenTool, LogOut, Shield, Menu, X, Code2, MessageSquare, Upload, BarChart3 } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { seedDefaultStyles } from '@/app/actions';
-import SignOutButton from '@/components/SignOutButton';
+import { getActingUser } from '@/lib/auth-context';
+import DashboardLayoutClient from './DashboardLayoutClient';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const pathname = usePathname();
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-    const [shopName, setShopName] = useState<string>('');
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+    const { isImpersonating, tenantId, user, supabase } = await getActingUser();
 
-    // Auto-Seed Defaults on Dashboard Access & Fetch Profile
-    useEffect(() => {
-        const init = async () => {
-            await seedDefaultStyles();
+    // Prefetch shop name for the acting user (Tenant or Impersonated Tenant)
+    let shopName = '';
+    if (user) {
+        // Use the 'supabase' client from context (which is Admin if impersonating, or Regular)
+        // Note: if impersonating, 'user' is still the Admin User object from Auth, 
+        // but we want the PROFILE of the 'tenantId'
 
-            // Fetch Shop Name for Display
-            const { createClient } = await import('@/lib/supabase/client');
-            const supabase = createClient();
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data: profile } = await supabase.from('profiles').select('shop_name').eq('id', user.id).single();
-                if (profile?.shop_name) {
-                    setShopName(profile.shop_name);
-                }
-            }
-        };
-        init();
-    }, []);
+        // Wait, if isImpersonating, 'user' from getActingUser is the ADMIN User.
+        // But we want to display the SHOP NAME of the TENANT we are impersonating.
 
-    const navItems = [
-        { name: 'Leads Pipeline', href: '/dashboard/leads', icon: LayoutDashboard },
-        { name: 'Performance', href: '/dashboard/stats', icon: BarChart3 },
-        { name: 'Visualizer Styles', href: '/dashboard/styles', icon: PenTool },
-        { name: 'Widget Integration', href: '/dashboard/widget', icon: Code2 },
-        { name: 'Onboarding', href: '/dashboard/onboarding', icon: Upload },
-        { name: 'Visualizer Tool', href: '/demo', icon: PenTool },
-        { name: 'Shop Settings', href: '/dashboard/settings', icon: Settings },
-    ];
+        const targetId = tenantId; // This is the tenant ID we are acting as
+
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('shop_name')
+            .eq('id', targetId)
+            .single();
+
+        if (profile?.shop_name) {
+            shopName = profile.shop_name;
+        }
+    }
 
     return (
-        <div className="flex min-h-screen bg-black font-sans text-white">
-            {/* Sidebar (Desktop) */}
-            <aside className="w-64 border-r border-gray-800 bg-[#050505] flex flex-col fixed h-full z-20 hidden md:flex">
-                <div className="p-6 border-b border-gray-800 flex items-center gap-2">
-                    <div className="relative w-full h-12">
-                        <Image
-                            src="/logo.png"
-                            alt="Railify PRO"
-                            fill
-                            className="object-contain object-left"
-                            priority
-                        />
-                    </div>
-                </div>
-
-                <nav className="flex-1 p-4 space-y-2">
-                    {navItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = pathname === item.href;
-                        return (
-                            <Link
-                                key={item.href}
-                                href={item.href}
-                                className={`flex items-center gap-3 px-4 py-3 rounded transition-all font-mono text-sm uppercase tracking-wider ${isActive
-                                    ? 'bg-[var(--primary)] text-black font-bold shadow-[0_0_15px_rgba(var(--primary-rgb),0.4)]'
-                                    : 'text-gray-500 hover:text-white hover:bg-white/5'
-                                    }`}
-                            >
-                                <Icon size={18} />
-                                {item.name}
-                            </Link>
-                        );
-                    })}
-                </nav>
-
-                <div className="p-6 border-t border-gray-800 space-y-2">
-                    <a
-                        href="mailto:railifyai@gmail.com?subject=Railify%20Feedback"
-                        className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-sm font-mono uppercase w-full"
-                    >
-                        <MessageSquare size={16} /> Feedback
-                    </a>
-                    <SignOutButton className="flex items-center gap-2 text-gray-500 hover:text-red-400 transition-colors text-sm font-mono uppercase w-full">
-                        <LogOut size={16} /> Sign Out
-                    </SignOutButton>
-                    <p className="mt-4 text-[10px] text-gray-700 font-mono">
-                        v2.5.0 • {shopName || '...'}
-                    </p>
-                </div>
-            </aside>
-
-            {/* Mobile Header */}
-            <div className="md:hidden fixed top-0 w-full bg-[#050505] border-b border-gray-800 z-20 p-4 flex justify-between items-center text-[var(--primary)] shadow-lg">
-                <div className="flex items-center gap-2">
-                    <div className="relative w-40 h-10">
-                        <Image
-                            src="/logo.png"
-                            alt="Railify PRO"
-                            fill
-                            className="object-contain object-left"
-                            priority
-                        />
-                    </div>
-                </div>
-                <button
-                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                    className="p-2 text-gray-400 hover:text-white"
-                >
-                    {mobileMenuOpen ? <X /> : <Menu />}
-                </button>
-            </div>
-
-            {/* Mobile Menu Overlay */}
-            <AnimatePresence>
-                {mobileMenuOpen && (
-                    <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -20 }}
-                        className="fixed inset-0 z-10 bg-black/95 backdrop-blur-xl md:hidden pt-20 px-6 pb-6 flex flex-col"
-                    >
-                        <nav className="flex-1 space-y-4">
-                            {navItems.map((item) => {
-                                const Icon = item.icon;
-                                const isActive = pathname === item.href;
-                                return (
-                                    <Link
-                                        key={item.href}
-                                        href={item.href}
-                                        onClick={() => setMobileMenuOpen(false)}
-                                        className={`flex items-center gap-4 px-4 py-4 rounded-xl transition-all font-mono text-lg uppercase tracking-wider ${isActive
-                                            ? 'bg-[var(--primary)] text-black font-bold'
-                                            : 'text-gray-500 hover:text-white border border-white/10'
-                                            }`}
-                                    >
-                                        <Icon size={24} />
-                                        {item.name}
-                                    </Link>
-                                );
-                            })}
-                        </nav>
-
-                        <div className="mt-auto border-t border-gray-800 pt-6 space-y-2">
-                            <a
-                                href="mailto:railifyai@gmail.com?subject=Railify%20Feedback"
-                                className="w-full flex items-center gap-4 px-4 py-3 text-gray-500 hover:text-white transition-colors text-lg font-mono uppercase tracking-wider"
-                            >
-                                <MessageSquare size={24} /> Feedback
-                            </a>
-                            <SignOutButton className="w-full flex items-center justify-center gap-2 text-red-400 hover:bg-red-900/20 p-4 rounded-xl transition-colors text-sm font-mono uppercase font-bold">
-                                <LogOut size={20} /> Sign Out
-                            </SignOutButton>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {/* Main Content */}
-            <main className="flex-1 md:ml-64 p-0 pt-20 md:pt-0">
-                {children}
-            </main>
-        </div>
+        <DashboardLayoutClient
+            isImpersonating={!!isImpersonating}
+            impersonatedTenantId={isImpersonating ? tenantId : undefined}
+            currentUserEmail={user?.email}
+            shopName={shopName}
+        >
+            {children}
+        </DashboardLayoutClient>
     );
 }
