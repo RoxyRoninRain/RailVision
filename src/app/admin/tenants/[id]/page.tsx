@@ -134,9 +134,13 @@ export default function TenantShadowPage() {
                         <div className="space-y-3">
                             {(() => {
                                 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-                                // Robust extraction: https://xyz.supabase.co -> xyz
-                                const projectRef = supabaseUrl.replace('https://', '').split('.')[0];
+                                // Robust extraction using Regex for various supabase domains
+                                const projectRef = (supabaseUrl.match(/https:\/\/([a-z0-9]+)\./) || [])[1] || supabaseUrl.replace('https://', '').split('.')[0];
                                 const baseUrl = `https://supabase.com/dashboard/project/${projectRef}/storage/buckets`;
+
+                                if (!projectRef) {
+                                    return <div className="text-red-500 text-xs">Error: Unrecognized Supabase URL format.</div>
+                                }
 
                                 return (
                                     <>
