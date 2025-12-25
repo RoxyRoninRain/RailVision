@@ -22,7 +22,8 @@ export async function createCheckoutSession(tierName: TierName) {
     // 2. Get Profile to check for existing Stripe Customer ID
     const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('stripe_customer_id, email, full_name') // Assuming these fields exist
+        // Removing full_name as it does not exist in the schema
+        .select('stripe_customer_id, email, shop_name')
         .eq('id', user.id)
         .single();
 
@@ -47,9 +48,9 @@ export async function createCheckoutSession(tierName: TierName) {
             },
         };
 
-        // Add name if we have it
-        if (profile.full_name) {
-            customerData.name = profile.full_name;
+        // Add name if we have it (using shop_name as proxy for name)
+        if (profile.shop_name) {
+            customerData.name = profile.shop_name;
         }
 
         const customer = await stripe.customers.create(customerData);
