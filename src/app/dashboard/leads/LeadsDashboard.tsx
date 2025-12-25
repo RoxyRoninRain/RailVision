@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Lead } from '@/app/actions';
+import { Lead, deleteLead } from '@/app/actions';
 import { LeadCard } from '@/components/dashboard/LeadCard';
 import { LeadDetailModal } from '@/components/dashboard/LeadDetailModal';
 import { getTenantStats } from '@/app/actions';
-import { BarChart3, Star, Download, MessageSquareQuote } from 'lucide-react';
+import { BarChart3, Star, Download, MessageSquareQuote, Image as ImageIcon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -22,6 +22,19 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
     useEffect(() => {
         getTenantStats().then(setStats);
     }, []);
+
+    const handleDelete = async (leadId: string) => {
+        // Optimistic Update
+        setLeads(prev => prev.filter(l => l.id !== leadId));
+
+        const res = await deleteLead(leadId);
+        if (!res.success) {
+            // Revert if failed (simple reload or alert, for now alert)
+            alert('Failed to delete quote: ' + res.error);
+            // In a real app we'd fetch again or keep a backup of state
+            window.location.reload();
+        }
+    };
 
     const handleExport = () => {
         const headers = ['ID', 'Date', 'Customer', 'Email', 'Style', 'Status', 'Message', 'Total'];
@@ -79,7 +92,7 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-12">
                 <div className="bg-[#111] border border-gray-800 p-4 rounded-lg flex items-center justify-between">
                     <div>
-                        <p className="text-gray-500 text-xs font-mono uppercase tracking-widest">Total Active Leads</p>
+                        <p className="text-gray-500 text-xs font-mono uppercase tracking-widest">Total Quotes</p>
                         <p className="text-2xl font-bold text-white">{quoteLeads.length}</p>
                     </div>
                     <BarChart3 className="text-[var(--primary)] opacity-50" />
@@ -92,6 +105,15 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
                         </p>
                     </div>
                     <Star className="text-yellow-500 opacity-50" />
+                </div>
+                <div className="bg-[#111] border border-gray-800 p-4 rounded-lg flex items-center justify-between">
+                    <div>
+                        <p className="text-gray-500 text-xs font-mono uppercase tracking-widest">Images Generated</p>
+                        <p className="text-2xl font-bold text-white">
+                            {stats?.totalGenerations || 0}
+                        </p>
+                    </div>
+                    <ImageIcon className="text-blue-500 opacity-50" />
                 </div>
             </div>
 
@@ -109,7 +131,7 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
                     {quoteLeads.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                             {quoteLeads.map(lead => (
-                                <LeadCard key={lead.id} lead={lead} onClick={setSelectedLead} />
+                                <LeadCard key={lead.id} lead={lead} onClick={setSelectedLead} onDelete={handleDelete} />
                             ))}
                         </div>
                     ) : (

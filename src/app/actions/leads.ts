@@ -349,6 +349,27 @@ export async function updateLeadStatus(leadId: string, status: 'New' | 'Contacte
     return { success: true };
 }
 
+export async function deleteLead(leadId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: 'Unauthorized' };
+
+    // SECURITY: Strictly enforce organization_id match
+    const { error } = await supabase
+        .from('leads')
+        .delete()
+        .eq('id', leadId)
+        .eq('organization_id', user.id);
+
+    if (error) {
+        console.error('Delete Lead Error:', error);
+        return { success: false, error: 'Failed to delete quote' };
+    }
+
+    return { success: true };
+}
+
 // --- Stats Actions ---
 export async function getTenantStatsLegacy() {
     const supabase = await createClient();
