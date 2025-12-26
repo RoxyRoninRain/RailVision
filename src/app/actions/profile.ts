@@ -65,18 +65,25 @@ export async function updateProfile(formData: FormData) {
 
         if (!user) return { error: 'Not authenticated' };
 
+        // Helper to convert formData nulls/empty strings to undefined
+        const getString = (key: string) => {
+            const v = formData.get(key);
+            // Treat null (missing) AND empty string as undefined for optional logic
+            return (v === null || v === '') ? undefined : String(v);
+        };
+
         // Extract raw data for validation
         const rawData: any = {
-            shop_name: formData.get('shop_name') as string,
-            phone: formData.get('phone') as string,
-            address: formData.get('address') as string,
-            primary_color: formData.get('primary_color') as string,
-            tool_background_color: formData.get('tool_background_color') as string,
-            logo_url: formData.get('logo_url') as string, // Client upload URL
-            watermark_logo_url: formData.get('watermark_logo_url') as string,
-            website: formData.get('website') as string,
-            address_zip: formData.get('address_zip') as string,
-            confirmation_email_body: formData.get('confirmation_email_body') as string,
+            shop_name: getString('shop_name'),
+            phone: getString('phone'),
+            address: getString('address'),
+            primary_color: getString('primary_color'),
+            tool_background_color: getString('tool_background_color'),
+            logo_url: getString('logo_url'), // Client upload URL
+            watermark_logo_url: getString('watermark_logo_url'),
+            website: getString('website'),
+            address_zip: getString('address_zip'),
+            confirmation_email_body: getString('confirmation_email_body'),
             enable_overdrive: formData.get('enable_overdrive') === 'true' || formData.get('enable_overdrive') === 'on',
         };
 
