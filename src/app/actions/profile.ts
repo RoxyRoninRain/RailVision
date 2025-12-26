@@ -59,90 +59,95 @@ export async function getProfile() {
 }
 
 export async function updateProfile(formData: FormData) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
 
-    if (!user) return { error: 'Not authenticated' };
+        if (!user) return { error: 'Not authenticated' };
 
-    // Extract raw data for validation
-    const rawData: any = {
-        shop_name: formData.get('shop_name') as string,
-        phone: formData.get('phone') as string,
-        address: formData.get('address') as string,
-        primary_color: formData.get('primary_color') as string,
-        tool_background_color: formData.get('tool_background_color') as string,
-        logo_url: formData.get('logo_url') as string, // Client upload URL
-        watermark_logo_url: formData.get('watermark_logo_url') as string,
-        website: formData.get('website') as string,
-        address_zip: formData.get('address_zip') as string,
-        confirmation_email_body: formData.get('confirmation_email_body') as string,
-        enable_overdrive: formData.get('enable_overdrive') === 'true' || formData.get('enable_overdrive') === 'on',
-    };
+        // Extract raw data for validation
+        const rawData: any = {
+            shop_name: formData.get('shop_name') as string,
+            phone: formData.get('phone') as string,
+            address: formData.get('address') as string,
+            primary_color: formData.get('primary_color') as string,
+            tool_background_color: formData.get('tool_background_color') as string,
+            logo_url: formData.get('logo_url') as string, // Client upload URL
+            watermark_logo_url: formData.get('watermark_logo_url') as string,
+            website: formData.get('website') as string,
+            address_zip: formData.get('address_zip') as string,
+            confirmation_email_body: formData.get('confirmation_email_body') as string,
+            enable_overdrive: formData.get('enable_overdrive') === 'true' || formData.get('enable_overdrive') === 'on',
+        };
 
-    // Number conversion
-    const logoSize = formData.get('logo_size');
-    if (logoSize) rawData.logo_size = Number(logoSize);
+        // Number conversion
+        const logoSize = formData.get('logo_size');
+        if (logoSize) rawData.logo_size = Number(logoSize);
 
-    const maxSpend = formData.get('max_monthly_spend');
-    if (maxSpend !== null && maxSpend !== '') rawData.max_monthly_spend = Number(maxSpend);
-    else if (maxSpend === '') rawData.max_monthly_spend = null;
+        const maxSpend = formData.get('max_monthly_spend');
+        if (maxSpend !== null && maxSpend !== '') rawData.max_monthly_spend = Number(maxSpend);
+        else if (maxSpend === '') rawData.max_monthly_spend = null;
 
-    // JSON Parsing
-    const travelSettingsRaw = formData.get('travel_settings') as string;
-    if (travelSettingsRaw) {
-        try {
-            rawData.travel_settings = JSON.parse(travelSettingsRaw);
-        } catch (e) {
-            console.error('Invalid travel_settings JSON', e);
+        // JSON Parsing
+        const travelSettingsRaw = formData.get('travel_settings') as string;
+        if (travelSettingsRaw) {
+            try {
+                rawData.travel_settings = JSON.parse(travelSettingsRaw);
+            } catch (e) {
+                console.error('Invalid travel_settings JSON', e);
+            }
         }
+
+        // --- ZOD VALIDATION ---
+        const { profileSchema } = await import('@/lib/validations');
+        const result = profileSchema.safeParse(rawData);
+
+        if (!result.success) {
+            const errorMsg = (result.error as any).errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ');
+            console.error('Profile Validation Failed:', errorMsg);
+            return { error: `Validation Failed: ${errorMsg}` };
+        }
+
+        const val = result.data;
+
+        // Construct updates object from VALIDATED data
+        const updates: Partial<Profile> = {};
+        if (val.shop_name !== undefined) updates.shop_name = val.shop_name;
+        if (val.phone !== undefined) updates.phone = val.phone;
+        if (val.address !== undefined) updates.address = val.address;
+        if (val.primary_color !== undefined) updates.primary_color = val.primary_color;
+        if (val.tool_background_color !== undefined) updates.tool_background_color = val.tool_background_color;
+        if (val.logo_size !== undefined) updates.logo_size = val.logo_size;
+        if (val.logo_url !== undefined) updates.logo_url = val.logo_url;
+        if (val.watermark_logo_url !== undefined) updates.watermark_logo_url = val.watermark_logo_url;
+        if (val.website !== undefined) updates.website = val.website;
+        if (val.address_zip !== undefined) updates.address_zip = val.address_zip;
+        if (val.confirmation_email_body !== undefined) updates.confirmation_email_body = val.confirmation_email_body;
+        if (val.travel_settings !== undefined) updates.travel_settings = val.travel_settings;
+        if (val.enable_overdrive !== undefined) updates.enable_overdrive = val.enable_overdrive;
+        if (val.max_monthly_spend !== undefined) updates.max_monthly_spend = val.max_monthly_spend;
+
+        const upsertData: any = {
+            id: user.id,
+            email: user.email,
+            ...updates,
+            updated_at: new Date().toISOString(),
+        };
+
+        const { error } = await supabase
+            .from('profiles')
+            .upsert(upsertData);
+
+        if (error) {
+            console.error('Supabase Upsert Error:', error);
+            return { error: error.message };
+        }
+
+        return { success: true };
+    } catch (err: any) {
+        console.error('FATAL Server Action Error:', err);
+        return { error: `Server Exception: ${err.message || 'Unknown error'}` };
     }
-
-    // --- ZOD VALIDATION ---
-    const { profileSchema } = await import('@/lib/validations');
-    const result = profileSchema.safeParse(rawData);
-
-    if (!result.success) {
-        const errorMsg = (result.error as any).errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ');
-        return { error: `Validation Failed: ${errorMsg}` };
-    }
-
-    const val = result.data;
-
-    // Construct updates object from VALIDATED data
-    const updates: Partial<Profile> = {};
-    if (val.shop_name !== undefined) updates.shop_name = val.shop_name;
-    if (val.phone !== undefined) updates.phone = val.phone;
-    if (val.address !== undefined) updates.address = val.address;
-    if (val.primary_color !== undefined) updates.primary_color = val.primary_color;
-    if (val.tool_background_color !== undefined) updates.tool_background_color = val.tool_background_color;
-    if (val.logo_size !== undefined) updates.logo_size = val.logo_size;
-    if (val.logo_url !== undefined) updates.logo_url = val.logo_url;
-    if (val.watermark_logo_url !== undefined) updates.watermark_logo_url = val.watermark_logo_url;
-    if (val.website !== undefined) updates.website = val.website;
-    if (val.address_zip !== undefined) updates.address_zip = val.address_zip;
-    if (val.confirmation_email_body !== undefined) updates.confirmation_email_body = val.confirmation_email_body;
-    if (val.travel_settings !== undefined) updates.travel_settings = val.travel_settings;
-    if (val.enable_overdrive !== undefined) updates.enable_overdrive = val.enable_overdrive;
-    if (val.max_monthly_spend !== undefined) updates.max_monthly_spend = val.max_monthly_spend;
-
-
-
-    const upsertData: any = {
-        id: user.id,
-        email: user.email,
-        ...updates,
-        updated_at: new Date().toISOString(),
-    };
-
-    const { error } = await supabase
-        .from('profiles')
-        .upsert(upsertData);
-
-    if (error) {
-        return { error: error.message };
-    }
-
-    return { success: true };
 }
 
 export async function uploadLogo(formData: FormData) {
