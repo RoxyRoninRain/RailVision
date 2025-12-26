@@ -103,8 +103,19 @@ export async function updateProfile(formData: FormData) {
         const result = profileSchema.safeParse(rawData);
 
         if (!result.success) {
-            const errorMsg = (result.error as any).errors.map((e: any) => `${e.path.join('.')}: ${e.message}`).join(', ');
-            console.error('Profile Validation Failed:', errorMsg);
+            console.error('Validation Error Raw:', JSON.stringify(result.error));
+            let errorMsg = 'Validation failed';
+            const zodError = result.error as any;
+
+            if (zodError && Array.isArray(zodError.errors)) {
+                errorMsg = zodError.errors.map((e: any) => `${e.path ? e.path.join('.') : 'unknown'}: ${e.message}`).join(', ');
+            } else if (zodError && zodError.message) {
+                errorMsg = zodError.message;
+            } else {
+                errorMsg = 'Unknown validation error';
+            }
+
+            console.error('Profile Validation Failed Message:', errorMsg);
             return { error: `Validation Failed: ${errorMsg}` };
         }
 
