@@ -24,7 +24,7 @@ export async function getTenantProfile(organizationId: string) {
     // Public fetch of branding details
     const { data, error } = await supabase
         .from('profiles')
-        .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url, website, subscription_status, confirmation_email_body')
+        .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url, website, tier_name, subscription_status, confirmation_email_body')
         .eq('id', organizationId)
         .single();
 

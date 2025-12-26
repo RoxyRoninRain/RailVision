@@ -38,9 +38,10 @@ interface DesignStudioProps {
     tenantProfile: TenantProfile | null;
     orgId: string;
     dashboardUrl?: string;
+    isWhiteLabel?: boolean;
 }
 
-export default function DesignStudio({ styles: initialStyles, tenantProfile, orgId, dashboardUrl }: DesignStudioProps) {
+export default function DesignStudio({ styles: initialStyles, tenantProfile, orgId, dashboardUrl, isWhiteLabel = false }: DesignStudioProps) {
     // --- STATE ---
     const [step, setStep] = useState(1); // 1=Upload, 2=Style, 3=Result
     const [direction, setDirection] = useState(0);
@@ -234,23 +235,25 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         const logoOpacity = 0.5;
         const logoSize = Math.max(canvas.width * 0.15, 100);
 
-        // A. Railify Logo (Bottom-Left)
-        const railifyUrl = '/logo.png';
-        const railifyImg = await loadImage(railifyUrl);
+        // A. Railify Logo (Bottom-Left) - SKIP IF WHITE LABEL
+        if (!isWhiteLabel) {
+            const railifyUrl = '/logo.png';
+            const railifyImg = await loadImage(railifyUrl);
 
-        if (railifyImg) {
-            const rRatio = railifyImg.width / railifyImg.height;
-            const rW = logoSize;
-            const rH = logoSize / rRatio;
+            if (railifyImg) {
+                const rRatio = railifyImg.width / railifyImg.height;
+                const rW = logoSize;
+                const rH = logoSize / rRatio;
 
-            ctx.globalAlpha = logoOpacity;
-            ctx.drawImage(railifyImg, padding, canvas.height - rH - padding, rW, rH);
-            ctx.globalAlpha = 1.0;
-        } else {
-            // Fallback Text
-            ctx.font = `bold ${canvas.width * 0.02}px monospace`;
-            ctx.fillStyle = `rgba(255, 255, 255, ${logoOpacity})`;
-            ctx.fillText('RAILIFY', padding, canvas.height - padding);
+                ctx.globalAlpha = logoOpacity;
+                ctx.drawImage(railifyImg, padding, canvas.height - rH - padding, rW, rH);
+                ctx.globalAlpha = 1.0;
+            } else {
+                // Fallback Text
+                ctx.font = `bold ${canvas.width * 0.02}px monospace`;
+                ctx.fillStyle = `rgba(255, 255, 255, ${logoOpacity})`;
+                ctx.fillText('RAILIFY', padding, canvas.height - padding);
+            }
         }
 
         // B. Tenant Logo (Bottom-Right)

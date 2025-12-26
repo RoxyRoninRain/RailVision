@@ -157,9 +157,21 @@ export default async function Page({
     }
 
 
+    // --- PLANS & FEATURES ---
+    const { PRICING_TIERS } = await import('@/config/pricing');
+    const tierName = tenantProfile?.tier_name;
+    // @ts-ignore
+    const isWhiteLabel = tierName ? PRICING_TIERS[tierName]?.isWhiteLabel : false;
+
     return (
         <div className="h-screen w-screen overflow-hidden fixed inset-0">
-            <DesignStudio styles={safeStyles} tenantProfile={tenantProfile} orgId={orgId} dashboardUrl={dashboardUrl} />
+            <DesignStudio
+                styles={safeStyles}
+                tenantProfile={tenantProfile}
+                orgId={orgId}
+                dashboardUrl={dashboardUrl}
+                isWhiteLabel={isWhiteLabel}
+            />
         </div>
     );
 }
