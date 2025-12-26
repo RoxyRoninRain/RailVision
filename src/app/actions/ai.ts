@@ -352,9 +352,10 @@ export async function generateDesign(formData: FormData) {
                 userTemplate: promptData.user_template,
                 negative_prompt: promptData.negative_prompt
             };
-            console.log('[DEBUG] Using active dynamic prompt from DB:', promptData.key);
+            console.log(`[DEBUG] Using active dynamic prompt from DB: ${promptData.key} (ID: ${promptData.id})`);
+            console.log(`[DEBUG] Negative Prompt: ${promptData.negative_prompt || 'None'}`);
         } else {
-            console.log('[DEBUG] Using default fallback prompt (DB fetch failed or empty)');
+            console.warn('[DEBUG] Using default fallback prompt (DB fetch returned null or undefined). This usually means no active prompt found or DB error.');
         }
 
         const result = await generateDesignWithNanoBanana(base64Image, styleInput as any, promptConfig);

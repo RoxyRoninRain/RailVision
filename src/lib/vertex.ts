@@ -225,6 +225,10 @@ Renovate **IMAGE A**.
 
             parts.push({ text: promptText });
 
+            console.log('--- FINAL PROMPT SENT TO VERTEX ---');
+            console.log(promptText);
+            console.log('--- END PROMPT ---');
+
             const request = {
                 contents: [{ role: 'user', parts }]
             };
