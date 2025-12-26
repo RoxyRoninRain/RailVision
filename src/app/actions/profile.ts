@@ -68,8 +68,10 @@ export async function updateProfile(formData: FormData) {
         // Helper to convert formData nulls/empty strings to undefined
         const getString = (key: string) => {
             const v = formData.get(key);
-            // Treat null (missing) AND empty string as undefined for optional logic
-            return (v === null || v === '') ? undefined : String(v);
+            if (v === null) return undefined;
+            const s = String(v).trim();
+            // Treat null (missing) AND empty string (or whitespace only) as undefined for optional logic
+            return s === '' ? undefined : s;
         };
 
         // Extract raw data for validation
