@@ -34,27 +34,37 @@ export default function SettingsPage() {
         setSaving(true);
         setMessage('');
 
-        const formData = new FormData(e.currentTarget);
-        const res = await updateProfile(formData);
+        try {
+            const formData = new FormData(e.currentTarget);
+            console.log('Submitting Data:', Object.fromEntries(formData));
 
-        if (res.success) {
-            setMessage('Profile updated successfully!');
-            // Reflect updates locally
-            if (profile) {
-                setProfile({
-                    ...profile,
-                    shop_name: formData.get('shop_name') as string,
-                    phone: formData.get('phone') as string,
-                    address: formData.get('address') as string,
-                    primary_color: formData.get('primary_color') as string,
-                    tool_background_color: formData.get('tool_background_color') as string,
-                    website: formData.get('website') as string,
-                });
+            const res = await updateProfile(formData);
+
+            if (res.success) {
+                setMessage('Profile updated successfully!');
+                // Reflect updates locally
+                if (profile) {
+                    setProfile({
+                        ...profile,
+                        shop_name: formData.get('shop_name') as string,
+                        phone: formData.get('phone') as string,
+                        address: formData.get('address') as string,
+                        primary_color: formData.get('primary_color') as string,
+                        tool_background_color: formData.get('tool_background_color') as string,
+                        website: formData.get('website') as string,
+                        enable_overdrive: formData.get('enable_overdrive') === 'true',
+                        max_monthly_spend: formData.get('max_monthly_spend') ? Number(formData.get('max_monthly_spend')) : null,
+                    });
+                }
+            } else {
+                setMessage('Error updating profile: ' + res.error);
             }
-        } else {
-            setMessage('Error updating profile: ' + res.error);
+        } catch (error: any) {
+            console.error('Save failed:', error);
+            setMessage('Save failed: ' + (error.message || 'Unknown error'));
+        } finally {
+            setSaving(false);
         }
-        setSaving(false);
     };
 
 
@@ -66,9 +76,9 @@ export default function SettingsPage() {
         setUploadingWatermark(true);
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('field', 'watermark_logo_url');
 
-        // We use the same uploadLogo action as it puts files in 'logos' bucket
-        // Ideally we'd have uploadWatermark but reuse is fine if path logic is same
+        // We use the uploadLogo action which now supports targetField
         const res = await uploadLogo(formData);
 
         if (res.success && res.url && profile) {
@@ -97,10 +107,10 @@ export default function SettingsPage() {
                 </header>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column: Branding & quick status - MODIFIED: Removed Main Logo Card */}
+                    {/* Left Column: Branding & quick status */}
                     <div className="space-y-8">
 
-                        {/* Contact Support Block - Moved */}
+                        {/* Contact Support Block */}
                         <div className="bg-[#111] p-6 rounded-lg border border-gray-800 shadow-xl relative overflow-hidden group">
                             <h2 className="text-xl font-mono font-bold text-white mb-4 flex items-center gap-2">
                                 <Mail className="text-gray-400" size={20} />
@@ -277,7 +287,7 @@ export default function SettingsPage() {
                                 <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
                                 <input type="hidden" name="watermark_logo_url" value={profile?.watermark_logo_url || ''} />
                                 <input type="hidden" name="travel_settings" value={JSON.stringify(travelSettings)} />
-                                {/* Hidden inputs for Left Column state to include in main submission */}
+                                {/* Hidden inputs for Left Column state */}
                                 <input type="hidden" name="enable_overdrive" value={profile?.enable_overdrive ? 'true' : 'false'} />
                                 <input type="hidden" name="max_monthly_spend" value={profile?.max_monthly_spend ?? ''} />
 
@@ -315,10 +325,6 @@ export default function SettingsPage() {
                                                 Comma-separated list of domains allowed to embed your widget.
                                             </p>
                                         </div>
-
-
-
-
 
                                         <div>
                                             <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
@@ -359,10 +365,6 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
 
-                                        {/* Travel Settings Moved */}
-
-
-
                                         <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
                                             <label className="block text-gray-400 mb-2 font-mono text-xs uppercase tracking-widest flex items-center gap-2">
                                                 <div className="w-3 h-3 rounded-full bg-green-500"></div> Customer Confirmation Email
@@ -379,7 +381,6 @@ export default function SettingsPage() {
                                             />
                                         </div>
 
-                                        {/* Travel Settings - Collapsible Moved */}
                                         <div className="col-span-2 border-t border-gray-800 pt-6 mt-2">
                                             <button
                                                 type="button"
@@ -514,8 +515,6 @@ export default function SettingsPage() {
                                                 </div>
                                             )}
                                         </div>
-
-                                        {/* Logo Size Control (REMOVED) */}
                                     </div>
                                 </div>
 

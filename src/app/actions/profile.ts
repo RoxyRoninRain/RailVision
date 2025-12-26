@@ -152,6 +152,8 @@ export async function uploadLogo(formData: FormData) {
     if (!user) return { error: 'Not authenticated' };
 
     const file = formData.get('file') as File;
+    const targetField = (formData.get('field') as string) || 'logo_url'; // 'logo_url' or 'watermark_logo_url'
+
     if (!file) return { error: 'No file provided' };
 
     // Validate file
@@ -163,10 +165,11 @@ export async function uploadLogo(formData: FormData) {
     }
 
     const fileExt = file.name.split('.').pop();
-    const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+    const bucket = targetField === 'watermark_logo_url' ? 'logos' : 'logos'; // Could separate buckets later if needed
+    const filePath = `${user.id}/${targetField}_${Date.now()}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
-        .from('logos')
+        .from(bucket)
         .upload(filePath, file, {
             upsert: true,
             contentType: file.type
@@ -177,13 +180,16 @@ export async function uploadLogo(formData: FormData) {
     }
 
     const { data: { publicUrl } } = supabase.storage
-        .from('logos')
+        .from(bucket)
         .getPublicUrl(filePath);
 
-    // Update profile
+    // Update profile with the correct field
+    const updatePayload: any = { updated_at: new Date().toISOString() };
+    updatePayload[targetField] = publicUrl;
+
     const { error: updateError } = await supabase
         .from('profiles')
-        .update({ logo_url: publicUrl, updated_at: new Date().toISOString() })
+        .update(updatePayload)
         .eq('id', user.id);
 
     if (updateError) {
