@@ -124,8 +124,7 @@ You will receive input images. You must prioritize their data in this specific o
 *   **Direct-Mount:** Vertical balusters drill INDIVIDUALLY into the stair tread.
 *   **CONSTRAINT:** In Direct-Mount mode, the space *between* pickets at the floor level must be empty air. Drawing a bottom horizontal bar is FORBIDDEN.
 
-**OUTPUT GOAL:** A single, high-fidelity renovation of Image A.`
-            systemInstruction: promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI...`, // (Truncated for brevity in code view, but ensuring we keep the logic)
+**OUTPUT GOAL:** A single, high-fidelity renovation of Image A.`,
             generationConfig: {
                 temperature: 0.4,
                 topK: 32,
