@@ -130,13 +130,7 @@ You will receive input images. You must prioritize their data in this specific o
 
         model = client.getGenerativeModel({
             model: 'gemini-3-pro-image-preview',
-            systemInstruction: finalSystemInstruction,
-            generationConfig: {
-                temperature: 0.9, // Raised from 0.4 to restore adherence/creativity balance
-                topK: 32,
-                topP: 0.95,
-                maxOutputTokens: 2048
-            }
+            systemInstruction: finalSystemInstruction
         });
     } catch (e) {
         console.warn("[VERTEX] Lazily init failed:", e);
