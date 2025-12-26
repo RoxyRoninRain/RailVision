@@ -11,17 +11,18 @@ async function checkTier() {
 
     try {
         await client.connect();
-        console.log(`Checking tier for tenant: ${TENANT_ID}...`);
-
+        // Search for tenants with ID starting with 'cbc' or specific shop name
         const query = `
-      SELECT id, tier_name, enable_overdrive, current_usage, watermark_logo_url, logo_url 
+      SELECT id, tier_name, shop_name, email, logo_url, watermark_logo_url
       FROM profiles 
-      WHERE id = $1
+      WHERE id::text LIKE 'cbc%' OR shop_name ILIKE '%Mississippi%'
     `;
 
-        const res = await client.query(query, [TENANT_ID]);
+        const res = await client.query(query);
+        console.log('Found Tenants:', res.rows);
 
         if (res.rows.length > 0) {
+            console.log('FULL_ID:', res.rows[0].id);
             console.log('Current Tenant State:', res.rows[0]);
         } else {
             console.error('Error: Tenant not found.');
