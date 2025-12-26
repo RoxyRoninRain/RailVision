@@ -10,7 +10,7 @@ export const profileSchema = z.object({
     logo_size: z.number().min(10).max(500).optional(),
     logo_url: z.string().url().optional(),
     watermark_logo_url: z.string().url().optional(),
-    website: z.string().url().optional().or(z.literal('')),
+    website: z.string().optional(), // Was .url(), relaxed to prevent save blocking on bad input
     address_zip: z.string().optional(),
     confirmation_email_body: z.string().optional(),
     travel_settings: z.any().optional(), // Could be stricter if we knew shape
