@@ -157,7 +157,7 @@ export async function getActiveSystemPrompt() {
         .from('system_prompts')
         .select('*')
         .eq('is_active', true)
-        .order('created_at', { ascending: false }) // Fallback tiebreaker
+        .order('updated_at', { ascending: false }) // Fallback tiebreaker
         .limit(1)
         .single();
 
