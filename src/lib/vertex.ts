@@ -104,9 +104,7 @@ export async function generateDesignWithNanoBanana(
     let model;
     try {
         const client = await getVertexClient(true);
-        model = client.getGenerativeModel({
-            model: 'gemini-3-pro-image-preview',
-            systemInstruction: promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
+        const finalSystemInstruction = promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
 
 **THE TRUTH HIERARCHY (CRITICAL):**
 You will receive input images. You must prioritize their data in this specific order:
@@ -124,7 +122,15 @@ You will receive input images. You must prioritize their data in this specific o
 *   **Direct-Mount:** Vertical balusters drill INDIVIDUALLY into the stair tread.
 *   **CONSTRAINT:** In Direct-Mount mode, the space *between* pickets at the floor level must be empty air. Drawing a bottom horizontal bar is FORBIDDEN.
 
-**OUTPUT GOAL:** A single, high-fidelity renovation of Image A.`,
+**OUTPUT GOAL:** A single, high-fidelity renovation of Image A.`;
+
+        console.log('--- SYSTEM INSTRUCTION ---');
+        console.log(finalSystemInstruction);
+        console.log('--- END SYSTEM INSTRUCTION ---');
+
+        model = client.getGenerativeModel({
+            model: 'gemini-3-pro-image-preview',
+            systemInstruction: finalSystemInstruction,
             generationConfig: {
                 temperature: 0.4,
                 topK: 32,
