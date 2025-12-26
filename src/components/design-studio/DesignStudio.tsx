@@ -232,7 +232,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
         // 4. Load & Draw Watermarks
         const padding = canvas.width * 0.03;
-        const logoOpacity = 0.5;
+        const logoOpacity = 0.9; // Increased from 0.5 for better visibility
         const logoSize = Math.max(canvas.width * 0.15, 100);
 
         // A. Railify Logo (Bottom-Left) - SKIP IF WHITE LABEL
