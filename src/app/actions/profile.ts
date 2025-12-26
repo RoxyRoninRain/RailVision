@@ -66,12 +66,17 @@ export async function updateProfile(formData: FormData) {
         if (!user) return { error: 'Not authenticated' };
 
         // Helper to convert formData nulls/empty strings to undefined
-        const getString = (key: string) => {
+        const getString = (key: string, isUrl = false) => {
             const v = formData.get(key);
             if (v === null) return undefined;
-            const s = String(v).trim();
-            // Treat null (missing) AND empty string (or whitespace only) as undefined for optional logic
-            return s === '' ? undefined : s;
+            let s = String(v).trim();
+            if (s === '') return undefined;
+
+            // Auto-fix URLs
+            if (isUrl && !s.startsWith('http://') && !s.startsWith('https://')) {
+                s = 'https://' + s;
+            }
+            return s;
         };
 
         // Extract raw data for validation
@@ -81,9 +86,9 @@ export async function updateProfile(formData: FormData) {
             address: getString('address'),
             primary_color: getString('primary_color'),
             tool_background_color: getString('tool_background_color'),
-            logo_url: getString('logo_url'), // Client upload URL
-            watermark_logo_url: getString('watermark_logo_url'),
-            website: getString('website'),
+            logo_url: getString('logo_url', true), // Client upload URL
+            watermark_logo_url: getString('watermark_logo_url', true),
+            website: getString('website', true),
             address_zip: getString('address_zip'),
             confirmation_email_body: getString('confirmation_email_body'),
             enable_overdrive: formData.get('enable_overdrive') === 'true' || formData.get('enable_overdrive') === 'on',
