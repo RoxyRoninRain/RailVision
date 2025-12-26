@@ -215,25 +215,9 @@ export default function SettingsPage() {
                                 <label className="relative inline-flex items-center cursor-pointer">
                                     <input
                                         type="checkbox"
-                                        name="enable_overdrive_toggle" // Handled via hidden input in main form actually
                                         checked={profile?.enable_overdrive || false}
                                         onChange={(e) => {
                                             if (profile) setProfile({ ...profile, enable_overdrive: e.target.checked });
-                                            // We need to auto-submit or let the main form handle it. 
-                                            // Since main form wraps right column, this left column is OUTSIDE the form.
-                                            // We need to handle this separately or move it.
-                                            // WAIT: This card is in Left Column. Main form is Right Column.
-                                            // I must make this interactable independently or move it.
-                                            // For now, I'll use a hidden form or fetch call?
-                                            // Simpler: Just rely on independent update? Use updateProfile directly here.
-
-                                            const fd = new FormData();
-                                            fd.append('enable_overdrive', e.target.checked.toString());
-                                            setSaving(true);
-                                            updateProfile(fd).then(res => {
-                                                setSaving(false);
-                                                if (res.success) setMessage('Overdrive settings updated.');
-                                            });
                                         }}
                                         className="sr-only peer"
                                     />
@@ -243,7 +227,7 @@ export default function SettingsPage() {
 
                         </div>
 
-                        {/* Risk Management (Moved) */}
+                        {/* Risk Management */}
                         <div className="bg-white/5 p-4 rounded border border-gray-700 mb-4">
                             <div className="flex items-center gap-2 mb-2">
                                 <ShieldCheck className="text-gray-400" size={16} />
@@ -253,18 +237,12 @@ export default function SettingsPage() {
                                 <span className="text-gray-500 text-sm">$</span>
                                 <input
                                     type="number"
-                                    name="max_monthly_spend"
-                                    defaultValue={profile?.max_monthly_spend || ''}
+                                    value={profile?.max_monthly_spend === 0 ? 0 : (profile?.max_monthly_spend || '')}
                                     placeholder="No Limit"
                                     className="w-full bg-black border border-gray-800 p-1 px-2 text-white rounded focus:border-[var(--primary)] outline-none text-sm font-mono"
-                                    onBlur={(e) => {
-                                        const fd = new FormData();
-                                        fd.append('max_monthly_spend', e.target.value);
-                                        setSaving(true);
-                                        updateProfile(fd).then(res => {
-                                            setSaving(false);
-                                            if (res.success) setMessage('Risk limits updated.');
-                                        });
+                                    onChange={(e) => {
+                                        const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                                        if (profile) setProfile({ ...profile, max_monthly_spend: val });
                                     }}
                                 />
                             </div>
@@ -297,9 +275,11 @@ export default function SettingsPage() {
                         <div className="bg-[#111] p-8 rounded-lg border border-gray-800 shadow-2xl">
                             <form onSubmit={handleSubmit} className="space-y-8">
                                 <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
-                                <input type="hidden" name="logo_url" value={profile?.logo_url || ''} />
                                 <input type="hidden" name="watermark_logo_url" value={profile?.watermark_logo_url || ''} />
                                 <input type="hidden" name="travel_settings" value={JSON.stringify(travelSettings)} />
+                                {/* Hidden inputs for Left Column state to include in main submission */}
+                                <input type="hidden" name="enable_overdrive" value={profile?.enable_overdrive ? 'true' : 'false'} />
+                                <input type="hidden" name="max_monthly_spend" value={profile?.max_monthly_spend ?? ''} />
 
                                 <div className="space-y-6">
                                     <h3 className="text-lg font-mono text-gray-500 border-b border-gray-800 pb-2 uppercase tracking-wider">

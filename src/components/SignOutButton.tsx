@@ -22,6 +22,8 @@ export default function SignOutButton({
     const handleSignOut = async () => {
         try {
             setLoading(true);
+            // Ensure any impersonation cookies are cleared
+            await import('@/app/actions/impersonation').then(mod => mod.stopImpersonating());
             await supabase.auth.signOut();
             router.push('/login');
             router.refresh();
