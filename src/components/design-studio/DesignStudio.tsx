@@ -6,7 +6,7 @@ import { generateDesign, submitLead, convertHeicToJpg } from '@/app/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Upload, Check, Loader2, ArrowRight, MousePointerClick, TrendingUp, AlertCircle, Quote,
-    Download, Image as ImageIcon, Settings, Maximize2, RefreshCw, X, ChevronRight, ChevronLeft, Share2
+    Download, Image as ImageIcon, Settings, Maximize2, RefreshCw, X, ChevronRight, ChevronLeft, Share2, Info
 } from 'lucide-react';
 import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
@@ -88,6 +88,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [showDownloadModal, setShowDownloadModal] = useState(false);
     const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
     const [showEstimate, setShowEstimate] = useState(false);
+    const [showDisclaimer, setShowDisclaimer] = useState(false);
 
 
     const styleList = initialStyles;
@@ -818,12 +819,15 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             <button onClick={handleDownloadClick} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
                                                 <Download className="w-4 h-4" /> <span className="hidden md:inline">Save</span>
                                             </button>
+                                            <button onClick={() => setShowDisclaimer(true)} className="bg-[#222] text-gray-400 px-3 py-3 rounded-xl border border-white/5 hover:bg-white hover:text-black transition-all flex items-center justify-center" aria-label="Disclaimer">
+                                                <Info className="w-4 h-4" />
+                                            </button>
                                         </div>
 
                                         <div className="h-8 w-px bg-[#333] hidden md:block"></div>
 
-                                        {/* Show Request Quote ONLY if Pricing is NOT available (fallback). 
-                                            If Pricing IS available, users should go through Estimate -> Quote flow. 
+                                        {/* Show Request Quote ONLY if Pricing is NOT available (fallback).
+                                            If Pricing IS available, users should go through Estimate -> Quote flow.
                                         */}
                                         {!(styleList[selectedStyleIndex]?.price_per_ft_min && styleList[selectedStyleIndex]?.price_per_ft_min > 0) && (
                                             <button onClick={() => setQuoteOpen(true)} className="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-colors text-xs md:text-sm cursor-pointer shadow-lg">
@@ -839,11 +843,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                     </div>
 
                                     {/* Visual Disclaimer */}
-                                    <div className="bg-[#0A0A0A] pb-6 px-4 text-center">
-                                        <p className="text-[10px] text-gray-600 font-mono uppercase tracking-widest max-w-2xl mx-auto leading-relaxed">
-                                            Visualizations are for conceptual design purposes only. Final fabrication details, post spacing, and mounting requirements will be determined by field measurements and local building codes.
-                                        </p>
-                                    </div>
+
                                 </div>
                             )}
                         </motion.div>
@@ -851,6 +851,29 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
 
                 </AnimatePresence>
             </div>
+
+            {/* Disclaimer Modal */}
+            {showDisclaimer && (
+                <motion.div
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    className="fixed inset-0 z-[80] flex items-center justify-center p-6 bg-black/90 backdrop-blur-sm"
+                    onClick={() => setShowDisclaimer(false)}
+                >
+                    <div className="bg-[#111] border border-[#333] p-6 rounded-2xl max-w-sm w-full relative shadow-2xl" onClick={e => e.stopPropagation()}>
+                        <button onClick={() => setShowDisclaimer(false)} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X /></button>
+                        <div className="flex items-center gap-3 mb-4 text-gray-400">
+                            <Info size={24} />
+                            <h3 className="font-bold uppercase tracking-widest text-sm">Design Disclaimer</h3>
+                        </div>
+                        <p className="text-sm text-gray-300 leading-relaxed font-mono">
+                            Visualizations are for conceptual design purposes only. Final fabrication details, post spacing, and mounting requirements will be determined by field measurements and local building codes.
+                        </p>
+                        <button onClick={() => setShowDisclaimer(false)} className="w-full mt-6 py-3 bg-[var(--primary)] text-black font-bold uppercase tracking-widest rounded text-sm hover:brightness-110">
+                            Understood
+                        </button>
+                    </div>
+                </motion.div>
+            )}
 
             {/* Footer Branding */}
             <div className="fixed bottom-4 right-4 z-40 pointer-events-none opacity-30 text-[10px] font-mono text-white uppercase tracking-widest hidden md:block">
