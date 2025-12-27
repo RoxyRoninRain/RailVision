@@ -837,6 +837,13 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             </button>
                                         )}
                                     </div>
+
+                                    {/* Visual Disclaimer */}
+                                    <div className="bg-[#0A0A0A] pb-6 px-4 text-center">
+                                        <p className="text-[10px] text-gray-600 font-mono uppercase tracking-widest max-w-2xl mx-auto leading-relaxed">
+                                            Visualizations are for conceptual design purposes only. Final fabrication details, post spacing, and mounting requirements will be determined by field measurements and local building codes.
+                                        </p>
+                                    </div>
                                 </div>
                             )}
                         </motion.div>
@@ -1005,6 +1012,6 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                     </motion.div>
                 )}
             </AnimatePresence>
-        </main>
+        </main >
     );
 }
