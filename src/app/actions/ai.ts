@@ -115,7 +115,7 @@ export async function generateDesign(formData: FormData) {
     // 1. Fetch current usage & tier details
     const { data: profile, error: dbError } = await dbClient
         .from('profiles')
-        .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count')
+        .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name')
         .eq('id', profileIdToBill)
         .single();
 
@@ -139,15 +139,117 @@ export async function generateDesign(formData: FormData) {
     let transactionOverageCount = 0;
 
     // 2. Usage Check Logic
+    const REMAINING_WARNING_THRESHOLD = 10;
+    const notificationState = (profile.notification_state as any) || {};
+
     if (currentUsage < allowance) {
         // Within included allowance
-        console.log(`[BILLING] Within allowance (${currentUsage + 1}/${allowance}).`);
+        const remaining = allowance - (currentUsage + 1); // +1 because we are about to consume
+
+        // --- LOW BALANCE WARNING (The "Heads Up") ---
+        if (remaining === REMAINING_WARNING_THRESHOLD) {
+            const now = new Date();
+            // Check if already sent recently (optional, but good practice to avoid dupes if race condition)
+            // Simple logic: If we hit exactly 10, send it. Database state prevents duplicate blocks?
+            // But we only update DB at the end. 
+            // Logic: Fire and forget email, update notification_state in the final DB update.
+
+            console.log('[BILLING] Low Balance Threshold Hit (10 left). Sending Email...');
+            try {
+                const { Resend } = await import('resend');
+                const { LowBalanceEmail } = await import('@/emails/LowBalanceEmail');
+                const resend = new Resend(process.env.RESEND_API_KEY);
+
+                // Fire and forget (don't await strictly to block generation, but we want to log error)
+                resend.emails.send({
+                    from: 'Railify <system@railify.app>',
+                    to: profile.email,
+                    subject: '⚠️ Balance Warning: 10 Renderings Left',
+                    react: LowBalanceEmail() as React.ReactElement,
+                }).then(() => console.log('[BILLING] Low Balance Email Sent'));
+
+                notificationState.low_balance_sent_at = now.toISOString();
+
+            } catch (emailErr) {
+                console.error('[BILLING] Failed to send Low Balance email:', emailErr);
+            }
+        }
     } else {
         // Overage Territory
         if (!profile.enable_overdrive) {
             console.warn(`[BILLING] Soft Cap Reached. Usage: ${currentUsage}, Limit: ${allowance}. Overdrive OFF.`);
-            // Return 402 - Payment Required equivalent message
-            return { error: 'Monthly allowance reached. Please enable Overdrive in settings to continue.' };
+
+            // --- NOTIFICATION & ERROR UX ---
+            const now = new Date();
+            let errorMessage = '';
+
+            if (user) {
+                // Scenario A: Tenant (Logged In)
+                errorMessage = 'Monthly allowance reached. Enable Overdrive in settings to continue.';
+
+                // Send Limit Reached Email (The "Stop")
+                // Check if sent recently (e.g., in the last 24 hours) to prevent spamming on every click
+                const lastSent = notificationState.limit_reached_sent_at ? new Date(notificationState.limit_reached_sent_at) : null;
+                const hoursSinceLast = lastSent ? (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60) : 999;
+
+                if (hoursSinceLast > 24) {
+                    try {
+                        const { Resend } = await import('resend');
+                        const { LimitReachedEmail } = await import('@/emails/LimitReachedEmail');
+                        const resend = new Resend(process.env.RESEND_API_KEY);
+
+                        await resend.emails.send({
+                            from: 'Railify <system@railify.app>',
+                            to: profile.email,
+                            subject: '⛔ Limit Reached: Action Required',
+                            react: LimitReachedEmail() as React.ReactElement,
+                        });
+
+                        // We must update DB state here because we return early (error)
+                        await dbClient.from('profiles').update({
+                            notification_state: { ...notificationState, limit_reached_sent_at: now.toISOString() }
+                        }).eq('id', profileIdToBill);
+
+                        console.log('[BILLING] Limit Reached Email Sent to Tenant.');
+                    } catch (e) { console.error('Email error:', e); }
+                }
+
+            } else {
+                // Scenario B: Guest (Public/Embed)
+                // UX: Generic "High Demand" error
+                errorMessage = 'This tool is currently experiencing high demand. Please try again later.';
+
+                // Send Lost Lead Alert (The "Money Saver") -- CRITICAL
+                // Rate Limit: 1 per hour
+                const lastLostLead = notificationState.lost_lead_sent_at ? new Date(notificationState.lost_lead_sent_at) : null;
+                const hoursSinceLostLead = lastLostLead ? (now.getTime() - lastLostLead.getTime()) / (1000 * 60 * 60) : 999;
+
+                if (hoursSinceLostLead > 1) {
+                    try {
+                        const { Resend } = await import('resend');
+                        const { LostLeadEmail } = await import('@/emails/LostLeadEmail');
+                        const resend = new Resend(process.env.RESEND_API_KEY);
+
+                        await resend.emails.send({
+                            from: 'Railify Alerts <system@railify.app>',
+                            to: profile.email,
+                            subject: '⚠️ Alert: You just missed a customer!',
+                            react: LostLeadEmail() as React.ReactElement,
+                        });
+
+                        // Update DB state
+                        await dbClient.from('profiles').update({
+                            notification_state: { ...notificationState, lost_lead_sent_at: now.toISOString() }
+                        }).eq('id', profileIdToBill);
+
+                        console.log('[BILLING] Lost Lead Alert Sent to Tenant.');
+                    } catch (e) { console.error('Email error:', e); }
+                } else {
+                    console.log('[BILLING] Lost Lead Alert Rate Limited.');
+                }
+            }
+
+            return { error: errorMessage };
         }
 
         // Hard Cap Check (Risk Management)
@@ -202,7 +304,8 @@ export async function generateDesign(formData: FormData) {
         .update({
             current_usage: currentUsage + 1,
             pending_overage_balance: newPendingBalance,
-            current_overage_count: newOverageCount
+            current_overage_count: newOverageCount,
+            notification_state: notificationState // Update state (mainly for low balance prop)
         })
         .eq('id', profileIdToBill);
 
