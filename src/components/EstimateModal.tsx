@@ -159,7 +159,6 @@ export function EstimateModal({ isOpen, onClose, styleId, styleName, onRequestQu
                                             Includes travel fee for {estimate.distance.toFixed(1)} miles
                                         </p>
                                     )}
-                                    )}
                                 </div>
 
                                 <p className="text-[10px] text-gray-500 text-center px-2 leading-relaxed -mt-2">
