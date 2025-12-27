@@ -56,11 +56,14 @@ export async function getDeepStats(range: '7d' | '30d' | 'mtd' | 'ytd' | 'all' =
     const leads = leadsRes.data || [];
 
     // 3. Aggregate Data
+    const quotes = leads.filter(l => l.status !== 'Download');
+    const downloads = leads.filter(l => l.status === 'Download');
 
     // Metrics
     const totalGenerations = generations.length;
-    const totalQuotes = leads.length;
-    const salesCount = leads.filter(l => l.status === 'Sold').length;
+    const totalQuotes = quotes.length;
+    const totalDownloads = downloads.length;
+    const salesCount = quotes.filter(l => l.status === 'Sold').length;
     const conversionRate = totalQuotes > 0 ? ((salesCount / totalQuotes) * 100).toFixed(1) : '0.0';
 
     // Top Style
@@ -71,47 +74,46 @@ export async function getDeepStats(range: '7d' | '30d' | 'mtd' | 'ytd' | 'all' =
     const topStyleId = Object.entries(styleCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
     let topStyleName = 'None';
 
-    // Fetch style name if exists
+    // Fetch style name if exists (same logic as before)
     if (topStyleId) {
-        // We could optimize this by joining in the first query if we knew we needed names for all
-        // But for just one, a quick lookup or just using ID if cache map not avail is fine.
-        // Actually, let's just return the ID formatted or try to fetch it if we want perfection.
-        // For speed, let's assume the ID is descriptive or we'll fetch it in UI? 
-        // No, UI leads has it joined. 
-        // Let's do a quick fetch of the single Portfolio item.
         const { data: style } = await supabase.from('portfolio').select('name').eq('id', topStyleId).single();
         if (style) topStyleName = style.name;
     }
 
     // Chart Data (Group by Day)
     // Map dates to objects
-    const chartMap: Record<string, { date: string, quotes: number, sales: number, generations: number }> = {};
+    const chartMap: Record<string, { date: string, quotes: number, sales: number, generations: number, downloads: number }> = {};
 
     // Helper
     const getKey = (d: string) => d.split('T')[0]; // YYYY-MM-DD
 
     generations.forEach(g => {
         const k = getKey(g.created_at);
-        if (!chartMap[k]) chartMap[k] = { date: k, quotes: 0, sales: 0, generations: 0 };
+        if (!chartMap[k]) chartMap[k] = { date: k, quotes: 0, sales: 0, generations: 0, downloads: 0 };
         chartMap[k].generations++;
     });
 
-    leads.forEach(l => {
+    // Process Quotes
+    quotes.forEach(l => {
         const k = getKey(l.created_at);
-        if (!chartMap[k]) chartMap[k] = { date: k, quotes: 0, sales: 0, generations: 0 };
+        if (!chartMap[k]) chartMap[k] = { date: k, quotes: 0, sales: 0, generations: 0, downloads: 0 };
         chartMap[k].quotes++;
         if (l.status === 'Sold') chartMap[k].sales++;
     });
 
-    // Fill in empty days? allow recharts to handle or strict series.
-    // For "All time" filling empty days is too much.
-    // For 7d/30d it's nice.
-    // Let's just return the sparse data sorted by date.
+    // Process Downloads
+    downloads.forEach(l => {
+        const k = getKey(l.created_at);
+        if (!chartMap[k]) chartMap[k] = { date: k, quotes: 0, sales: 0, generations: 0, downloads: 0 };
+        chartMap[k].downloads++;
+    });
+
     const chartData = Object.values(chartMap).sort((a, b) => a.date.localeCompare(b.date));
 
     return {
         totalGenerations,
         totalQuotes,
+        totalDownloads,
         salesCount,
         conversionRate,
         topStyle: topStyleName,

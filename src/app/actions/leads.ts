@@ -15,6 +15,20 @@ export async function trackDownload(formData: FormData) {
     const styleName = formData.get('style_name') as string;
     let generatedUrl = formData.get('generated_design_url') as string;
 
+    // --- IP SECURITY CHECK ---
+    const { headers } = await import('next/headers');
+    const headersList = await headers();
+    const clientIp = headersList.get('x-forwarded-for') || 'unknown';
+
+    const { checkIpStatus } = await import('@/app/admin/actions/security');
+    const ipStatus = await checkIpStatus(clientIp, orgId);
+
+    if (ipStatus.blocked) {
+        console.warn(`[SECURITY] Blocked IP Download attempt: ${clientIp} for Tenant ${orgId}`);
+        return { success: false, error: 'Access Denied: Your IP address has been blocked.' };
+    }
+    // -------------------------
+
     // --- HANDLE BASE64 IMAGE UPLOAD ---
     if (generatedUrl && generatedUrl.startsWith('data:image')) {
         try {
@@ -57,6 +71,7 @@ export async function trackDownload(formData: FormData) {
         customer_name: 'Design Download',
         email: 'download@anonymous', // Differentiator
         status: 'Download', // New Categorization
+        ip_address: clientIp,
         created_at: new Date().toISOString()
     };
 

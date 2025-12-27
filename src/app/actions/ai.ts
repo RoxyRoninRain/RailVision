@@ -100,14 +100,16 @@ export async function generateDesign(formData: FormData) {
     // --- IP SECURITY CHECK ---
     const headersList = await headers();
     const clientIp = headersList.get('x-forwarded-for') || 'unknown';
+    const userAgent = headersList.get('user-agent') || 'unknown';
 
     // Lazy load security actions
     const { checkIpStatus } = await import('@/app/admin/actions/security');
-    const ipStatus = await checkIpStatus(clientIp);
+    // Pass profileIdToBill (Tenant ID) to check for tenant-specific blocks
+    const ipStatus = await checkIpStatus(clientIp, profileIdToBill);
 
     if (ipStatus.blocked) {
-        console.warn(`[SECURITY] Blocked IP attempt: ${clientIp} (${ipStatus.reason})`);
-        return { error: 'Access Denied: Your IP address has been blocked due to excessive usage or abuse.' };
+        console.warn(`[SECURITY] Blocked IP attempt: ${clientIp} for Tenant ${profileIdToBill} (${ipStatus.reason})`);
+        return { error: 'Access Denied: Your IP address has been blocked by the site administrator.' };
     }
     // -------------------------
 

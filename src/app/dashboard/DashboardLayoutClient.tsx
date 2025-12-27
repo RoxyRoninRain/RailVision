@@ -58,6 +58,7 @@ export default function DashboardLayoutClient({
         { name: 'Widget Integration', href: '/dashboard/widget', icon: Code2 },
         { name: 'Onboarding', href: '/dashboard/onboarding', icon: Upload },
         { name: 'Visualizer Tool', href: '/demo', icon: PenTool },
+        { name: 'Security', href: '/dashboard/security', icon: Shield },
         { name: 'Shop Settings', href: '/dashboard/settings', icon: Settings },
     ];
 

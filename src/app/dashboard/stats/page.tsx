@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getDeepStats } from '@/app/actions';
-import { BarChart3, TrendingUp, Users, MousePointerClick, Calendar } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, MousePointerClick, Calendar, Download } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, CartesianGrid } from 'recharts';
 
 export default function StatsPage() {
@@ -90,6 +90,19 @@ export default function StatsPage() {
 
                         <div className="bg-[#111] border border-gray-800 p-6 rounded-lg relative overflow-hidden group">
                             <div className="flex justify-between items-start mb-4">
+                                <div className="p-2 bg-yellow-500/10 rounded-lg text-yellow-500">
+                                    <Download size={24} />
+                                </div>
+                                <span className="text-xs font-mono uppercase px-2 py-1 rounded bg-zinc-900 text-gray-400">
+                                    Downloads
+                                </span>
+                            </div>
+                            <h3 className="text-3xl font-bold text-white mb-1">{stats.totalDownloads}</h3>
+                            <p className="text-sm text-gray-500">Designs Saved</p>
+                        </div>
+
+                        <div className="bg-[#111] border border-gray-800 p-6 rounded-lg relative overflow-hidden group">
+                            <div className="flex justify-between items-start mb-4">
                                 <div className="p-2 bg-green-500/10 rounded-lg text-green-500">
                                     <TrendingUp size={24} />
                                 </div>
@@ -143,6 +156,7 @@ export default function StatsPage() {
                                             labelStyle={{ color: '#888' }}
                                         />
                                         <Line type="monotone" dataKey="quotes" stroke="var(--primary)" strokeWidth={2} dot={false} activeDot={{ r: 6 }} name="Quotes" />
+                                        <Line type="monotone" dataKey="downloads" stroke="#eab308" strokeWidth={2} dot={false} name="Downloads" />
                                         <Line type="monotone" dataKey="sales" stroke="#22c55e" strokeWidth={2} dot={false} name="Sales" />
                                     </LineChart>
                                 </ResponsiveContainer>
