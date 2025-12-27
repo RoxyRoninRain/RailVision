@@ -89,6 +89,7 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
                 <div className="flex items-center gap-3 flex-wrap">
                     {/* Filter Status */}
 
+
                     <button
                         onClick={() => setFilterStatus('Active')}
                         className={cn(
@@ -101,6 +102,18 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
                         Active Leads
                     </button>
 
+                    <button
+                        onClick={() => setFilterStatus('Download')}
+                        className={cn(
+                            "px-4 py-2 text-sm font-medium rounded-md transition-colors font-mono uppercase tracking-widest text-xs",
+                            filterStatus === 'Download'
+                                ? "bg-[var(--primary)] text-black shadow-sm font-bold"
+                                : "bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-white"
+                        )}
+                    >
+                        Downloads
+                    </button>
+
                     <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
@@ -108,6 +121,7 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
                     >
                         <option value="All">All Statuses</option>
                         <option value="Active">Active (New/Pending)</option>
+                        <option value="Download">Downloads</option>
                         <option value="New">New</option>
                         <option value="Pending">Pending</option>
                         <option value="Contacted">Contacted</option>

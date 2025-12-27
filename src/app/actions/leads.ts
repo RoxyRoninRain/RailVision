@@ -8,23 +8,63 @@ import { Resend } from 'resend';
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 // Public submission
+// Public submission
 export async function trackDownload(formData: FormData) {
     const supabase = await createClient();
     const orgId = formData.get('organization_id') as string;
     const styleName = formData.get('style_name') as string;
-    const generatedUrl = formData.get('generated_design_url') as string;
+    let generatedUrl = formData.get('generated_design_url') as string;
+
+    // --- HANDLE BASE64 IMAGE UPLOAD ---
+    if (generatedUrl && generatedUrl.startsWith('data:image')) {
+        try {
+            const matches = generatedUrl.match(/^data:image\/([a-zA-Z0-9]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                const ext = matches[1];
+                const base64Data = matches[2];
+                const buffer = Buffer.from(base64Data, 'base64');
+                // Use a dedicated 'downloads' folder or keep it in generated?
+                // Let's use 'downloads' to be clean, or 'generated' to match existing pattern.
+                // User said "move these downloaded images to a different category called downloads" -> referring to Leads.
+                // For storage, 'downloads' folder might be nice.
+                const fileName = `downloads/${orgId || 'public'}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('quote-uploads')
+                    .upload(fileName, buffer, {
+                        contentType: `image/${ext}`
+                    });
+
+                if (!uploadError) {
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('quote-uploads')
+                        .getPublicUrl(fileName);
+
+                    generatedUrl = publicUrl;
+                } else {
+                    console.error('[TrackDownload] Image upload failed:', uploadError);
+                }
+            }
+        } catch (e) {
+            console.error('[TrackDownload] Image processing error:', e);
+        }
+    }
 
     const payload = {
         organization_id: orgId,
         style_name: styleName || 'Unknown',
         generated_design_url: generatedUrl,
-        customer_name: 'Anonymous Download',
-        email: 'anonymous@download', // Placeholder to satisfy DB constraint if any, and distinguish in UI
-        status: 'New', // Default status
+        customer_name: 'Design Download',
+        email: 'download@anonymous', // Differentiator
+        status: 'Download', // New Categorization
         created_at: new Date().toISOString()
     };
 
-    const { error } = await supabase
+    // Use Admin Client to ensure insert permissions (guests might have limited RLS)
+    const adminSupabase = createAdminClient();
+    const dbClient = adminSupabase || supabase;
+
+    const { error } = await dbClient
         .from('leads')
         .insert([payload]);
 
