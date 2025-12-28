@@ -203,7 +203,7 @@ export default function DashboardLayoutClient({
             </AnimatePresence>
 
             {/* Main Content */}
-            <main className={`flex-1 md:ml-64 p-0 pt-20 md:pt-0 ${isImpersonating ? 'mt-10' : ''}`}>
+            <main className={`flex-1 md:ml-64 p-0 pt-20 md:pt-0 ${isImpersonating ? 'mt-10' : ''} w-full max-w-[100vw] overflow-x-hidden`}>
                 {children}
             </main>
         </div>
