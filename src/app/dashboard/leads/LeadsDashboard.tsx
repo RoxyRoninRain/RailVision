@@ -78,7 +78,7 @@ export default function LeadsDashboard({ initialLeads }: { initialLeads: Lead[] 
 
 
     return (
-        <div className="min-h-screen bg-[#050505] p-6 md:p-8 text-white relative font-sans">
+        <div className="min-h-screen bg-[#050505] p-4 md:p-8 text-white relative font-sans">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-6 border-b border-gray-900 pb-6">
                 <div>
                     <h1 className="text-4xl font-mono font-bold text-[var(--primary)] uppercase tracking-tighter mb-2">

@@ -51,7 +51,7 @@ export default function SecurityPage() {
     const blockedSet = new Set(blockedIps.map(b => b.ip_address));
 
     return (
-        <div className="min-h-screen bg-[#050505] p-6 md:p-8 text-white font-sans">
+        <div className="min-h-screen bg-[#050505] p-4 md:p-8 text-white font-sans">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6 border-b border-gray-900 pb-6">
                 <div>
                     <h1 className="text-4xl font-mono font-bold text-[var(--primary)] uppercase tracking-tighter mb-2">
@@ -120,7 +120,8 @@ export default function SecurityPage() {
                             </div>
                         ) : (
                             <div className="overflow-x-auto">
-                                <table className="w-full text-left text-sm text-gray-400">
+                                {/* Desktop Table */}
+                                <table className="hidden md:table w-full text-left text-sm text-gray-400">
                                     <thead className="text-xs uppercase bg-zinc-900/50 text-gray-500">
                                         <tr>
                                             <th className="px-4 py-3 rounded-l">Time</th>
@@ -169,6 +170,47 @@ export default function SecurityPage() {
                                             })}
                                     </tbody>
                                 </table>
+
+                                {/* Mobile Card View */}
+                                <div className="md:hidden space-y-4">
+                                    {activity
+                                        .filter(log => log.ip_address.includes(searchTerm))
+                                        .map(log => {
+                                            const isBlocked = blockedSet.has(log.ip_address);
+                                            return (
+                                                <div key={log.id} className="bg-zinc-900/30 border border-zinc-800 p-4 rounded-lg space-y-3">
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <div className="font-mono text-sm text-white font-bold">{log.ip_address}</div>
+                                                            <div className="text-xs text-gray-500">{new Date(log.created_at).toLocaleString()}</div>
+                                                        </div>
+                                                        {isBlocked && <span className="text-[10px] bg-red-900/50 text-red-400 px-2 py-1 rounded font-bold uppercase">Blocked</span>}
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center pt-2 border-t border-zinc-800/50">
+                                                        <span className="text-xs text-gray-400 uppercase tracking-wide">Generation</span>
+                                                        {!isBlocked ? (
+                                                            <button
+                                                                onClick={() => handleBlock(log.ip_address)}
+                                                                className="text-xs bg-red-900/20 text-red-400 hover:bg-red-900/40 px-3 py-1.5 rounded transition-colors font-bold uppercase"
+                                                            >
+                                                                Block IP
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleUnblock(log.ip_address)}
+                                                                className="text-xs text-gray-600 cursor-not-allowed px-3 py-1.5 font-bold uppercase"
+                                                                disabled
+                                                            >
+                                                                Unblock
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+
                                 {activity.length === 0 && <div className="p-8 text-center text-gray-600">No recent activity log found.</div>}
                             </div>
                         )}
