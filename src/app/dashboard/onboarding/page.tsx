@@ -196,7 +196,7 @@ export default function OnboardingUploadsPage() {
     };
 
     return (
-        <div className="p-8 max-w-7xl mx-auto text-white min-h-screen">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto text-white min-h-screen">
             <header className="mb-12">
                 <h1 className="text-4xl font-mono font-bold uppercase tracking-tight mb-2 text-white">
                     Project Assets

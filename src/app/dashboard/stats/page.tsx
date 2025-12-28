@@ -29,7 +29,7 @@ export default function StatsPage() {
     if (!stats && !loading) return <div className="p-8 text-gray-500">Failed to load stats.</div>;
 
     return (
-        <div className="min-h-screen bg-[#050505] p-4 md:p-8 text-white font-sans">
+        <div className="min-h-screen bg-[#050505] p-4 md:p-8 text-white font-sans max-w-7xl mx-auto">
             {/* Header & Filters */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6 border-b border-gray-900 pb-6">
                 <div>

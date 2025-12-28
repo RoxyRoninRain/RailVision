@@ -8,7 +8,7 @@ export default async function Page() {
     const serverError = stylesResult.error;
 
     return (
-        <div className="p-8">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto">
             <h1 className="text-3xl font-black uppercase mb-8 text-white">Style Library</h1>
             <StylesManager
                 initialStyles={initialStyles || []}

@@ -51,7 +51,7 @@ export default function SecurityPage() {
     const blockedSet = new Set(blockedIps.map(b => b.ip_address));
 
     return (
-        <div className="min-h-screen bg-[#050505] p-4 md:p-8 text-white font-sans">
+        <div className="min-h-screen bg-[#050505] p-4 md:p-8 text-white font-sans max-w-7xl mx-auto">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6 border-b border-gray-900 pb-6">
                 <div>
                     <h1 className="text-4xl font-mono font-bold text-[var(--primary)] uppercase tracking-tighter mb-2">
