@@ -10,7 +10,22 @@ let imagenModel: any = null;
 // Helper to dynamically load the VertexAI constructor
 async function loadVertexAI() {
     const { VertexAI } = await import('@google-cloud/vertexai');
+    const { VertexAI } = await import('@google-cloud/vertexai');
     return VertexAI;
+}
+
+async function getAccessToken(clientEmail?: string, privateKey?: string): Promise<string> {
+    const { GoogleAuth } = await import('google-auth-library');
+    const options: any = {
+        scopes: 'https://www.googleapis.com/auth/cloud-platform'
+    };
+    if (clientEmail && privateKey) {
+        options.credentials = { client_email: clientEmail, private_key: privateKey };
+    }
+    const auth = new GoogleAuth(options);
+    const client = await auth.getClient();
+    const token = await client.getAccessToken();
+    return token.token || '';
 }
 
 interface GoogleAuthResult {
@@ -239,35 +254,70 @@ Renovate **IMAGE A**.
             console.log(promptText);
             console.log('--- END PROMPT ---');
 
-            const request = {
-                contents: [{ role: 'user', parts }]
-            };
+            console.log('--- FINAL PROMPT SENT TO VERTEX ---');
+            console.log(promptText);
+            console.log('--- END PROMPT ---');
 
-            const result = await withTimeout(model.generateContent(request), 45000, 'Vertex AI Generation Timed Out (45s)');
-            const response = await (result as any).response;
+            // BYPASS SDK: Use Raw Fetch because SDK fails on Gemini 3 'thought' responses (JSON parsing error)
+            const authOptions = getGoogleAuthOptions();
+            const token = await getAccessToken(authOptions.credentials?.client_email, authOptions.credentials?.private_key);
+            const projectId = authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'railvision-480923';
 
+            const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3-pro-image-preview:generateContent`;
+
+            console.log(`[VERTEX RAW] Calling URL: ${url}`);
+
+            const rawResponse = await withTimeout(fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{ role: 'user', parts }],
+                    generationConfig: {
+                        temperature: 0.4,
+                        maxOutputTokens: 2048
+                    }
+                })
+            }), 45000, 'Vertex AI Generation Timed Out (45s)');
+
+            if (!rawResponse.ok) {
+                const text = await rawResponse.text();
+                throw new Error(`Vertex API Error ${rawResponse.status}: ${text}`);
+            }
+
+            const responseJson = await rawResponse.json();
+
+            // Usage extraction
             const usage = {
-                inputTokens: response.usageMetadata?.promptTokenCount || 0,
-                outputTokens: response.usageMetadata?.candidatesTokenCount || (response.usageMetadata?.totalTokenCount ? response.usageMetadata.totalTokenCount - (response.usageMetadata.promptTokenCount || 0) : 0)
+                inputTokens: responseJson.usageMetadata?.promptTokenCount || 0,
+                outputTokens: responseJson.usageMetadata?.candidatesTokenCount || 0
             };
 
-            const candidate = response.candidates?.[0];
+            const candidate = responseJson.candidates?.[0];
             if (!candidate) throw new Error("No candidates returned");
 
             for (const part of candidate.content.parts) {
-                // @ts-ignore
+                // Handle "Thought" parts vs "Image" parts
+                if (part.thought) {
+                    console.log(`[GEMINI THOUGHT] ${part.text?.substring(0, 50)}...`);
+                    continue;
+                }
+
+                // Check for Inline Data (Base64 Image)
                 if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
                     return {
                         success: true,
-                        // @ts-ignore
                         image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
                         usage
                     };
                 }
+
+                // Fallback: Check if text contains an image url (improbable for this model but good safety)
             }
 
-            // @ts-ignore
-            return { success: false, error: "Model returned text instead of image: " + candidate.content.parts[0].text?.substring(0, 100) };
+            return { success: false, error: "Model returned text/thoughts instead of image." };
 
         } catch (error: any) {
             console.error(`[NANO BANANA ERROR] Attempt ${attempts + 1} failed:`, error);
