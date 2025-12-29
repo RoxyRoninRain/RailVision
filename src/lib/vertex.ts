@@ -132,6 +132,12 @@ You will receive input images. You must prioritize their data in this specific o
             model: 'gemini-3-pro-image-preview',
             systemInstruction: finalSystemInstruction
         });
+
+        // STRICT SAFETY CHECK: If no credentials and not clearly on GCP, warn or fail fast?
+        // Actually, the hang happens when asking for Token.
+        // We can't easily detect "hanging", but we can log loudly.
+        console.log('[VERTEX] Model initialized. Starting generation request with 45s timeout...');
+
     } catch (e) {
         console.warn("[VERTEX] Lazily init failed:", e);
         return { success: false, error: "AI Service Unavailable: Initialization Failed" };
@@ -239,8 +245,8 @@ Renovate **IMAGE A**.
                 contents: [{ role: 'user', parts }]
             };
 
-            const result = await model.generateContent(request);
-            const response = await result.response;
+            const result = await withTimeout(model.generateContent(request), 45000, 'Vertex AI Generation Timed Out (45s)');
+            const response = await (result as any).response;
 
             const usage = {
                 inputTokens: response.usageMetadata?.promptTokenCount || 0,
@@ -281,6 +287,14 @@ Renovate **IMAGE A**.
     }
 
     return { success: false, error: "Max retries exceeded." };
+}
+
+// Helper for timeout
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage = 'Operation timed out'): Promise<T> {
+    return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms))
+    ]);
 }
 
 export { getRouterModel, getImagenModel };
