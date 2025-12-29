@@ -279,7 +279,7 @@ Renovate **IMAGE A**.
                         maxOutputTokens: 2048
                     }
                 })
-            }), 45000, 'Vertex AI Generation Timed Out (45s)');
+            }), 120000, 'Vertex AI Generation Timed Out (120s)');
 
             if (!rawResponse.ok) {
                 const text = await rawResponse.text();
