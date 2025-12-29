@@ -51,8 +51,8 @@ export async function getVertexClient(isGlobal = false): Promise<any> {
             const authOptions = getGoogleAuthOptions();
             vertexAIGlobal = new VertexAIConstructor({
                 project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
-                location: 'us-central1', // FORCE US-CENTRAL1 (Global can be flaky with new models)
-                apiEndpoint: 'us-central1-aiplatform.googleapis.com',
+                location: 'global', // Restore Global for Gemini 3 as per original intent
+                apiEndpoint: 'aiplatform.googleapis.com',
                 googleAuthOptions: authOptions.credentials ? { credentials: authOptions.credentials } : undefined
             });
         }
@@ -104,7 +104,7 @@ export async function generateDesignWithNanoBanana(
     // Use lazy getter for the model
     let model;
     try {
-        const client = await getVertexClient(false); // Force US-CENTRAL1
+        const client = await getVertexClient(true); // Restore usage of Global Client for Nano Banana
         const finalSystemInstruction = promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
 
 **THE TRUTH HIERARCHY (CRITICAL):**
@@ -130,7 +130,7 @@ You will receive input images. You must prioritize their data in this specific o
         console.log('--- END SYSTEM INSTRUCTION ---');
 
         model = client.getGenerativeModel({
-            model: 'gemini-1.5-pro-002', // Fallback to Stable Protocol
+            model: 'gemini-3-pro-image-preview', // Restore User's Required Model
             systemInstruction: finalSystemInstruction
         });
 
