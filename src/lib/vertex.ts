@@ -13,33 +13,6 @@ async function loadVertexAI() {
     return VertexAI;
 }
 
-export async function getVertexClient(isGlobal = false): Promise<any> {
-    const VertexAIConstructor = await loadVertexAI();
-
-    if (isGlobal) {
-        if (!vertexAIGlobal) {
-            const authOptions = getGoogleAuthOptions();
-            vertexAIGlobal = new VertexAIConstructor({
-                project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
-                location: 'global',
-                apiEndpoint: 'aiplatform.googleapis.com',
-                googleAuthOptions: authOptions.credentials ? { credentials: authOptions.credentials } : undefined
-            });
-        }
-        return vertexAIGlobal;
-    }
-
-    if (!vertexAI) {
-        const authOptions = getGoogleAuthOptions();
-        vertexAI = new VertexAIConstructor({
-            project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
-            location: process.env.VERTEX_LOCATION || 'us-central1',
-            googleAuthOptions: authOptions.credentials ? { credentials: authOptions.credentials } : undefined
-        });
-    }
-    return vertexAI;
-}
-
 interface GoogleAuthResult {
     credentials?: {
         client_email: string;
@@ -70,11 +43,39 @@ function getGoogleAuthOptions(): GoogleAuthResult {
     return {};
 }
 
+export async function getVertexClient(isGlobal = false): Promise<any> {
+    const VertexAIConstructor = await loadVertexAI();
+
+    if (isGlobal) {
+        if (!vertexAIGlobal) {
+            const authOptions = getGoogleAuthOptions();
+            vertexAIGlobal = new VertexAIConstructor({
+                project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
+                location: 'us-central1', // FORCE US-CENTRAL1 (Global can be flaky with new models)
+                apiEndpoint: 'us-central1-aiplatform.googleapis.com',
+                googleAuthOptions: authOptions.credentials ? { credentials: authOptions.credentials } : undefined
+            });
+        }
+        return vertexAIGlobal;
+    }
+
+    if (!vertexAI) {
+        const authOptions = getGoogleAuthOptions();
+        vertexAI = new VertexAIConstructor({
+            project: authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'mock-project',
+            location: 'us-central1',
+            apiEndpoint: 'us-central1-aiplatform.googleapis.com',
+            googleAuthOptions: authOptions.credentials ? { credentials: authOptions.credentials } : undefined
+        });
+    }
+    return vertexAI;
+}
+
 async function getRouterModel() {
     if (!routerModel) {
-        const client = await getVertexClient(true);
+        const client = await getVertexClient(false);
         routerModel = client.getGenerativeModel({
-            model: 'gemini-2.5-flash-lite'
+            model: 'gemini-1.5-flash-002'
         });
     }
     return routerModel;
@@ -103,7 +104,7 @@ export async function generateDesignWithNanoBanana(
     // Use lazy getter for the model
     let model;
     try {
-        const client = await getVertexClient(true);
+        const client = await getVertexClient(false); // Force US-CENTRAL1
         const finalSystemInstruction = promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
 
 **THE TRUTH HIERARCHY (CRITICAL):**
@@ -129,13 +130,10 @@ You will receive input images. You must prioritize their data in this specific o
         console.log('--- END SYSTEM INSTRUCTION ---');
 
         model = client.getGenerativeModel({
-            model: 'gemini-3-pro-image-preview',
+            model: 'gemini-1.5-pro-002', // Fallback to Stable Protocol
             systemInstruction: finalSystemInstruction
         });
 
-        // STRICT SAFETY CHECK: If no credentials and not clearly on GCP, warn or fail fast?
-        // Actually, the hang happens when asking for Token.
-        // We can't easily detect "hanging", but we can log loudly.
         console.log('[VERTEX] Model initialized. Starting generation request with 45s timeout...');
 
     } catch (e) {
@@ -188,9 +186,9 @@ You will receive input images. You must prioritize their data in this specific o
 
             // 3. User Prompt construction
             let promptText = promptConfig?.userTemplate || `[INPUTS]
-**IMAGE A (Canvas):** [User's Staircase]
-**IMAGE B (Style):** [Style Reference]
-**IMAGE C (Specs):** [The Tech Sheet]
+: **IMAGE A (Canvas):** [User's Staircase]
+: **IMAGE B (Style):** [Style Reference]
+: **IMAGE C (Specs):** [The Tech Sheet]
 
 ***
 
