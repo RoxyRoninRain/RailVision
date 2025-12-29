@@ -10,7 +10,6 @@ let imagenModel: any = null;
 // Helper to dynamically load the VertexAI constructor
 async function loadVertexAI() {
     const { VertexAI } = await import('@google-cloud/vertexai');
-    const { VertexAI } = await import('@google-cloud/vertexai');
     return VertexAI;
 }
 
