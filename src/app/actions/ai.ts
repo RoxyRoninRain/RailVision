@@ -8,6 +8,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
 
+export const maxDuration = 300; // 5 minutes to allow for "Thinking" models
+
 export async function convertHeicToJpg(formData: FormData) {
     console.log('[Server Action] Converting HEIC to JPG (using heic-convert)...');
     try {
