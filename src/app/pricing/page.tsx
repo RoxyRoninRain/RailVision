@@ -11,10 +11,10 @@ export default function PricingPage() {
             <div className="max-w-7xl mx-auto px-4 py-24">
                 <div className="text-center mb-16">
                     <h1 className="text-5xl md:text-7xl font-bold font-mono uppercase tracking-tighter mb-6 text-[var(--primary)]">
-                        Utility Pricing
+                        Performance Pricing
                     </h1>
                     <p className="text-xl text-gray-500 max-w-2xl mx-auto">
-                        Pay for power, not promises. Base utility plans with optional Overdrive™ for unlimited scalability.
+                        Stop paying for idle software. Our metered plans let you pay a low base fee, plus a small cost per render. Scale up or down instantly.
                     </p>
                 </div>
 
@@ -32,7 +32,7 @@ export default function PricingPage() {
                         >
                             {tier.popular && (
                                 <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 bg-[var(--primary)] text-black font-bold font-mono text-xs uppercase px-4 py-1 rounded-full">
-                                    Most Popular
+                                    Best Value
                                 </div>
                             )}
 
@@ -49,23 +49,13 @@ export default function PricingPage() {
                             <div className="space-y-4 mb-8 flex-grow">
                                 <div className="p-4 bg-white/5 rounded border border-white/10">
                                     <div className="flex justify-between items-center mb-1">
-                                        <span className="text-sm text-gray-400">Allowance</span>
-                                        <span className="text-white font-bold">
-                                            {tier.allowance > 0 ? `${tier.allowance} Renders` : 'Pay As You Go'}
+                                        <span className="text-sm text-gray-400">Rate</span>
+                                        <span className="text-[var(--primary)] font-bold">
+                                            ${tier.overageRate.toFixed(2)}
                                         </span>
                                     </div>
                                     <div className="text-xs text-gray-500 font-mono">
-                                        {tier.allowance > 0 ? 'Included monthly' : 'No monthly limits'}
-                                    </div>
-                                </div>
-
-                                <div className="p-4 bg-white/5 rounded border border-white/10">
-                                    <div className="flex justify-between items-center mb-1">
-                                        <span className="text-sm text-gray-400">Overdrive™</span>
-                                        <span className="text-[var(--primary)] font-bold">${tier.overageRate.toFixed(2)}</span>
-                                    </div>
-                                    <div className="text-xs text-gray-500 font-mono">
-                                        Per extra render
+                                        Per image generated
                                     </div>
                                 </div>
 
@@ -77,7 +67,7 @@ export default function PricingPage() {
                                         </span>
                                     </div>
                                     <div className="text-xs text-gray-500 font-mono">
-                                        {tier.onboardingFee === 0 ? 'Included setup' : 'One-time setup fee'}
+                                        One-time setup & training
                                     </div>
                                 </div>
 
@@ -103,7 +93,7 @@ export default function PricingPage() {
 
                 <div className="mt-8 text-center animate-pulse">
                     <p className="text-xs md:text-sm text-gray-500 font-mono bg-white/5 inline-block px-4 py-2 rounded-full border border-white/10">
-                        ⚠️ Note: Pricing subject to change. Lock in your price today.
+                        ⚡ Start small, upgrade as you grow. No contracts.
                     </p>
                 </div>
 
@@ -111,15 +101,27 @@ export default function PricingPage() {
                     <h2 className="text-2xl font-mono font-bold text-white mb-8">Frequently Asked Questions</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto">
                         <div>
-                            <h3 className="text-[var(--primary)] font-bold mb-2">What happens when I hit my limit?</h3>
+                            <h3 className="text-[var(--primary)] font-bold mb-2">How does billing work?</h3>
                             <p className="text-gray-500 text-sm">
-                                By default, generation is paused (Soft Cap). You can enable "Overdrive" in your dashboard to keep generating at your plan's overage rate.
+                                You pay a small monthly platform fee to access the tools. Then, you simply pay for each image you generate at your plan's rate.
                             </p>
                         </div>
                         <div>
-                            <h3 className="text-[var(--primary)] font-bold mb-2">Can I cap my spending?</h3>
+                            <h3 className="text-[var(--primary)] font-bold mb-2">Can I control my spending?</h3>
                             <p className="text-gray-500 text-sm">
-                                Yes. You can set a "Max Monthly Spend" limit in your dashboard to ensure you never exceed your budget, even with Overdrive enabled.
+                                Absolutely. You can set a "Safety Cap" in your settings. We will automatically stop generation if you hit your montly budget limit.
+                            </p>
+                        </div>
+                        <div>
+                            <h3 className="text-[var(--primary)] font-bold mb-2">What is the Onboarding Fee for?</h3>
+                            <p className="text-gray-500 text-sm">
+                                This one-time fee covers the manual setup of your white-labeled tool, uploading your logo, and calibrating the AI to your specific styles.
+                            </p>
+                        </div>
+                        <div>
+                            <h3 className="text-[var(--primary)] font-bold mb-2">Can I switch plans?</h3>
+                            <p className="text-gray-500 text-sm">
+                                Yes, you can upgrade or downgrade at any time. If your volume increases, moving to a higher tier will lower your per-image cost significantly.
                             </p>
                         </div>
                     </div>

@@ -32,11 +32,11 @@ export default function PricingCarousel() {
                                 <span className="text-gray-500 text-sm">/mo</span>
                             </div>
                             <div className="text-sm font-mono text-[var(--primary)] mb-1">
-                                {tier.allowance > 0 ? `${tier.allowance} Renders Included` : 'Pay As You Go'}
+                                {tier.allowance > 0 ? `${tier.allowance} Renders Included` : `$${tier.overageRate.toFixed(2)} per image`}
                             </div>
                             <div className="text-xs text-gray-400">
                                 {tier.onboardingFee > 0
-                                    ? `+ $${tier.onboardingFee} one-time setup fee`
+                                    ? 'One-time Setup Fee'
                                     : 'No setup fee'}
                             </div>
                         </div>
