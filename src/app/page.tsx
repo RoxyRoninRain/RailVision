@@ -19,10 +19,10 @@ export default function LandingPage() {
         <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-secondary/10 rounded-full blur-[120px] pointer-events-none" />
 
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          {/* <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-primary mb-8 animate-fade-in-up">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-primary mb-8 animate-fade-in-up">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            New: SVG Watermark Support Available
-          </div> */}
+            New: Plans start at just $20/mo
+          </div>
 
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 leading-[1.1]">
             <span className="block text-transparent bg-clip-text bg-gradient-to-b from-white to-white/50">Hook Them With Visuals.</span>
@@ -30,7 +30,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Show customers exactly what they’re getting, and show them the cost upfront. You only hear from the ones who love the design and can afford the bid.
+            Show customers exactly what they’re getting, and show them the cost upfront. Pay only for what you use. You only hear from the ones who love the design and can afford the bid.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

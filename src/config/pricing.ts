@@ -1,4 +1,4 @@
-export type TierName = 'The Estimator' | 'The Shop' | 'The Pro' | 'The Volume' | 'The Industrial' | 'The Unlimited';
+export type TierName = 'Starter' | 'Professional' | 'Volume' | 'The Unlimited';
 
 export interface PricingTier {
     name: TierName;
@@ -12,80 +12,53 @@ export interface PricingTier {
     features: string[];
     popular?: boolean;
     stripePriceId?: string;
-    stripeOnboardingPriceId?: string;
+    stripeOnboardingPriceId?: string; // Kept for type safety, though maybe unused in new model if no onboarding fee?
     stripeMeteredPriceId?: string;
 }
 
 export const PRICING_TIERS: Record<TierName, PricingTier> = {
-    'The Estimator': {
-        name: 'The Estimator',
-        price: 49,
-        allowance: 50,
-        overageRate: 1.00,
-        billingThreshold: 50,
-        onboardingFee: 299,
-        canEmbed: false,
-        isWhiteLabel: false,
-        features: ['Dashboard Access Only', 'Standard Processing'],
-        stripePriceId: 'price_1Si37QEJNh6NAPEX9hQtVCAH',
-        stripeOnboardingPriceId: 'price_1Si37QEJNh6NAPEXqosKo482',
-        stripeMeteredPriceId: 'price_1Si3UKEJNh6NAPEXPesKmVsW'
-    },
-    'The Shop': {
-        name: 'The Shop',
-        price: 99,
-        allowance: 100,
-        overageRate: 1.00,
-        billingThreshold: 100,
-        onboardingFee: 299,
+    'Starter': {
+        name: 'Starter',
+        price: 20,
+        allowance: 0,
+        overageRate: 1.20,
+        billingThreshold: 20,
+        onboardingFee: 250,
         canEmbed: true,
         isWhiteLabel: false,
-        features: ['Embed on your site', 'Powered by Railify Badge', 'Standard Processing'],
-        stripePriceId: 'price_1Si3B5EJNh6NAPEXrPKcLG6p',
-        stripeOnboardingPriceId: 'price_1Si3B5EJNh6NAPEXB7YDphCE',
-        stripeMeteredPriceId: 'price_1Si3TrEJNh6NAPEXwx8g4R5V'
+        features: ['Dashboard Access', 'Embed on your site', 'Powered by Railify Badge (Mandatory)'],
+        stripePriceId: 'price_1SlwN6EJNh6NAPEX6ANPCBcO',
+        stripeMeteredPriceId: 'price_1SlwN6EJNh6NAPEXnKMx5C9y',
+        stripeOnboardingPriceId: 'price_1SlwT9EJNh6NAPEXR8z1dv1z'
     },
-    'The Pro': {
-        name: 'The Pro',
-        price: 299,
-        allowance: 400,
-        overageRate: 0.90,
-        billingThreshold: 400,
-        onboardingFee: 249,
+    'Professional': {
+        name: 'Professional',
+        price: 50,
+        allowance: 0,
+        overageRate: 1.00,
+        billingThreshold: 50,
+        onboardingFee: 250,
         canEmbed: true,
         isWhiteLabel: true,
         popular: true,
-        features: ['Embed on your site', 'Your Logo Watermark', 'Standard Processing'],
-        stripePriceId: 'price_1Si3CtEJNh6NAPEXkl4D5OiW',
-        stripeOnboardingPriceId: 'price_1Si3CtEJNh6NAPEXdDM5TLiS',
-        stripeMeteredPriceId: 'price_1Si3TFEJNh6NAPEXJ2urI4ce'
+        features: ['White Label (No Badge)', 'Your Logo Watermark', 'Standard Processing'],
+        stripePriceId: 'price_1SlwPmEJNh6NAPEXCudj7EDt',
+        stripeMeteredPriceId: 'price_1SlwPmEJNh6NAPEXdoogs38P',
+        stripeOnboardingPriceId: 'price_1SlwT9EJNh6NAPEXR8z1dv1z'
     },
-    'The Volume': {
-        name: 'The Volume',
-        price: 499,
-        allowance: 700,
+    'Volume': {
+        name: 'Volume',
+        price: 100,
+        allowance: 0,
         overageRate: 0.80,
-        billingThreshold: 700,
-        onboardingFee: 149,
+        billingThreshold: 100,
+        onboardingFee: 250,
         canEmbed: true,
         isWhiteLabel: true,
-        features: ['Embed on your site', 'Your Logo Watermark', 'Priority Processing'],
-        stripePriceId: 'price_1Si3PLEJNh6NAPEXJ8WVTNE3',
-        stripeOnboardingPriceId: 'price_1Si3PLEJNh6NAPEXryKTBmdp',
-        stripeMeteredPriceId: 'price_1Si3PLEJNh6NAPEXnlbAf0id'
-    },
-    'The Industrial': {
-        name: 'The Industrial',
-        price: 749,
-        allowance: 1000,
-        overageRate: 0.75,
-        billingThreshold: 1000,
-        onboardingFee: 0,
-        canEmbed: true,
-        isWhiteLabel: true,
-        features: ['Embed on your site', 'Your Logo Watermark', 'Dedicated Support', 'Priority Processing'],
-        stripePriceId: 'price_1Si3EfEJNh6NAPEXSAqHORxt',
-        stripeMeteredPriceId: 'price_1Si3SMEJNh6NAPEXKRyMif8W'
+        features: ['White Label', 'Volume Discount', 'Priority Support'],
+        stripePriceId: 'price_1SlwRiEJNh6NAPEXb1FsDlQy',
+        stripeMeteredPriceId: 'price_1SlwRiEJNh6NAPEXANKMR94u',
+        stripeOnboardingPriceId: 'price_1SlwT9EJNh6NAPEXR8z1dv1z'
     },
     'The Unlimited': {
         name: 'The Unlimited',
@@ -100,4 +73,5 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
     }
 };
 
-export const DEFAULT_TIER: TierName = 'The Estimator';
+export const DEFAULT_TIER: TierName = 'Starter';
+

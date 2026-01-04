@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
 
-export const maxDuration = 300; // 5 minutes to allow for "Thinking" models
+const maxDuration = 120; // 2 minutes (User confirmed working limit)
 
 export async function convertHeicToJpg(formData: FormData) {
     console.log('[Server Action] Converting HEIC to JPG (using heic-convert)...');
@@ -59,7 +59,13 @@ export async function generateDesign(formData: FormData) {
     });
 
     if (!validationResult.success) {
-        const errorMsg = (validationResult.error as any).errors.map((e: any) => e.message).join(', ');
+        let errorMsg = 'Validation Failed';
+        const zError = validationResult.error as any;
+        if (zError && zError.errors && Array.isArray(zError.errors)) {
+            errorMsg = zError.errors.map((e: any) => e.message).join(', ');
+        } else if (validationResult.error instanceof Error) {
+            errorMsg = validationResult.error.message;
+        }
         return { error: `Invalid Request: ${errorMsg}` };
     }
     // ---------------------------
@@ -115,7 +121,6 @@ export async function generateDesign(formData: FormData) {
     }
     // -------------------------
 
-
     // 1. Fetch current usage & tier details
     const { data: profile, error: dbError } = await dbClient
         .from('profiles')
@@ -123,7 +128,7 @@ export async function generateDesign(formData: FormData) {
         .eq('id', profileIdToBill)
         .single();
 
-    // Lazy load pricing configs to avoid top-level await issues if any
+    // Lazy load pricing configs
     const { PRICING_TIERS, DEFAULT_TIER } = await import('@/config/pricing');
 
     if (dbError || !profile) {
@@ -135,171 +140,155 @@ export async function generateDesign(formData: FormData) {
     const tier = PRICING_TIERS[tierName] || PRICING_TIERS[DEFAULT_TIER];
 
     const currentUsage = profile.current_usage || 0;
-    const allowance = tier.allowance;
-    let isOverage = false;
+    // With Utility Model, allowance is 0. All usage is metered.
+    const allowance = tier.allowance || 0;
     let overageCost = 0;
-
-    // Track overage units (renders) for this transaction if applicable
     let transactionOverageCount = 0;
 
-    // 2. Usage Check Logic
-    const REMAINING_WARNING_THRESHOLD = 10;
+    // 2. Usage Check Logic (Utility Model: Always "Overdrive")
     const notificationState = (profile.notification_state as any) || {};
 
+    // Standard Metered Logic (Applies to everyone unless allowance > 0)
+    // Legacy support: If they somehow have an allowance (Unlimited Plan), we consume it first.
     if (currentUsage < allowance) {
-        // Within included allowance
-        const remaining = allowance - (currentUsage + 1); // +1 because we are about to consume
-
-        // --- LOW BALANCE WARNING (The "Heads Up") ---
-        if (remaining === REMAINING_WARNING_THRESHOLD) {
-            const now = new Date();
-            // Check if already sent recently (optional, but good practice to avoid dupes if race condition)
-            // Simple logic: If we hit exactly 10, send it. Database state prevents duplicate blocks?
-            // But we only update DB at the end. 
-            // Logic: Fire and forget email, update notification_state in the final DB update.
-
-            console.log('[BILLING] Low Balance Threshold Hit (10 left). Sending Email...');
-            try {
-                const { Resend } = await import('resend');
-                const { LowBalanceEmail } = await import('@/emails/LowBalanceEmail');
-                const resend = new Resend(process.env.RESEND_API_KEY);
-
-                // Fire and forget (don't await strictly to block generation, but we want to log error)
-                resend.emails.send({
-                    from: 'Railify <system@railify.app>',
-                    to: profile.email,
-                    subject: '⚠️ Balance Warning: 10 Renderings Left',
-                    react: LowBalanceEmail() as React.ReactElement,
-                }).then(() => console.log('[BILLING] Low Balance Email Sent'));
-
-                notificationState.low_balance_sent_at = now.toISOString();
-
-            } catch (emailErr) {
-                console.error('[BILLING] Failed to send Low Balance email:', emailErr);
-            }
-        }
+        // --- LEGACY/UNLIMITED ALLOWANCE LOGIC ---
+        // Just consume allowance, no billing.
+        // (Skipping low balance warning for now as it's legacy/internal focus)
     } else {
-        // Overage Territory
-        if (!profile.enable_overdrive) {
-            console.warn(`[BILLING] Soft Cap Reached. Usage: ${currentUsage}, Limit: ${allowance}. Overdrive OFF.`);
+        // --- METERED PAY-AS-YOU-GO LOGIC ---
+        // Auto-enable Overdrive: We don't check profile.enable_overdrive anymore.
 
-            // --- NOTIFICATION & ERROR UX ---
-            const now = new Date();
-            let errorMessage = '';
+        overageCost = tier.overageRate;
+        const currentPending = profile.pending_overage_balance || 0;
+        const projectedTotal = currentPending + overageCost;
 
-            if (user) {
-                // Scenario A: Tenant (Logged In)
-                errorMessage = 'Monthly allowance reached. Enable Overdrive in settings to continue.';
+        // --- SAFETY CAP CHECK ---
+        if (profile.max_monthly_spend !== null && profile.max_monthly_spend > 0) {
 
-                // Send Limit Reached Email (The "Stop")
-                // Check if sent recently (e.g., in the last 24 hours) to prevent spamming on every click
-                const lastSent = notificationState.limit_reached_sent_at ? new Date(notificationState.limit_reached_sent_at) : null;
-                const hoursSinceLast = lastSent ? (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60) : 999;
+            // 1. HARD STOP
+            if (projectedTotal > profile.max_monthly_spend) {
+                console.warn(`[BILLING] Safety Cap Hit! Project: $${projectedTotal} > Limit: $${profile.max_monthly_spend}`);
 
-                if (hoursSinceLast > 24) {
+                // NOTIFICATIONS (Limit Reached / Lost Lead)
+                const now = new Date();
+
+                if (user) {
+                    // Scenario A: Tenant (Logged In)
+                    // Check rate limit (24h)
+                    const lastSent = notificationState.limit_reached_sent_at ? new Date(notificationState.limit_reached_sent_at) : null;
+                    const hoursSinceLast = lastSent ? (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60) : 999;
+
+                    if (hoursSinceLast > 24) {
+                        try {
+                            const { Resend } = await import('resend');
+                            const { LimitReachedEmail } = await import('@/emails/LimitReachedEmail');
+                            const resend = new Resend(process.env.RESEND_API_KEY);
+                            await resend.emails.send({
+                                from: 'Railify <system@railify.app>',
+                                to: profile.email,
+                                subject: '⛔ Limit Reached: Action Required',
+                                react: LimitReachedEmail() as React.ReactElement,
+                            });
+                            // Update DB state regarding notification
+                            await dbClient.from('profiles').update({
+                                notification_state: { ...notificationState, limit_reached_sent_at: now.toISOString() }
+                            }).eq('id', profileIdToBill);
+                        } catch (e) { console.error('Limit Email error:', e); }
+                    }
+                    return { error: `Monthly spend limit ($${profile.max_monthly_spend}) reached. Increase limit to continue.` };
+
+                } else {
+                    // Scenario B: Guest (Public/Embed) - LOST LEAD
+                    // Send Lost Lead Alert (1 per hour)
+                    const lastLostLead = notificationState.lost_lead_sent_at ? new Date(notificationState.lost_lead_sent_at) : null;
+                    const hoursSinceLostLead = lastLostLead ? (now.getTime() - lastLostLead.getTime()) / (1000 * 60 * 60) : 999;
+
+                    if (hoursSinceLostLead > 1) {
+                        try {
+                            const { Resend } = await import('resend');
+                            const { LostLeadEmail } = await import('@/emails/LostLeadEmail');
+                            const resend = new Resend(process.env.RESEND_API_KEY);
+                            await resend.emails.send({
+                                from: 'Railify Alerts <system@railify.app>',
+                                to: profile.email,
+                                subject: '⚠️ Alert: You just missed a customer!',
+                                react: LostLeadEmail() as React.ReactElement,
+                            });
+                            await dbClient.from('profiles').update({
+                                notification_state: { ...notificationState, lost_lead_sent_at: now.toISOString() }
+                            }).eq('id', profileIdToBill);
+                        } catch (e) { console.error('Lost Lead Email error:', e); }
+                    }
+                    // Generic User Error
+                    return { error: 'This tool is currently experiencing high demand. Please try again later.' };
+                }
+            }
+
+            // 2. WARNING ALERT (Within $10)
+            const remaining = profile.max_monthly_spend - currentPending;
+            if (remaining <= 10 && remaining > 0) {
+                const now = new Date();
+                // Rate limit: One warning per month implies checking 'last_warning_month'? 
+                // Or simple 24h/48h debounce. Let's do 48h to be safe.
+                const lastWarn = notificationState.usage_warning_sent_at ? new Date(notificationState.usage_warning_sent_at) : null;
+                const hoursSinceWarn = lastWarn ? (now.getTime() - lastWarn.getTime()) / (1000 * 60 * 60) : 999;
+
+                if (hoursSinceWarn > 48) {
+                    console.log('[BILLING] Usage Warning Triggered (Within $10)');
                     try {
                         const { Resend } = await import('resend');
-                        const { LimitReachedEmail } = await import('@/emails/LimitReachedEmail');
+                        // Dynamic import new email
+                        const { UsageWarningEmail } = await import('@/emails/UsageWarningEmail');
                         const resend = new Resend(process.env.RESEND_API_KEY);
 
-                        await resend.emails.send({
+                        // Fire and forget
+                        resend.emails.send({
                             from: 'Railify <system@railify.app>',
                             to: profile.email,
-                            subject: '⛔ Limit Reached: Action Required',
-                            react: LimitReachedEmail() as React.ReactElement,
-                        });
+                            subject: '⚠️ Spending Limit Warning',
+                            react: UsageWarningEmail() as React.ReactElement,
+                        }).then(() => console.log('Usage Warning Sent'));
 
-                        // We must update DB state here because we return early (error)
-                        await dbClient.from('profiles').update({
-                            notification_state: { ...notificationState, limit_reached_sent_at: now.toISOString() }
-                        }).eq('id', profileIdToBill);
-
-                        console.log('[BILLING] Limit Reached Email Sent to Tenant.');
-                    } catch (e) { console.error('Email error:', e); }
+                        // Update state locally so we persist it at end of transaction
+                        notificationState.usage_warning_sent_at = now.toISOString();
+                    } catch (e) { console.error('Usage Warning Error:', e); }
                 }
-
-            } else {
-                // Scenario B: Guest (Public/Embed)
-                // UX: Generic "High Demand" error
-                errorMessage = 'This tool is currently experiencing high demand. Please try again later.';
-
-                // Send Lost Lead Alert (The "Money Saver") -- CRITICAL
-                // Rate Limit: 1 per hour
-                const lastLostLead = notificationState.lost_lead_sent_at ? new Date(notificationState.lost_lead_sent_at) : null;
-                const hoursSinceLostLead = lastLostLead ? (now.getTime() - lastLostLead.getTime()) / (1000 * 60 * 60) : 999;
-
-                if (hoursSinceLostLead > 1) {
-                    try {
-                        const { Resend } = await import('resend');
-                        const { LostLeadEmail } = await import('@/emails/LostLeadEmail');
-                        const resend = new Resend(process.env.RESEND_API_KEY);
-
-                        await resend.emails.send({
-                            from: 'Railify Alerts <system@railify.app>',
-                            to: profile.email,
-                            subject: '⚠️ Alert: You just missed a customer!',
-                            react: LostLeadEmail() as React.ReactElement,
-                        });
-
-                        // Update DB state
-                        await dbClient.from('profiles').update({
-                            notification_state: { ...notificationState, lost_lead_sent_at: now.toISOString() }
-                        }).eq('id', profileIdToBill);
-
-                        console.log('[BILLING] Lost Lead Alert Sent to Tenant.');
-                    } catch (e) { console.error('Email error:', e); }
-                } else {
-                    console.log('[BILLING] Lost Lead Alert Rate Limited.');
-                }
-            }
-
-            return { error: errorMessage };
-        }
-
-        // Hard Cap Check (Risk Management)
-        if (profile.max_monthly_spend) {
-            const potentialBalance = (profile.pending_overage_balance || 0) + tier.overageRate;
-            if (potentialBalance > profile.max_monthly_spend) {
-                return { error: `Monthly spend limit ($${profile.max_monthly_spend}) reached. Increase limit to continue.` };
             }
         }
 
-        isOverage = true;
-        overageCost = tier.overageRate;
+        // Proceed with billing accumulation
         transactionOverageCount = 1;
 
-        // Report Usage to Stripe
+        // Report to Stripe (Metered Usage)
         try {
-            if (profileIdToBill) {
+            if (profileIdToBill && tier.stripeMeteredPriceId) {
                 const { reportUsage } = await import('@/app/actions/stripe');
+                // We report 1 unit. Price is handled by Stripe Price ID config or subscription logic
                 await reportUsage(profileIdToBill, 1);
-                console.log(`[BILLING] Overdrive Active. Reported usage +1 to Stripe for user ${profileIdToBill}.`);
             }
         } catch (err) {
             console.error('[BILLING] Failed to report usage to Stripe:', err);
-            // We continue execution; don't block the user generation for a billing glitch, 
-            // but strictly we might want to? For now, fail open or soft block?
-            // Since we have local pending_overage_balance tracking, we are okay to proceed.
         }
     }
 
-    // 3. Threshold Billing Logic
+    // 3. Billing Threshold Check (Charge Card)
     let newPendingBalance = (profile.pending_overage_balance || 0) + overageCost;
     let newOverageCount = (profile.current_overage_count || 0) + transactionOverageCount;
-    let thresholdTriggered = false;
 
-    if (isOverage && newOverageCount >= tier.billingThreshold) {
-        console.warn(`[BILLING] THRESHOLD HIT! Tier: ${tier.name}, Threshold: ${tier.billingThreshold}, Count: ${newOverageCount}`);
+    // Check against Tier Threshold (e.g. Charge every $20 or $50)
+    if (newPendingBalance >= tier.billingThreshold && tier.billingThreshold > 0) {
+        console.log(`[BILLING] THRESHOLD HIT! Tier: ${tier.name}, Balance: $${newPendingBalance} >= Threshold: $${tier.billingThreshold}`);
 
-        // TRIGGER IMMEDIATE CHARGE (Mock)
-        console.log(`[PAYMENT] Charging user ${profileIdToBill} for $${newPendingBalance} (Accumulated Overage)`);
+        // TRIGGER IMMEDIATE CHARGE (Mock Implementation - In real world, this triggers Stripe Invoice Pay)
+        // For now, we simulate success and reset the "Pending Bucket"
+        console.log(`[PAYMENT] Auto-Charging user ${profileIdToBill} for accumulated $${newPendingBalance}`);
 
-        // Reset counters after "payment"
-        // Note: We reset pending balance and overage count as we just "billed" them.
-        // In a real system, we'd only reset if the Stripe charge succeeds.
+        // Reset counters
         newPendingBalance = 0;
+        // newOverageCount = 0; // Optional: keep counting total lifetime usage? 
+        // Logic says "Charge card every $20". Code earlier reset usage count too. Let's keep count for stats, but maybe reset a 'billed_units' counter?
+        // Existing code reset 'current_overage_count'. I will follow suit to keep logic simple: "Usage since last bill".
         newOverageCount = 0;
-        thresholdTriggered = true;
     }
 
     // 4. Commit Usage Update
@@ -309,7 +298,7 @@ export async function generateDesign(formData: FormData) {
             current_usage: currentUsage + 1,
             pending_overage_balance: newPendingBalance,
             current_overage_count: newOverageCount,
-            notification_state: notificationState // Update state (mainly for low balance prop)
+            notification_state: notificationState
         })
         .eq('id', profileIdToBill);
 

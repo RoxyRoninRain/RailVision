@@ -14,20 +14,36 @@ export async function getTenantProfile(organizationId: string) {
     const { unstable_noStore } = await import('next/cache');
     unstable_noStore();
 
-    const supabase = createAdminClient();
+    const supabaseAdmin = createAdminClient();
 
-    if (!supabase) {
-        console.error('FATAL: Generic Tenant Profile Fetch Failed - No Admin Client');
-        return null;
+    let data = null;
+    let error = null;
+
+    // Try Admin First
+    if (supabaseAdmin) {
+        const result = await supabaseAdmin
+            .from('profiles')
+            .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url, website, tier_name, subscription_status, confirmation_email_body')
+            .eq('id', organizationId)
+            .single();
+
+        if (!result.error) {
+            return result.data;
+        }
+        console.warn('getTenantProfile: Admin Client query failed (invalid key?), trying fallback.', result.error);
     }
 
-    // Public fetch of branding details
-    const { data, error } = await supabase
+    // Fallback to Anon
+    console.warn('getTenantProfile: Using Anon Client Fallback');
+    const supabaseAnon = await createClient();
+    const result = await supabaseAnon
         .from('profiles')
         .select('shop_name, logo_url, phonenumber:phone, address, primary_color, tool_background_color, logo_size, watermark_logo_url, website, tier_name, subscription_status, confirmation_email_body')
         .eq('id', organizationId)
         .single();
 
+    data = result.data;
+    error = result.error;
 
     if (error) {
         console.error('Fetch Tenant Profile Error:', error);

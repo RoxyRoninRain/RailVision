@@ -435,20 +435,42 @@ export async function getPublicStyles(tenantId: string) {
         return data;
     }
 
-    const { data, error } = await supabase
+    let data = [];
+    let adminError = null;
+
+    if (supabase) {
+        const result = await supabase
+            .from('portfolio')
+            .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max')
+            .eq('tenant_id', tenantId)
+            .eq('is_active', true)
+            .order('display_order', { ascending: true })
+            .order('created_at', { ascending: false });
+
+        if (!result.error) {
+            return result.data;
+        }
+        adminError = result.error;
+        console.warn('getPublicStyles: Admin Client failed (likely invalid key), preventing crash by falling back to Anon.', adminError);
+    }
+
+    // Fallback to Anon Client (if Admin missing OR Admin Query Failed)
+    console.warn('getPublicStyles: Using Anon Client Fallback');
+    const standardClient = await createClient();
+    const { data: anonData, error: anonError } = await standardClient
         .from('portfolio')
-        .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
+        .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max')
         .eq('tenant_id', tenantId)
         .eq('is_active', true)
         .order('display_order', { ascending: true })
         .order('created_at', { ascending: false });
 
-    if (error) {
-        console.error('Get Public Styles Error:', error);
+    if (anonError) {
+        console.error('Get Public Styles (Anon) Error:', anonError);
+        // If both failed, return empty but log
         return [];
     }
-
-    return data;
+    return anonData;
 }
 
 export async function getStyles(tenantId?: string) {

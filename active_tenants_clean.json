@@ -1,0 +1,115 @@
+[
+  {
+    "organization_id": "cbc0da2d-7db3-4d42-93e8-404d38912364",
+    "id": "cbc0da2d-7db3-4d42-93e8-404d38912364",
+    "email": "missmetalmagic@gmail.com",
+    "shop_name": "Mississippi Metal Magic",
+    "subscription_status": "active",
+    "created_at": "2025-12-14T00:52:50.447Z",
+    "updated_at": "2025-12-27T12:27:00.220Z",
+    "primary_color": "#948524",
+    "logo_url": "https://zlwcdhgdmshtmkqngfzg.supabase.co/storage/v1/object/public/logos/cbc0da2d-7db3-4d42-93e8-404d38912364/1766756835248.png",
+    "address": "52 Old Highway 15\r\nEcru, MS 38841",
+    "phone": "(662)297-0001",
+    "tool_background_color": "#010b1a",
+    "watermark_logo_url": "https://zlwcdhgdmshtmkqngfzg.supabase.co/storage/v1/object/public/logos/cbc0da2d-7db3-4d42-93e8-404d38912364/watermark_logo_url_1766757978985.png",
+    "logo_size": 174,
+    "website": "https://mississippimetalmagic.com",
+    "tier": "showroom",
+    "credits_monthly": 386,
+    "credits_rollover": 0,
+    "credits_booster": 0,
+    "auto_boost_enabled": true,
+    "auto_boost_pack": "REFILL",
+    "address_zip": "38841",
+    "travel_settings": {
+      "tiers": [
+        {
+          "price": 15,
+          "radius": 20
+        },
+        {
+          "price": 25,
+          "radius": 30
+        },
+        {
+          "price": 35,
+          "radius": 40
+        },
+        {
+          "price": 55,
+          "radius": 50
+        },
+        {
+          "price": 65,
+          "radius": 60
+        },
+        {
+          "price": 75,
+          "radius": 70
+        },
+        {
+          "price": 85,
+          "radius": 80
+        }
+      ],
+      "pricing_type": "radius_tiers",
+      "application_type": "per_foot_surcharge"
+    },
+    "confirmation_email_body": "Thank you for your request. We will review your project and get back to you shortly.",
+    "tier_name": "The Unlimited",
+    "enable_overdrive": true,
+    "pending_overage_balance": "13.280000000000008",
+    "max_monthly_spend": null,
+    "current_usage": 419,
+    "current_overage_count": 83,
+    "onboarding_status": "pending",
+    "subscription_start_date": "2025-12-26T16:01:06.250Z",
+    "onboarding_fee_paid": false,
+    "stripe_customer_id": "cus_Tfz28Ax7jpcdyE",
+    "stripe_subscription_id": null,
+    "notification_state": {}
+  },
+  {
+    "organization_id": "d899bbe8-10b5-4ee7-8ee5-5569e415178f",
+    "id": "d899bbe8-10b5-4ee7-8ee5-5569e415178f",
+    "email": "admin@railify.com",
+    "shop_name": "Railify",
+    "subscription_status": "active",
+    "created_at": "2025-12-13T02:52:34.849Z",
+    "updated_at": "2025-12-22T21:51:25.285Z",
+    "primary_color": "#FFD700",
+    "logo_url": "https://zlwcdhgdmshtmkqngfzg.supabase.co/storage/v1/object/public/logos/d899bbe8-10b5-4ee7-8ee5-5569e415178f/1766440284907.png",
+    "address": null,
+    "phone": null,
+    "tool_background_color": "#050505",
+    "watermark_logo_url": null,
+    "logo_size": 80,
+    "website": "https://railify.com",
+    "tier": "salesmate",
+    "credits_monthly": 48,
+    "credits_rollover": 0,
+    "credits_booster": 0,
+    "auto_boost_enabled": false,
+    "auto_boost_pack": null,
+    "address_zip": null,
+    "travel_settings": {
+      "tiers": [],
+      "pricing_type": "radius_tiers",
+      "application_type": "flat"
+    },
+    "confirmation_email_body": "Thank you for your request. We will review your project and get back to you shortly.",
+    "tier_name": "The Unlimited",
+    "enable_overdrive": true,
+    "pending_overage_balance": "0.8",
+    "max_monthly_spend": null,
+    "current_usage": 7,
+    "current_overage_count": 5,
+    "onboarding_status": "pending",
+    "subscription_start_date": "2025-12-24T03:01:26.254Z",
+    "onboarding_fee_paid": false,
+    "stripe_customer_id": "cus_TfOrjRb1R1fRXG",
+    "stripe_subscription_id": null,
+    "notification_state": {}
+  }
+]

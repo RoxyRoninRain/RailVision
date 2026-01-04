@@ -178,63 +178,42 @@ export default function SettingsPage() {
                         <div className="bg-[#111] p-6 rounded-lg border border-gray-800 shadow-xl relative">
                             <h2 className="text-xl font-mono font-bold text-white mb-4 flex items-center gap-2">
                                 <CreditCard className="text-gray-400" size={20} />
-                                Metered Billing
+                                Billing Status
                             </h2>
 
                             {/* Tier Badge */}
-                            <div className="flex items-center justify-between bg-black/40 p-3 rounded border border-gray-800 mb-4">
+                            <div className="flex items-center justify-between bg-black/40 p-3 rounded border border-gray-800 mb-6">
                                 <span className="text-gray-400 font-mono text-sm uppercase">Current Plan</span>
                                 <span className="text-[var(--primary)] font-bold font-mono uppercase tracking-wider">
                                     {profile?.tier_name || 'The Estimator'}
                                 </span>
                             </div>
 
-                            {/* Usage Bar */}
-                            <div className="mb-6">
-                                <div className="flex justify-between text-xs font-mono mb-2 uppercase tracking-wide">
-                                    <span className="text-white">Monthly Usage</span>
-                                    <span className={profile?.enable_overdrive && (profile?.current_usage || 0) >= allowance ? 'text-orange-500' : 'text-gray-400'}>
-                                        {profile?.current_usage || 0} / {allowance}
+                            {/* Bill Snapshot */}
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div className="p-3 bg-white/5 rounded border border-white/10 text-center">
+                                    <span className="block text-gray-400 text-xs font-mono uppercase mb-1">Current Bill</span>
+                                    <span className="block text-2xl font-bold text-white">
+                                        ${((profile?.pending_overage_balance || 0) + (tier.price || 0)).toFixed(2)}
                                     </span>
+                                    <span className="text-[10px] text-gray-500">Includes Plan Fee</span>
                                 </div>
-                                <div className="w-full h-2 bg-gray-800 rounded-full overflow-hidden">
-                                    <div
-                                        className={`h-full transition-all duration-500 ${(profile?.current_usage || 0) >= allowance
-                                            ? 'bg-orange-500'
-                                            : 'bg-green-500'
-                                            }`}
-                                        style={{ width: `${Math.min(100, Math.max(5, ((profile?.current_usage || 0) / allowance) * 100))}%` }}
-                                    />
+                                <div className="p-3 bg-white/5 rounded border border-white/10 text-center">
+                                    <span className="block text-gray-400 text-xs font-mono uppercase mb-1">Usage</span>
+                                    <span className="block text-2xl font-bold text-white">
+                                        {profile?.current_usage || 0}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500">Images Generated</span>
                                 </div>
-                                {(profile?.current_usage || 0) >= allowance && (
-                                    <p className="text-xs text-orange-500 mt-1 font-mono uppercase">
-                                        Overdrive Active
-                                    </p>
-                                )}
                             </div>
 
-                            {/* Overdrive Toggle */}
-                            <div className="bg-white/5 p-4 rounded border border-gray-700 flex items-center justify-between mb-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <div className={`w-2 h-2 rounded-full ${profile?.enable_overdrive ? 'bg-orange-500 animate-pulse' : 'bg-gray-600'}`} />
-                                        <span className="font-bold text-sm text-white uppercase tracking-wider">Overdrive™</span>
-                                    </div>
-                                    <p className="text-xs text-gray-500">Allow overage generation</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={profile?.enable_overdrive || false}
-                                        onChange={(e) => {
-                                            if (profile) setProfile({ ...profile, enable_overdrive: e.target.checked });
-                                        }}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-600"></div>
-                                </label>
+                            <div className="flex items-center justify-between text-xs text-gray-500 font-mono uppercase border-t border-gray-800 pt-4">
+                                <span>Status</span>
+                                <span className="flex items-center gap-2 text-green-500">
+                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                    Active
+                                </span>
                             </div>
-
                         </div>
 
                         {/* Risk Management */}
@@ -261,17 +240,7 @@ export default function SettingsPage() {
                             </p>
                         </div>
 
-                        {/* Financial Snapshot */}
-                        <div className="grid grid-cols-2 gap-2 text-center text-xs font-mono uppercase">
-                            <div className="bg-black/30 p-2 rounded border border-gray-800">
-                                <span className="block text-gray-500 mb-1">Pending Overage</span>
-                                <span className="text-white font-bold">${profile?.pending_overage_balance || '0.00'}</span>
-                            </div>
-                            <div className="bg-black/30 p-2 rounded border border-gray-800">
-                                <span className="block text-gray-500 mb-1">Next Bill</span>
-                                <span className="text-white font-bold">$49.00</span>
-                            </div>
-                        </div>
+
 
                         <div className="mt-4 text-center">
                             <Link href="/pricing" className="text-sm text-gray-500 hover:text-white transition-colors underline decoration-dotted">

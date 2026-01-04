@@ -5,6 +5,7 @@ import { headers } from 'next/headers';
 import { ShieldAlert } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 120; // 2 minutes
 
 export default async function Page({
     searchParams,
@@ -52,11 +53,11 @@ export default async function Page({
     // If we have an orgId (Tenant Mode), we respect their DB state (even if empty).
     // This allows tenants to "hide all" if they really want to (though UI might need to handle it).
     const defaultStyles = [
-        { id: '1', name: 'Industrial Modern', description: 'Clean lines with raw metal finishes', image_url: '/styles/industrial.png' },
-        { id: '2', name: 'Classic Wrought Iron', description: 'Timeless elegance with ornate details', image_url: '/styles/classic.png' },
-        { id: '3', name: 'Minimalist Glass', description: 'Sleek and transparent for open spaces', image_url: '/styles/minimalist.png' },
-        { id: '4', name: 'Rustic Farmhouse', description: 'Warm wood tones mixed with metal', image_url: '/styles/rustic.png' },
-        { id: '5', name: 'Art Deco', description: 'Bold geometric patterns and luxury', image_url: '/styles/artdeco.png' },
+        { id: '550e8400-e29b-41d4-a716-446655440001', name: 'Industrial Modern', description: 'Clean lines with raw metal finishes', image_url: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=800&q=80' },
+        { id: '550e8400-e29b-41d4-a716-446655440002', name: 'Classic Wrought Iron', description: 'Timeless elegance with ornate details', image_url: 'https://images.unsplash.com/photo-1518349619113-03114f06ac3a?auto=format&fit=crop&w=800&q=80' },
+        { id: '550e8400-e29b-41d4-a716-446655440003', name: 'Minimalist Glass', description: 'Sleek and transparent for open spaces', image_url: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=800&q=80' },
+        { id: '550e8400-e29b-41d4-a716-446655440004', name: 'Rustic Farmhouse', description: 'Warm wood tones mixed with metal', image_url: 'https://images.unsplash.com/photo-1481277542470-605612bd2d61?auto=format&fit=crop&w=800&q=80' },
+        { id: '550e8400-e29b-41d4-a716-446655440005', name: 'Art Deco', description: 'Bold geometric patterns and luxury', image_url: 'https://images.unsplash.com/photo-1534349762913-961f712ba68e?auto=format&fit=crop&w=800&q=80' },
     ];
 
     // If we found specific styles in the DB, use them.

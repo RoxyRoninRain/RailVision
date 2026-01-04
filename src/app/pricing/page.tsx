@@ -50,10 +50,12 @@ export default function PricingPage() {
                                 <div className="p-4 bg-white/5 rounded border border-white/10">
                                     <div className="flex justify-between items-center mb-1">
                                         <span className="text-sm text-gray-400">Allowance</span>
-                                        <span className="text-white font-bold">{tier.allowance} Renders</span>
+                                        <span className="text-white font-bold">
+                                            {tier.allowance > 0 ? `${tier.allowance} Renders` : 'Pay As You Go'}
+                                        </span>
                                     </div>
                                     <div className="text-xs text-gray-500 font-mono">
-                                        Included monthly
+                                        {tier.allowance > 0 ? 'Included monthly' : 'No monthly limits'}
                                     </div>
                                 </div>
 

@@ -80,16 +80,22 @@ export async function POST(req: Request) {
                 break;
 
             case 'invoice.payment_succeeded':
+                const invoice = event.data.object as Stripe.Invoice;
                 // Handle successful payment (renewals)
-                if (subscription.id && subscription.customer) {
-                    const customerId = typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
+                // Cast to any to avoid "Property 'subscription' does not exist" if types are outdated
+                if ((invoice as any).subscription && invoice.customer) {
+                    const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer.id;
 
-                    // We might need to find the user by customer ID if metadata isn't on the invoice object
-                    // Ideally we store customer ID in profile map
+                    // Sync status AND Reset Usage for the new period
+                    console.log(`[STRIPE WEBHOOK] Invoice paid for customer ${customerId}. Resetting usage.`);
+
                     await supabaseAdmin
                         .from('profiles')
                         .update({
-                            subscription_status: 'active'
+                            subscription_status: 'active',
+                            current_usage: 0,           // Reset monthly usage counter
+                            pending_overage_balance: 0, // Reset local balance tracker
+                            current_overage_count: 0,   // Reset local threshold counter
                         })
                         .eq('stripe_customer_id', customerId);
                 }
