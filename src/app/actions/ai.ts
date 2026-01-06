@@ -319,7 +319,7 @@ export async function generateDesign(formData: FormData) {
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
 
-        let styleInput: string | { base64StyleImages: string[] } = style;
+        let styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean } } = style;
         const styleId = formData.get('styleId') as string;
 
         if (styleFile) {
