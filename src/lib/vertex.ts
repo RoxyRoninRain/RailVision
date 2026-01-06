@@ -207,10 +207,10 @@ You will receive input images. You must prioritize their data in this specific o
                 if (specs.hasBottomRail !== undefined && specs.hasBottomRail !== null) {
                     if (specs.hasBottomRail) {
                         // CASE 1: SHOE RAIL REQUIRED
-                        mountingInstructionStep = `2.  **Mounting (SHOE RAIL):** The user requires a **Shoe Rail**. You MUST draw a continuous horizontal bottom rail connecting all spindles. The spindles must terminate into this rail, NOT the floor.`;
+                        mountingInstructionStep = `2.  **Mounting (SHOE RAIL):** The user requires a **Shoe Rail**. You MUST draw a continuous horizontal bottom rail connecting all spindles. The spindles must terminate into this rail.`;
                     } else {
                         // CASE 2: DIRECT MOUNT REQUIRED
-                        mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each spindle must drill INDIVIDUALLY into the stair tread/floor. Do NOT draw a bottom rail.`;
+                        mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each spindle must drill INDIVIDUALLY into the stair tread/floor.`;
                     }
                 }
             }
