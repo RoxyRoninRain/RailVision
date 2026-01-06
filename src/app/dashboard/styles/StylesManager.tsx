@@ -240,6 +240,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const [uploadProgress, setUploadProgress] = useState(0); // Add Progress State
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
+    const [hasBottomRail, setHasBottomRail] = useState(true); // Default to True (Safe Default)
 
     const handleMainFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -292,6 +293,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
             formData.append('description', newDesc);
             if (priceMin) formData.append('price_min', priceMin);
             if (priceMax) formData.append('price_max', priceMax);
+            formData.append('has_bottom_rail', hasBottomRail.toString());
             if (isAdmin && adminTenantId) formData.append('admin_tenant_id', adminTenantId);
 
             // Client-Side Upload for Scalability vs Admin Server Upload
@@ -370,6 +372,19 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                         </div>
                     </div>
 
+                    <div className="flex items-center gap-2 p-3 bg-[#050505] border border-[#333] rounded">
+                        <input
+                            type="checkbox"
+                            id="new_has_bottom_rail"
+                            checked={hasBottomRail}
+                            onChange={e => setHasBottomRail(e.target.checked)}
+                            className="w-5 h-5 accent-[var(--primary)]"
+                        />
+                        <label htmlFor="new_has_bottom_rail" className="text-white text-sm cursor-pointer select-none">
+                            Bottom Rail (Shoe Rail) Required
+                        </label>
+                    </div>
+
                     {/* Main Image */}
                     <div>
                         <label className="text-xs text-[var(--primary)] uppercase font-bold mb-2 block">1. Main Style Image (Visible)</label>
@@ -425,6 +440,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     const [desc, setDesc] = useState(style.description || '');
     const [priceMin, setPriceMin] = useState(style.price_per_ft_min?.toString() || '');
     const [priceMax, setPriceMax] = useState(style.price_per_ft_max?.toString() || '');
+    const [hasBottomRail, setHasBottomRail] = useState(style.has_bottom_rail !== false); // Default true unless explicitly false
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0); // Progress
 
@@ -567,6 +583,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             formData.append('description', desc);
             formData.append('price_min', priceMin);
             formData.append('price_max', priceMax);
+            formData.append('has_bottom_rail', hasBottomRail.toString());
             if (isAdmin && adminTenantId) formData.append('admin_tenant_id', adminTenantId);
 
             // Main Image Handling
@@ -797,6 +814,19 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                     <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Style Name</label>
                         <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" />
+                    </div>
+
+                    <div className="flex items-center gap-2 p-3 bg-[#050505] border border-[#333] rounded">
+                        <input
+                            type="checkbox"
+                            id="edit_has_bottom_rail"
+                            checked={hasBottomRail}
+                            onChange={e => setHasBottomRail(e.target.checked)}
+                            className="w-5 h-5 accent-[var(--primary)]"
+                        />
+                        <label htmlFor="edit_has_bottom_rail" className="text-white text-sm cursor-pointer select-none">
+                            Bottom Rail (Shoe Rail) Required
+                        </label>
                     </div>
                     <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Description</label>

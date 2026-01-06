@@ -333,7 +333,7 @@ export async function generateDesign(formData: FormData) {
                 const supabase = await createClient();
                 const { data: styleData } = await supabase
                     .from('portfolio')
-                    .select('reference_images, image_url')
+                    .select('reference_images, image_url, has_bottom_rail')
                     .eq('id', styleId)
                     .single();
 
@@ -381,7 +381,12 @@ export async function generateDesign(formData: FormData) {
                             .map(b => b!.toString('base64'));
 
                         if (validBase64s.length > 0) {
-                            styleInput = { base64StyleImages: validBase64s };
+                            styleInput = {
+                                base64StyleImages: validBase64s,
+                                technicalSpecs: {
+                                    hasBottomRail: styleData.has_bottom_rail
+                                }
+                            };
                             console.log(`[DEBUG] Successfully loaded ${validBase64s.length} style images for multi-shot generation.`);
                         }
                     }

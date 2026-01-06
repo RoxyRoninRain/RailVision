@@ -109,7 +109,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function generateDesignWithNanoBanana(
     base64TargetImage: string,
-    styleInput: string | { base64StyleImages: string[] },
+    styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean } },
     promptConfig?: { systemInstruction: string; userTemplate: string; negative_prompt?: string }
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     const maxAttempts = 3;
@@ -198,6 +198,23 @@ You will receive input images. You must prioritize their data in this specific o
                 }
             }
 
+
+            // DYNAMIC MOUNTING INSTRUCTION
+            let mountingInstructionStep = "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2."; // Default generic fallback
+
+            if (typeof styleInput !== 'string' && styleInput.technicalSpecs) {
+                const specs = styleInput.technicalSpecs;
+                if (specs.hasBottomRail !== undefined && specs.hasBottomRail !== null) {
+                    if (specs.hasBottomRail) {
+                        // CASE 1: SHOE RAIL REQUIRED
+                        mountingInstructionStep = `2.  **Mounting (SHOE RAIL):** The user requires a **Shoe Rail**. You MUST draw a continuous horizontal bottom rail connecting all spindles. The spindles must terminate into this rail, NOT the floor.`;
+                    } else {
+                        // CASE 2: DIRECT MOUNT REQUIRED
+                        mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each spindle must drill INDIVIDUALLY into the stair tread/floor. Do NOT draw a bottom rail.`;
+                    }
+                }
+            }
+
             // 3. User Prompt construction
             let promptText = promptConfig?.userTemplate || `[INPUTS]
 : **IMAGE A (Canvas):** [User's Staircase]
@@ -217,13 +234,12 @@ Analyze the User's Staircase.
     - **Wall Rail:** Is the stair enclosed by walls? If so, does it need a wall-mounted handrail instead of a post-to-post system?
     - *Decision:* Choose the layout that maximizes safety and matches the architectural style of Image A.
 
-### PHASE 2: STYLE & MOUNTING ANALYSIS (IMAGE B & C)
-Inspect **IMAGE B (Style)** and **IMAGE C (Specs)** for construction rules.
-1.  **Mounting Type:** Look closely at the bottom of the balusters (spindles).
-    - **Shoe Rail:** Do they sit on a bottom horizontal rail?
-    - **Direct Mount:** Do they go directly into the floor/tread?
-    - *CRITICAL INSTRUCTION:* If "Direct Mount", you must NOT draw a bottom bar. Each spindle must touch the floor individually.
+### PHASE 2: STYLE & MOUNTING EXECUTION
+Apply **IMAGE B (Style)** and **TECHNICAL SPECS**.
+1.  **Mounting Logic:**
+    ${mountingInstructionStep}
 2.  **Materials:** Extract the exact wood stain, metal finish, or glass type from **IMAGE B**. Apply this texture to your new model.
+3.  **Preservation:** DO NOT CHANGE THE STAIRS, WALLS, OR FLOORING of Image A (except for the healed areas from Phase 1).
 
 ### PHASE 3: EXECUTION
 Renovate **IMAGE A**.
@@ -236,11 +252,25 @@ Renovate **IMAGE A**.
 - Is the new rail mounting (Shoe vs Direct) correct according to Image B?
 - Is the background preserved?`;
 
+            // If user has a custom template that includes the placeholder, replace it.
+            if (promptText.includes('{{mounting_logic}}')) {
+                promptText = promptText.replace('{{mounting_logic}}', mountingInstructionStep);
+            }
+
+
             const styleDesc = typeof styleInput === 'string' ? styleInput : "The attached Style Reference Images";
             if (promptText.includes('{{style}}')) {
                 promptText = promptText.replace('{{style}}', styleDesc);
             } else if (typeof styleInput === 'string') {
                 promptText += `\n\nTarget Style Description: "${styleInput}"`;
+            }
+
+            // FALLBACK INJECTION (For older custom prompts without {{mounting_logic}})
+            // If the prompt DOES NOT contain the new placeholder, we append the logic to ensure safety.
+            if (!promptText.includes('{{mounting_logic}}') && promptConfig?.userTemplate && mountingInstructionStep !== "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2.") {
+                // The user has a custom template but didn't put the placeholder.
+                // We append the instruction to the rules section if possible, or end of prompt.
+                promptText += `\n\n**CRITICAL MOUNTING OVERRIDE:**\n${mountingInstructionStep}`;
             }
 
             if (promptConfig?.negative_prompt) {

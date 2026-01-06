@@ -48,4 +48,5 @@ export interface PortfolioItem {
     reference_images?: string[];
     price_per_ft_min?: number;
     price_per_ft_max?: number;
+    has_bottom_rail?: boolean;
 }

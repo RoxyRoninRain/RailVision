@@ -95,6 +95,7 @@ export async function createStyle(formData: FormData) {
     const desc = formData.get('description') as string;
     const priceMin = formData.get('price_min') ? parseFloat(formData.get('price_min') as string) : 0;
     const priceMax = formData.get('price_max') ? parseFloat(formData.get('price_max') as string) : 0;
+    const hasBottomRail = formData.get('has_bottom_rail') === 'true';
 
     // 3. Insert into DB
     // First image is "image_url" (Thumbnail/Main), Rest are "reference_images" (Hidden Context)
@@ -123,6 +124,7 @@ export async function createStyle(formData: FormData) {
             is_active: true,
             price_per_ft_min: priceMin,
             price_per_ft_max: priceMax,
+            has_bottom_rail: hasBottomRail,
             display_order: nextOrder
         })
         .select()
@@ -249,6 +251,8 @@ export async function updateStyle(formData: FormData) {
     const description = formData.get('description') as string;
     const priceMin = formData.get('price_min') ? parseFloat(formData.get('price_min') as string) : undefined;
     const priceMax = formData.get('price_max') ? parseFloat(formData.get('price_max') as string) : undefined;
+    const hasBottomRailRaw = formData.get('has_bottom_rail');
+    const hasBottomRail = hasBottomRailRaw !== null ? hasBottomRailRaw === 'true' : undefined;
 
     // 4. Prepare Update Object
     const updates: any = {};
@@ -256,6 +260,7 @@ export async function updateStyle(formData: FormData) {
     if (description !== null) updates.description = description;
     if (priceMin !== undefined) updates.price_per_ft_min = priceMin;
     if (priceMax !== undefined) updates.price_per_ft_max = priceMax;
+    if (hasBottomRail !== undefined) updates.has_bottom_rail = hasBottomRail;
     if (mainImage) updates.image_url = mainImage;
     if (finalRefList !== undefined) updates.reference_images = finalRefList;
 
