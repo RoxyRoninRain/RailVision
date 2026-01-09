@@ -127,10 +127,11 @@ export async function generateDesignWithNanoBanana(
 *   **Rule:** You must NOT alter the walls, flooring, stair pitch, windows, lighting, or furniture.
 *   **Exception:** You may perform "Digital Cleanup" (remove trash/tools), but NEVER move a wall or stair tread.
 **LAYER 2: THE PRODUCT (HANDRAIL)**
-*   **Status:** THE ONLY VARIABLE.
+*   **Status:** THE ONLY VARIABLE. **CRITICAL:** THIS IS A REFERENCE ONLY.
 *   **Source:** References (B/C).
 *   **Physics:** The rail must track the *Nosing Line* relative to Layer 1.
 **STRICT PROHIBITIONS (FATAL ERRORS):**
+*   **NO STYLE TRANSFER:** Do NOT output Image B. Your canvas is Image A.
 *   **NO GHOSTING:** Spindles must NEVER pass through a Shoe Rail.
 *   **NO WARPING:** Do not change the angle or number of steps.
 *   **NO COLLAGES:** Single full-screen view only.
