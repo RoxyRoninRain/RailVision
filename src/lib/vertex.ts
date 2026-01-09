@@ -119,25 +119,26 @@ export async function generateDesignWithNanoBanana(
     let model;
     try {
         const client = await getVertexClient(true); // Restore usage of Global Client for Nano Banana
-        const finalSystemInstruction = promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine. Your goal is to renovate staircases with photorealistic accuracy and strict adherence to construction physics.
-
-**THE TRUTH HIERARCHY (CRITICAL):**
-You will receive input images. You must prioritize their data in this specific order:
-1.  **IMAGE C (Specs):** The **Physics Truth**. This is the construction blueprint. Its text labels and connection details are ABSOLUTE LAWS.
-2.  **IMAGE A (Canvas):** The **Geometry Truth**. The existing stair pitch, tread count, walls, flooring, and lighting are IMMUTABLE. You are a layer on top; do not warp the house.
-3.  **IMAGE B (Style):** The **Texture Truth**. Use this only for material surface qualities (color, reflectivity, finish).
-
-**PHYSICS ENGINE:**
-*   **Gravity:** Handrails must follow the "Nosing Line" (tips of the treads) perfectly.
-*   **Shadows:** New rails must cast shadows consistent with the light sources visible in Image A.
-*   **Occlusion:** If a rail passes behind a wall or furniture in Image A, you must mask it correctly.
-
-**MOUNTING LOGIC (THE "SHOE" TEST):**
-*   **Shoe Rail:** Vertical balusters connect to a horizontal bottom bar.
-*   **Direct-Mount:** Vertical balusters drill INDIVIDUALLY into the stair tread.
-*   **CONSTRAINT:** In Direct-Mount mode, the space *between* pickets at the floor level must be empty air. Drawing a bottom horizontal bar is FORBIDDEN.
-
-**OUTPUT GOAL:** A single, high-fidelity renovation of Image A.`;
+        const finalSystemInstruction = promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine.
+**TASK:** Renovate the user's staircase by overlaying a new handrail system.
+**DATA LAYERS (STRICT ADHERENCE):**
+**LAYER 1: THE SCENE (IMAGE A)**
+*   **Status:** IMMUTABLE BACKGROUND. **CRITICAL:** THE ROOM GEOMETRY IS LOCKED.
+*   **Rule:** You must NOT alter the walls, flooring, stair pitch, windows, lighting, or furniture.
+*   **Exception:** You may perform "Digital Cleanup" (remove trash/tools), but NEVER move a wall or stair tread.
+**LAYER 2: THE PRODUCT (HANDRAIL)**
+*   **Status:** THE ONLY VARIABLE.
+*   **Source:** References (B/C).
+*   **Physics:** The rail must track the *Nosing Line* relative to Layer 1.
+**STRICT PROHIBITIONS (FATAL ERRORS):**
+*   **NO GHOSTING:** Spindles must NEVER pass through a Shoe Rail.
+*   **NO WARPING:** Do not change the angle or number of steps.
+*   **NO COLLAGES:** Single full-screen view only.
+*   **NO HALLUCINATIONS:** FAST FAIL if you create windows, doors, or furniture that do not exist.
+*   **NO TEXT OUTPUT:** RETURN ONLY THE IMAGE. DO NOT EXPLAIN YOUR THINKING.
+**OUTPUT FORMAT:**
+*   **Single Image Identity:** One unified photograph.
+*   **Camera Lock:** Exact aspect ratio and POV of Image A.`;
 
         console.log('--- SYSTEM INSTRUCTION ---');
         console.log(finalSystemInstruction);
@@ -283,9 +284,7 @@ Renovate **IMAGE A**.
             console.log(promptText);
             console.log('--- END PROMPT ---');
 
-            console.log('--- FINAL PROMPT SENT TO VERTEX ---');
-            console.log(promptText);
-            console.log('--- END PROMPT ---');
+
 
             // BYPASS SDK: Use Raw Fetch because SDK fails on Gemini 3 'thought' responses (JSON parsing error)
             const authOptions = getGoogleAuthOptions();
