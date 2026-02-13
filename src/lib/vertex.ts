@@ -112,7 +112,7 @@ export async function generateDesignWithNanoBanana(
     styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean } },
     promptConfig?: { systemInstruction: string; userTemplate: string; negative_prompt?: string }
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
-    const maxAttempts = 3;
+    const maxAttempts = 5;
     let attempts = 0;
 
     // Use lazy getter for the model
@@ -350,11 +350,31 @@ Renovate **IMAGE A**.
 
         } catch (error: any) {
             console.error(`[NANO BANANA ERROR] Attempt ${attempts + 1} failed:`, error);
-            if (error.message?.includes('429') || error.message?.includes('Quota') || error.message?.includes('Too Many Requests') || error.code === 429) {
+
+            const isQuotaError =
+                error.message?.includes('429') ||
+                error.message?.includes('Quota') ||
+                error.message?.includes('Too Many Requests') ||
+                error.message?.includes('Resource exhausted') ||
+                error.message?.includes('503') ||
+                error.message?.includes('Service Unavailable') ||
+                error.code === 429 ||
+                error.code === 503;
+
+            if (isQuotaError) {
                 attempts++;
                 if (attempts < maxAttempts) {
-                    const waitTime = 1000 * Math.pow(2, attempts - 1);
-                    console.warn(`[429 RATE LIMIT] Retrying in ${waitTime}ms...`);
+                    // Exponential Backoff:
+                    // Attempt 1 (attempts=1): 2000 * 2^0 = 2000ms
+                    // Attempt 2 (attempts=2): 2000 * 2^1 = 4000ms
+                    // Attempt 3 (attempts=3): 2000 * 2^2 = 8000ms
+                    // Attempt 4 (attempts=4): 2000 * 2^3 = 16000ms
+
+                    const baseDelay = 2000 * Math.pow(2, attempts - 1);
+                    const jitter = Math.floor(Math.random() * 500); // 0-500ms jitter
+                    const waitTime = baseDelay + jitter;
+
+                    console.warn(`[VERTEX RETRY] Quota/Service hit. Waiting ${waitTime}ms (Attempt ${attempts} of ${maxAttempts} remaining)...`);
                     await sleep(waitTime);
                     continue;
                 }
@@ -363,7 +383,7 @@ Renovate **IMAGE A**.
         }
     }
 
-    return { success: false, error: "Max retries exceeded." };
+    return { success: false, error: "Server is busy, please try again in 1 minute." };
 }
 
 // Helper for timeout
