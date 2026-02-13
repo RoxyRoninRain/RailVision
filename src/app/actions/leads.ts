@@ -11,6 +11,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 // Public submission
 export async function trackDownload(formData: FormData) {
     const supabase = await createClient();
+    const adminSupabase = createAdminClient();
     const orgId = formData.get('organization_id') as string;
     const styleName = formData.get('style_name') as string;
     let generatedUrl = formData.get('generated_design_url') as string;
@@ -76,7 +77,6 @@ export async function trackDownload(formData: FormData) {
     };
 
     // Use Admin Client to ensure insert permissions (guests might have limited RLS)
-    const adminSupabase = createAdminClient();
     const dbClient = adminSupabase || supabase;
 
     const { error } = await dbClient
@@ -93,6 +93,7 @@ export async function trackDownload(formData: FormData) {
 
 export async function submitLead(formData: FormData) {
     const supabase = await createClient(); // Use server client
+    const adminSupabase = createAdminClient(); // Admin client for storage/inserts
 
     // Extract Form Data
     const email = formData.get('email') as string;
@@ -122,25 +123,25 @@ export async function submitLead(formData: FormData) {
                 const buffer = Buffer.from(base64Data, 'base64');
                 const fileName = `generated/${orgId || 'public'}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
-                const { error: uploadError } = await supabase.storage
+                const { error: uploadError } = await (adminSupabase || supabase).storage
                     .from('quote-uploads')
                     .upload(fileName, buffer, {
                         contentType: `image/${ext}`
                     });
 
                 if (!uploadError) {
-                    const { data: { publicUrl } } = supabase.storage
+                    const { data: { publicUrl } } = (adminSupabase || supabase).storage
                         .from('quote-uploads')
                         .getPublicUrl(fileName);
 
                     console.log(`[Upload Debug] Generated image uploaded to: ${publicUrl}`);
                     // OVERWRITE the Base64 string with the clean URL
                     generatedUrl = publicUrl;
-                    // Note: We need to re-assign the variable, but it's const in the destructuring (actually it's declared with const above)
-                    // Wait, generatedUrl was declared as check previously. Let's fix the variable declaration.
                 } else {
                     console.error('[Upload Debug] Failed to upload generated image:', uploadError);
                     uploadErrors.push('Failed to save generated design.');
+                    // CRITICAL FIX: Do not save Base64 string if upload fails.
+                    generatedUrl = '';
                 }
             }
         } catch (e) {
@@ -171,12 +172,13 @@ export async function submitLead(formData: FormData) {
             const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
             const filePath = `${orgId || 'public'}/${fileName}`;
 
-            const { error: uploadError } = await supabase.storage
+            // Use Admin Client for file uploads too, to ensure guests can upload
+            const { error: uploadError } = await (adminSupabase || supabase).storage
                 .from('quote-uploads')
                 .upload(filePath, file);
 
             if (!uploadError) {
-                const { data: { publicUrl } } = supabase.storage
+                const { data: { publicUrl } } = (adminSupabase || supabase).storage
                     .from('quote-uploads')
                     .getPublicUrl(filePath);
                 attachmentUrls.push(publicUrl);
@@ -205,7 +207,6 @@ export async function submitLead(formData: FormData) {
     }
 
     // Insert
-    const adminSupabase = createAdminClient();
     const dbClient = adminSupabase || supabase;
 
     const { error } = await dbClient
@@ -226,7 +227,7 @@ export async function submitLead(formData: FormData) {
     if (orgId && process.env.RESEND_API_KEY) {
         try {
             // Use Admin Client to bypass RLS for Profile Read
-            const adminSupabase = createAdminClient();
+
             if (!adminSupabase) console.error('[Email Debug] Failed to create Admin Client');
 
             if (adminSupabase) {
