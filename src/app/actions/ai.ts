@@ -137,10 +137,13 @@ export async function generateDesign(formData: FormData) {
     // Origin Check for Guest Access
     if (shouldUseAdminClient) {
         const originHeader = headersList.get('origin') || headersList.get('referer') || '';
-        const website = profile?.website ? profile.website.replace(/^https?:\/\//, '').split('/')[0] : null;
+        const cleanDomain = (url: string) => url.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '').toLowerCase();
         
-        if (website && !originHeader.includes(website)) {
-            console.warn(`[SECURITY] Cross-origin guest request blocked. Origin: ${originHeader}, Expected to contain: ${website}`);
+        const expectedDomain = profile?.website ? cleanDomain(profile.website) : null;
+        const requestDomain = cleanDomain(originHeader);
+        
+        if (expectedDomain && requestDomain && !requestDomain.includes(expectedDomain)) {
+            console.warn(`[SECURITY] Cross-origin guest request blocked. Request Domain: ${requestDomain}, Expected to contain: ${expectedDomain}`);
             return { error: 'Invalid origin for embedded generation.' };
         }
     }
