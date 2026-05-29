@@ -121,7 +121,7 @@ export default function CostDashboard() {
     };
 
     // Gemini 3 Stats
-    const geminiStats = modelBreakdown['gemini-3.1-pro-image'] || modelBreakdown['gemini-3-pro-image-preview'] || modelBreakdown['gemini-3.0-pro-image-preview'] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
+    const geminiStats = modelBreakdown['gemini-3.1-flash-image'] || modelBreakdown['gemini-3.1-pro-image'] || modelBreakdown['gemini-3-pro-image-preview'] || modelBreakdown['gemini-3.0-pro-image-preview'] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
 
     const FilterTab = ({ label, value }: { label: string, value: string }) => (
         <button
@@ -449,7 +449,7 @@ export default function CostDashboard() {
             </div>
 
             <div className="mt-8 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-200 text-sm">
-                <strong>Pricing Note:</strong> Costs are based on Gemini 3.1 Pro Image: $2.00/1M Input, $12.00/1M Output (Thinking), ~$0.134/Image.
+                <strong>Pricing Note:</strong> Costs are based on Gemini 3.1 Flash Image: $2.00/1M Input, $12.00/1M Output (Thinking), ~$0.134/Image.
             </div>
         </div>
     );

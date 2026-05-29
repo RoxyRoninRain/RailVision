@@ -484,7 +484,7 @@ export async function generateDesign(formData: FormData) {
                     user_agent: userAgent,
                     created_at: new Date().toISOString(),
                     // COST TRACKING
-                    model_id: 'gemini-3.0-pro-image-preview',
+                    model_id: 'gemini-3.1-flash-image',
                     input_tokens: result.usage?.inputTokens || 0,
                     output_tokens: result.usage?.outputTokens || 0
                 }]);
