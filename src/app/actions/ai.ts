@@ -134,19 +134,9 @@ export async function generateDesign(formData: FormData) {
 
     // Lazy load pricing configs
 
-    // Origin Check for Guest Access
-    if (shouldUseAdminClient) {
-        const originHeader = headersList.get('origin') || headersList.get('referer') || '';
-        const cleanDomain = (url: string) => url.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '').toLowerCase();
-        
-        const expectedDomain = profile?.website ? cleanDomain(profile.website) : null;
-        const requestDomain = cleanDomain(originHeader);
-        
-        if (expectedDomain && requestDomain && !requestDomain.includes(expectedDomain)) {
-            console.warn(`[SECURITY] Cross-origin guest request blocked. Request Domain: ${requestDomain}, Expected to contain: ${expectedDomain}`);
-            return { error: 'Invalid origin for embedded generation.' };
-        }
-    }
+    // Origin check removed: Iframes make requests from their own origin (railify.app)
+    // so checking the origin header against the tenant's website breaks the embed.
+    // A signed JWT token system should be implemented for robust security here.
     const { PRICING_TIERS, DEFAULT_TIER } = await import('@/config/pricing');
 
     if (dbError || !profile) {
