@@ -14,22 +14,37 @@ export async function submitContactForm(formData: FormData) {
         return { success: false, error: 'Email and message are required.' };
     }
 
+    // Sanitize inputs to prevent XSS in HTML emails
+    const escapeHtml = (str: string | null): string => {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    };
+
+    const safeName = escapeHtml(name);
+    const safeEmail = escapeHtml(email);
+    const safeSubject = escapeHtml(subject);
+    const safeMessage = escapeHtml(message);
+
     try {
         if (process.env.RESEND_API_KEY) {
             const { error } = await resend.emails.send({
                 from: 'Railify Contact <notifications@railify.app>',
                 to: 'railifyai@gmail.com',
                 replyTo: email,
-                subject: `[Contact Form] ${subject || 'New Inquiry'}`,
+                subject: `[Contact Form] ${safeSubject || 'New Inquiry'}`,
                 html: `
           <div style="font-family: sans-serif; color: #333;">
             <h2>New Contact Form Submission</h2>
-            <p><strong>Name:</strong> ${name || 'N/A'}</p>
-            <p><strong>Email:</strong> ${email}</p>
-            <p><strong>Subject:</strong> ${subject || 'N/A'}</p>
+            <p><strong>Name:</strong> ${safeName || 'N/A'}</p>
+            <p><strong>Email:</strong> ${safeEmail}</p>
+            <p><strong>Subject:</strong> ${safeSubject || 'N/A'}</p>
             <hr />
             <p><strong>Message:</strong></p>
-            <p style="white-space: pre-wrap;">${message}</p>
+            <p style="white-space: pre-wrap;">${safeMessage}</p>
           </div>
         `
             });

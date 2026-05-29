@@ -1,10 +1,14 @@
 'use server';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkIsAdmin } from '@/lib/auth-utils';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
 
 export async function blockIp(ip: string, reason: string = 'Administrative Block', tenantId?: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
@@ -46,6 +50,9 @@ export async function blockIp(ip: string, reason: string = 'Administrative Block
 }
 
 export async function unblockIp(ip: string, tenantId?: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
@@ -72,6 +79,9 @@ export async function unblockIp(ip: string, tenantId?: string) {
 }
 
 export async function getBlockedIps(tenantId?: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return [];
+
     const supabase = createAdminClient();
     if (!supabase) return [];
 
@@ -92,6 +102,9 @@ export async function getBlockedIps(tenantId?: string) {
 }
 
 export async function checkIpStatus(ip: string, tenantId?: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { blocked: false };
+
     const supabase = createAdminClient();
     if (!supabase) return { blocked: false };
 

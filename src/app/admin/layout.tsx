@@ -12,8 +12,10 @@ export default async function AdminLayout({
 
     console.log('[ADMIN CHECK] Current User:', user?.email); // Debug log
 
-    // strict security check
-    if (!user || !['admin@railify.com', 'me@railify.com'].includes(user.email || '')) {
+    const { checkIsAdmin } = await import('@/lib/auth-utils');
+    const isAdmin = await checkIsAdmin();
+
+    if (!isAdmin) {
         console.log('[ADMIN CHECK] Access Denied. Serving 404.');
         // 404 to hide existence
         return notFound();

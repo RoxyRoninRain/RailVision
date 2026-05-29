@@ -280,10 +280,14 @@ export async function updateStyle(formData: FormData) {
 
 export async function updateStyleStatus(id: string, isActive: boolean) {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Unauthorized' };
+
     const { error } = await supabase
         .from('portfolio')
         .update({ is_active: isActive })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('tenant_id', user.id);
 
     if (error) return { error: error.message };
     return { success: true };

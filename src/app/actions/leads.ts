@@ -96,13 +96,18 @@ export async function submitLead(formData: FormData) {
     const adminSupabase = createAdminClient(); // Admin client for storage/inserts
 
     // Extract Form Data
+    const escapeHtml = (str: string | null): string => {
+        if (!str) return '';
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+
     const email = formData.get('email') as string;
-    const customer_name = formData.get('customer_name') as string || 'Guest';
+    const customer_name = escapeHtml(formData.get('customer_name') as string) || 'Guest';
     const styleName = formData.get('style_name') as string;
     let generatedUrl = formData.get('generated_design_url') as string;
     const orgId = formData.get('organization_id') as string;
-    const phone = formData.get('phone') as string;
-    const message = formData.get('message') as string;
+    const phone = escapeHtml(formData.get('phone') as string);
+    const message = escapeHtml(formData.get('message') as string);
     const estimate_json = formData.get('estimate_json') ? JSON.parse(formData.get('estimate_json') as string) : null;
 
     // File Uploads
@@ -152,6 +157,11 @@ export async function submitLead(formData: FormData) {
 
     if (!email) {
         return { success: false, error: 'Email is required' };
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (email && !emailRegex.test(email)) {
+        return { success: false, error: 'Invalid email format' };
     }
 
     // Moved uploadErrors to top

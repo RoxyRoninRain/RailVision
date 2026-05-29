@@ -11,6 +11,10 @@ import { generateDesignWithNanoBanana } from '@/lib/vertex';
 const maxDuration = 120; // 2 minutes (User confirmed working limit)
 
 export async function convertHeicToJpg(formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Authentication required');
+
     console.log('[Server Action] Converting HEIC to JPG (using heic-convert)...');
     try {
         const file = formData.get('file') as File;
@@ -124,11 +128,22 @@ export async function generateDesign(formData: FormData) {
     // 1. Fetch current usage & tier details
     const { data: profile, error: dbError } = await dbClient
         .from('profiles')
-        .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name')
+        .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name, website')
         .eq('id', profileIdToBill)
         .single();
 
     // Lazy load pricing configs
+
+    // Origin Check for Guest Access
+    if (shouldUseAdminClient) {
+        const originHeader = headersList.get('origin') || headersList.get('referer') || '';
+        const website = profile?.website ? profile.website.replace(/^https?:\/\//, '').split('/')[0] : null;
+        
+        if (website && !originHeader.includes(website)) {
+            console.warn(`[SECURITY] Cross-origin guest request blocked. Origin: ${originHeader}, Expected to contain: ${website}`);
+            return { error: 'Invalid origin for embedded generation.' };
+        }
+    }
     const { PRICING_TIERS, DEFAULT_TIER } = await import('@/config/pricing');
 
     if (dbError || !profile) {

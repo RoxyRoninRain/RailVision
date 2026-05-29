@@ -2,6 +2,7 @@
 
 
 import { createClient } from '@/lib/supabase/server';
+import { checkIsAdmin } from '@/lib/auth-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
 import { InputSanitizer } from '@/components/security/InputSanitizer';
@@ -17,6 +18,9 @@ export interface GlobalStats {
 }
 
 export async function getGlobalStats(): Promise<GlobalStats> {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { totalLeads: 0, activeTenants: 0, conversionRate: 0, totalGenerations: 0, estimatedApiCost: 0, uniqueIps: 0, topStyles: [] };
+
     const supabase = createAdminClient();
 
     // Fallback if no admin key (local dev without service key)
@@ -97,6 +101,9 @@ export async function getGlobalStats(): Promise<GlobalStats> {
 }
 
 export async function getTenantDetails(tenantId: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return null;
+
     const supabase = createAdminClient();
     if (!supabase) return null;
 
@@ -181,6 +188,9 @@ export interface SystemPrompt {
 }
 
 export async function createSystemPrompt(key: string, instruction: string, template: string, negativePrompt?: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
@@ -208,6 +218,9 @@ export async function createSystemPrompt(key: string, instruction: string, templ
 }
 
 export async function setActivePrompt(key: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
@@ -233,6 +246,9 @@ export async function setActivePrompt(key: string) {
 }
 
 export async function updateSystemPrompt(key: string, updates: Partial<SystemPrompt>) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing (SUPABASE_SERVICE_ROLE_KEY not set)' };
 
@@ -247,6 +263,9 @@ export async function updateSystemPrompt(key: string, updates: Partial<SystemPro
 }
 
 export async function getAllSystemPrompts() {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return [];
+
     let supabase = createAdminClient();
     if (!supabase) {
         console.warn('Admin Client unavailable (missing service key?), falling back to standard client.');
@@ -267,6 +286,9 @@ export async function getAllSystemPrompts() {
 }
 
 export async function diagnoseConnection() {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return 'Unauthorized';
+
     const report: string[] = [];
 
     // 1. Env Var Check
@@ -295,6 +317,9 @@ export async function diagnoseConnection() {
 }
 
 export async function testDesignGeneration(formData: FormData) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     console.log('[DEBUG] testDesignGeneration called via Admin Dashboard');
 
     // 1. Extract Inputs
@@ -341,6 +366,9 @@ export async function testDesignGeneration(formData: FormData) {
 
 // SUBSCRIPTION MANAGEMENT
 export async function updateSubscriptionStatus(tenantId: string, status: 'active' | 'cancelled') {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
@@ -362,6 +390,9 @@ export async function updateSubscriptionStatus(tenantId: string, status: 'active
 import { format, startOfMonth, startOfYear } from 'date-fns';
 
 export async function getCostAnalysis(dateRange?: { from?: string, to?: string }, groupBy: 'day' | 'week' | 'month' | 'year' = 'day') {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     const supabase = await createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 
@@ -483,6 +514,9 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
 // STORAGE
 // STORAGE
 export async function listBucketFiles(bucket: string, path: string = '') {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
 

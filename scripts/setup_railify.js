@@ -83,10 +83,14 @@ async function main() {
                 console.log(`FOUND_ID: ${adminUser.id}`);
             } else {
                 console.error("No admin user found. Creating one...");
-                // Create user
+                const setupPassword = env.ADMIN_SETUP_PASSWORD;
+                if (!setupPassword) {
+                    console.error("Error: ADMIN_SETUP_PASSWORD must be set in .env.local to create an admin user securely.");
+                    process.exit(1);
+                }
                 const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
                     email: 'admin@railify.app',
-                    password: 'password123',
+                    password: setupPassword,
                     email_confirm: true
                 });
                 if (createError) throw createError;

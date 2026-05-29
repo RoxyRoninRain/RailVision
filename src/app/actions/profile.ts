@@ -262,10 +262,9 @@ export async function getDashboardUrl() {
     console.log('[DEBUG] getDashboardUrl: User found:', user.email);
 
     // 1. Check if Super Admin
-    // In a real app, check a 'roles' table or 'is_admin' column.
-    // For now, simple email list check matching getAdminStats()
-    const ADMIN_EMAILS = ['admin@railify.com', 'me@railify.com', 'john@railify.com'];
-    if (user.email && ADMIN_EMAILS.includes(user.email)) {
+    const { checkIsAdmin } = await import('@/lib/auth-utils');
+    const isAdmin = await checkIsAdmin();
+    if (isAdmin) {
         console.log('[DEBUG] Redirecting to Admin Stats');
         return '/admin/stats';
     }
@@ -287,6 +286,10 @@ export async function getTenantLogo() {
 // Admin Action to "Invite" (Mock for now, or actual if we had Service Key)
 // Admin Action to Invite Tenant
 export async function inviteTenant(email: string) {
+    const { checkIsAdmin } = await import('@/lib/auth-utils');
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized - admin only' };
+
     // Import from the new server-only file
     const { createAdminClient } = await import('@/lib/supabase/admin');
     const adminSupabase = createAdminClient();

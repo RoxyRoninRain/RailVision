@@ -3,6 +3,7 @@
 
 
 import { getVertexClient, getRouterModel } from '@/lib/vertex';
+import { createClient } from '@/lib/supabase/server';
 
 const convertToJpg = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -24,6 +25,11 @@ const convertToJpg = async (file: File): Promise<string> => {
 };
 
 export async function generateExperimentalDesign(formData: FormData) {
+    const { createClient } = await import('@/lib/supabase/server');
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Authentication required' };
+
     console.log('[Experimental] Starting 3-Step Pipeline...');
     const file = formData.get('image') as File;
     const styleFile = formData.get('style_image') as File;

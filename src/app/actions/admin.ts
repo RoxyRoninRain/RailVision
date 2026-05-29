@@ -73,6 +73,10 @@ export async function getAdminStats() {
 }
 
 export async function testResendConnectivity(apiKey: string, fromEmail: string, toEmail: string) {
+    const { checkIsAdmin } = await import('@/lib/auth-utils');
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { success: false, error: 'Unauthorized' };
+
     try {
         // Dynamic import to prevent build errors if 'resend' isn't used elsewhere or causes edge issues
         const { Resend } = await import('resend');

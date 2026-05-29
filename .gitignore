@@ -37,6 +37,14 @@ yarn-error.log*
 # vercel
 .vercel
 
+# credentials
+service-account.json
+*-credentials.json
+*-service-account*.json
+
+# debug scripts
+read_env*.js
+
 # backups
 backups/
 *.bak

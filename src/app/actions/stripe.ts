@@ -131,7 +131,11 @@ export async function createCheckoutSession(tierName: TierName) {
     redirect(session.url);
 }
 
+// Internal use only - called from ai.ts after generation
 export async function reportUsage(userId: string, quantity: number = 1) {
+    // Verify the calling context has a valid userId
+    if (!userId) return;
+
     const supabase = await createClient(); // Use server client
     // Use admin client if we need to bypassing RLS for fetching sensitive profile data?
     // For now, assume authorized user action calling this.
