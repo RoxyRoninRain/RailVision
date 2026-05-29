@@ -59,7 +59,9 @@ async function checkModel(modelId) {
 
 // 5. List of suspects
 const suspects = [
-    'gemini-3-pro-image-preview', // The failed one
+    'gemini-3.1-pro-image',
+    'gemini-3.1-flash-lite',
+    'gemini-3-pro-image-preview',
     'gemini-1.5-pro-preview-0409',
     'gemini-1.5-flash',
     'gemini-1.0-pro',

@@ -92,7 +92,7 @@ export async function generateExperimentalDesign(formData: FormData) {
 
                 const client = await getVertexClient(true);
                 const demolitionModel = client.getGenerativeModel({
-                    model: 'gemini-3-pro-image-preview',
+                    model: 'gemini-3.1-pro-image',
                     systemInstruction: 'You are an expert image editor. Your ONLY task is to generate the requested image. Do not output text. Do not offer explanations. Just generate the image.'
                 });
                 const demolitionResult = await demolitionModel.generateContent(demolitionRequest);
@@ -147,7 +147,7 @@ export async function generateExperimentalDesign(formData: FormData) {
 
         const client2 = await getVertexClient(true);
         const constructionModel = client2.getGenerativeModel({
-            model: 'gemini-3-pro-image-preview',
+            model: 'gemini-3.1-pro-image',
             systemInstruction: 'You are an architectural visualization AI. Your goal is to generate photorealistic images of interior designs. You must always return an image. Do not provide textual descriptions or plans.'
         });
         const constructionResult = await constructionModel.generateContent(constructionRequest);
