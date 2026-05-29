@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
 import StyleControls from '@/components/StyleControls';
 import { EstimateModal } from '@/components/EstimateModal';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 interface style {
     id: string;
@@ -69,6 +70,7 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
     const [result, setResult] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
     // Quote
     const [quoteOpen, setQuoteOpen] = useState(false);
@@ -287,6 +289,9 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
         try {
             const formData = new FormData();
             formData.append('image', file);
+            if (turnstileToken) {
+                formData.append('turnstileToken', turnstileToken);
+            }
 
             // Handle Style Source
             if (styleSource === 'preset') {
@@ -344,6 +349,8 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             setStep(2);
         } finally {
             setIsGenerating(false);
+            // Reset turnstile token after use to ensure a fresh challenge next time
+            setTurnstileToken(null);
         }
     };
 
@@ -729,10 +736,22 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                                             </button>
                                         </div>
 
+                                        {process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && (
+                                            <div className="flex justify-center mb-4">
+                                                <Turnstile
+                                                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                                                    onSuccess={(token) => setTurnstileToken(token)}
+                                                    onError={() => setError("Bot verification failed. Please try again.")}
+                                                    onExpire={() => setTurnstileToken(null)}
+                                                    options={{ theme: 'dark' }}
+                                                />
+                                            </div>
+                                        )}
+
                                         <button
                                             onClick={handleGenerate}
-                                            disabled={isGenerating}
-                                            className="w-full py-4 bg-[var(--primary)] text-black font-bold text-lg uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_-5px_var(--primary)] rounded-xl flex items-center justify-center gap-2"
+                                            disabled={isGenerating || (!!process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken)}
+                                            className="w-full py-4 bg-[var(--primary)] text-black font-bold text-lg uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_-5px_var(--primary)] rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             {isGenerating ? <Loader2 className="animate-spin" /> : <TrendingUp size={20} />}
                                             Generate

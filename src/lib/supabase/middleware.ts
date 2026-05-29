@@ -8,7 +8,7 @@ export async function updateSession(request: NextRequest) {
         },
     })
 
-    // --- CSP & FRAME PROTECTION (Ported from middleware.ts.disabled) ---
+    // --- CSP & FRAME PROTECTION ---
     // Default CSP (Self + Railify + Localhost)
     let allowedDomains = [
         "'self'",
@@ -17,57 +17,51 @@ export async function updateSession(request: NextRequest) {
         "https://*.railify.app"
     ];
 
-    // Check Referer for external embedding
-    const referer = request.headers.get('referer');
-    if (referer) {
-        try {
-            const refererUrl = new URL(referer);
-            const origin = refererUrl.origin;
+    // Get org parameter to check specific tenant
+    const orgId = request.nextUrl.searchParams.get('org');
+    
+    // Add mississippimetalmagic as a safe fallback
+    allowedDomains.push("https://mississippimetalmagic.com");
+    allowedDomains.push("https://www.mississippimetalmagic.com");
 
-            // If it's an external domain, check against whitelist
-            if (!origin.includes('railify.app') && !origin.includes('localhost')) {
-                // Hardcoded fallback backup
-                if (origin === 'https://mississippimetalmagic.com') {
-                    allowedDomains.push(origin);
-                } else {
-                    // Dynamic Database Check using REST for speed/safety
-                    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-                    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (orgId) {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-                    if (supabaseUrl && supabaseKey) {
-                        try {
-                            // Check profiles for matching website
-                            const res = await fetch(`${supabaseUrl}/rest/v1/profiles?website=eq.${encodeURIComponent(origin)}&select=subscription_status`, {
-                                headers: {
-                                    'apikey': supabaseKey,
-                                    'Authorization': `Bearer ${supabaseKey}`
-                                }
-                            });
+        if (supabaseUrl && supabaseKey) {
+            try {
+                // Fetch the specific tenant profile
+                const res = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${orgId}&select=website,subscription_status`, {
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`
+                    }
+                });
 
-                            if (res.ok) {
-                                const data = await res.json();
-                                if (data && data.length > 0) {
-                                    const status = data[0].subscription_status;
-                                    if (status === 'active' || status === 'trialing') {
-                                        allowedDomains.push(origin);
-                                    }
-                                }
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.length > 0) {
+                        const profile = data[0];
+                        if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
+                            if (profile.website) {
+                                // Extract clean domain
+                                const cleanDomain = profile.website.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '').toLowerCase();
+                                allowedDomains.push(`https://${cleanDomain}`);
+                                allowedDomains.push(`https://www.${cleanDomain}`);
                             }
-                        } catch (dbError) {
-                            console.error('Middleware DB error:', dbError);
                         }
                     }
                 }
+            } catch (dbError) {
+                console.error('Middleware DB error:', dbError);
             }
-        } catch (e) {
-            // Invalid referer, ignore
         }
     }
 
     // Construct CSP Header
     const csp = `frame-ancestors ${allowedDomains.join(' ')};`;
     response.headers.set('Content-Security-Policy', csp);
-    response.headers.set('X-Frame-Options', 'SAMEORIGIN'); // Fallback
+    // REMOVED: X-Frame-Options: SAMEORIGIN because it completely breaks cross-origin iframes regardless of CSP
     // -------------------------------------------------------------
 
     // Create Client
