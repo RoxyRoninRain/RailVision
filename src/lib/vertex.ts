@@ -146,7 +146,7 @@ export async function generateDesignWithNanoBanana(
         console.log('--- END SYSTEM INSTRUCTION ---');
 
         model = client.getGenerativeModel({
-            model: 'gemini-3.1-pro-image', // Restore User's Required Model
+            model: 'gemini-3-pro-image-preview', // Restore User's Required Model
             systemInstruction: finalSystemInstruction
         });
 
@@ -292,7 +292,7 @@ Renovate **IMAGE A**.
             const token = await getAccessToken(authOptions.credentials?.client_email, authOptions.credentials?.private_key);
             const projectId = authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'railvision-480923';
 
-            const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3.1-pro-image:generateContent`;
+            const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3-pro-image-preview:generateContent`;
 
             console.log(`[VERTEX RAW] Calling URL: ${url}`);
 

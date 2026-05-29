@@ -121,7 +121,7 @@ export default function CostDashboard() {
     };
 
     // Gemini 3 Stats
-    const geminiStats = modelBreakdown['gemini-3.1-pro-image'] || modelBreakdown['gemini-3.0-pro-image-preview'] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
+    const geminiStats = modelBreakdown['gemini-3.1-pro-image'] || modelBreakdown['gemini-3-pro-image-preview'] || modelBreakdown['gemini-3.0-pro-image-preview'] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
 
     const FilterTab = ({ label, value }: { label: string, value: string }) => (
         <button
