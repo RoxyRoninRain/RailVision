@@ -125,34 +125,6 @@ export async function generateDesign(formData: FormData) {
     }
     // -------------------------
 
-    // --- TURNSTILE VERIFICATION ---
-    const turnstileToken = formData.get('turnstileToken') as string;
-    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) {
-        if (!turnstileToken) {
-            return { error: 'Bot verification failed. No token provided.' };
-        }
-        try {
-            const tsFormData = new URLSearchParams();
-            tsFormData.append('secret', process.env.TURNSTILE_SECRET_KEY || '');
-            tsFormData.append('response', turnstileToken);
-            tsFormData.append('remoteip', clientIp);
-
-            const tsRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-                method: 'POST',
-                body: tsFormData
-            });
-            const tsData = await tsRes.json();
-            if (!tsData.success) {
-                console.error('[SECURITY] Turnstile validation failed:', tsData);
-                return { error: 'Bot verification failed. Please try again.' };
-            }
-        } catch (err) {
-            console.error('[SECURITY] Turnstile error:', err);
-            return { error: 'Bot verification service unavailable.' };
-        }
-    }
-    // ------------------------------
-
     // --- AUTO RATE LIMITER (20/hr) ---
     if (clientIp !== 'unknown') {
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
