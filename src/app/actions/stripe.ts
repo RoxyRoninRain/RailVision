@@ -32,9 +32,19 @@ export async function createCheckoutSession(tierName: TierName) {
         throw new Error('Could not fetch user profile');
     }
 
-    const tier = PRICING_TIERS[tierName];
+    // Handle case-insensitivity and aliases like 'pro'
+    const normalizedName = String(tierName).toLowerCase();
+    const actualTierName = Object.keys(PRICING_TIERS).find(k => k.toLowerCase() === normalizedName) || 
+                           (normalizedName === 'pro' ? 'Professional' : null);
+
+    if (!actualTierName) {
+        console.error(`Pricing tier ${tierName} not found.`);
+        throw new Error(`Pricing tier ${tierName} not found.`);
+    }
+
+    const tier = PRICING_TIERS[actualTierName as TierName];
     if (!tier || !tier.stripePriceId) {
-        throw new Error(`Pricing tier ${tierName} configuration missing.`);
+        throw new Error(`Pricing tier ${actualTierName} configuration missing.`);
     }
 
     // 3. Get or Create Stripe Customer
