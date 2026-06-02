@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { Loader2, ArrowRight, CreditCard, ShieldCheck, Check, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { updateProfile } from '@/app/actions';
+import { updateProfile, adminSignUp } from '@/app/actions';
 import { createCheckoutSession } from '@/app/actions/stripe';
 
 function SignupContent() {
@@ -34,20 +34,23 @@ function SignupContent() {
         setLoading(true);
 
         try {
-            // 1. Sign Up
-            const { data, error: signUpError } = await supabase.auth.signUp({
-                email,
-                password,
-                options: {
-                    data: {
-                        full_name: fullName,
-                    },
-                },
-            });
+            // 1. Sign Up Using Admin to bypass email limit
+            const formData = new FormData();
+            formData.append('email', email);
+            formData.append('password', password);
+            formData.append('fullName', fullName);
 
-            if (signUpError) throw signUpError;
+            const { user, error: signUpError } = await adminSignUp(formData);
 
-            if (data.user) {
+            if (signUpError) throw new Error(signUpError);
+
+            if (user) {
+                // Now sign in the client so we get session cookies
+                const { error: signInError } = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                });
+                if (signInError) throw signInError;
                 // 2. Update Profile with Business Info
                 // We construct FormData as expected by updateProfile action
                 const formData = new FormData();

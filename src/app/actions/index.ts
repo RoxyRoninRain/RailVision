@@ -5,3 +5,4 @@ export * from './profile';
 export * from './stats';
 export * from './admin';
 export * from './types';
+export * from './auth';
