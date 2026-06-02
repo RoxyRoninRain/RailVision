@@ -6,6 +6,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Loader2, ArrowRight, Check, Upload, Palette, Lock } from 'lucide-react';
 import { uploadLogo, updateProfile } from '@/app/actions';
+import { createCheckoutSession } from '@/app/actions/stripe';
 
 function OnboardingContent() {
     const searchParams = useSearchParams();
@@ -100,8 +101,9 @@ function OnboardingContent() {
             const res = await updateProfile(formData);
             if (res.error) throw new Error(res.error);
 
-            // DONE!
-            router.push('/dashboard/leads');
+            // DONE! Redirect to Stripe
+            const plan = searchParams.get('plan') || 'pro';
+            await createCheckoutSession(plan as any);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -276,7 +278,7 @@ function OnboardingContent() {
                                         disabled={loading}
                                         className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
                                     >
-                                        {loading ? <Loader2 className="animate-spin" /> : <>Finish Setup <Check size={16} /></>}
+                                        {loading ? <Loader2 className="animate-spin" /> : <>Continue to Payment <ArrowRight size={16} /></>}
                                     </button>
                                 </form>
                             </motion.div>

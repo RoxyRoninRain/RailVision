@@ -16,24 +16,8 @@ export default function SelectPlanButton({ tierName, popular, className }: Selec
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const handleCheckout = async () => {
-        setLoading(true);
-        try {
-            await createCheckoutSession(tierName);
-        } catch (error: any) {
-            console.error('Checkout error:', error);
-            // If error implies not logged in, redirect
-            // Since server action throws, we catch here. 
-            // Ideally we'd distinguish errors, but for now assume auth error -> login
-            // Or better: check for specific error message
-            if (error.message?.includes('User not logged in') || error.message?.includes('fetch user profile')) {
-                router.push(`/login?redirect=/pricing`); // Or signup
-            } else {
-                alert('Something went wrong. Please try again.');
-            }
-        } finally {
-            setLoading(false);
-        }
+    const handleCheckout = () => {
+        router.push(`/signup?plan=${tierName.toLowerCase()}`);
     };
 
     return (

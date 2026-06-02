@@ -67,9 +67,8 @@ function SignupContent() {
                     console.error('Profile update failed:', profileRes.error);
                 }
 
-                // 3. Create Checkout Session
-                // This redirects the user to Stripe
-                await createCheckoutSession(plan as any);
+                // 3. Continue to Onboarding
+                router.push(`/onboarding?skip_password=true&plan=${plan}`);
             }
         } catch (err: any) {
             console.error(err);
@@ -210,11 +209,11 @@ function SignupContent() {
                             disabled={loading}
                             className="w-full bg-primary text-white font-bold py-3 rounded-lg hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
                         >
-                            {loading ? <Loader2 className="animate-spin" /> : <>Continue to Payment <ArrowRight size={16} /></>}
+                            {loading ? <Loader2 className="animate-spin" /> : <>Continue Setup <ArrowRight size={16} /></>}
                         </button>
 
                         <p className="text-xs text-center text-gray-500 mt-4">
-                            You will be redirected to Stripe to complete your subscription.
+                            You'll be able to setup your brand before payment.
                         </p>
                     </form>
 
