@@ -128,7 +128,7 @@ export async function createCheckoutSession(tierName: TierName) {
         throw new Error('Failed to create checkout session');
     }
 
-    redirect(session.url);
+    return { url: session.url };
 }
 
 // Internal use only - called from ai.ts after generation

@@ -103,7 +103,10 @@ function OnboardingContent() {
 
             // DONE! Redirect to Stripe
             const plan = searchParams.get('plan') || 'pro';
-            await createCheckoutSession(plan as any);
+            const checkout = await createCheckoutSession(plan as any);
+            if (checkout?.url) {
+                window.location.href = checkout.url;
+            }
         } catch (err: any) {
             setError(err.message);
         } finally {
