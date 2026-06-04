@@ -1,30 +1,31 @@
 
 import { getActingUser } from '@/lib/auth-context';
 import DashboardLayoutClient from './DashboardLayoutClient';
+import { redirect } from 'next/navigation';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-    const { isImpersonating, tenantId, user, supabase } = await getActingUser();
+    const context = await getActingUser();
+    const { isImpersonating, tenantId, user, supabase, isAdmin } = context;
 
     // Prefetch shop name for the acting user (Tenant or Impersonated Tenant)
     let shopName = '';
     if (user) {
-        // Use the 'supabase' client from context (which is Admin if impersonating, or Regular)
-        // Note: if impersonating, 'user' is still the Admin User object from Auth, 
-        // but we want the PROFILE of the 'tenantId'
-
-        // Wait, if isImpersonating, 'user' from getActingUser is the ADMIN User.
-        // But we want to display the SHOP NAME of the TENANT we are impersonating.
-
         const targetId = tenantId; // This is the tenant ID we are acting as
 
         const { data: profile } = await supabase
             .from('profiles')
-            .select('shop_name')
+            .select('shop_name, subscription_status, tier_name')
             .eq('id', targetId)
             .single();
 
-        if (profile?.shop_name) {
-            shopName = profile.shop_name;
+        if (profile) {
+            shopName = profile.shop_name || '';
+
+            // Gate access if user is not an admin and subscription is not active
+            if (!isAdmin && profile.subscription_status !== 'active') {
+                const plan = profile.tier_name?.toLowerCase() || 'professional';
+                redirect(`/onboarding?skip_password=true&plan=${plan}`);
+            }
         }
     }
 
