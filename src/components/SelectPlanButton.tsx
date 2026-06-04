@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createCheckoutSession } from '@/app/actions/stripe';
 import { TierName } from '@/config/pricing';
 import { Loader2 } from 'lucide-react';
+import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
 interface SelectPlanButtonProps {
@@ -16,8 +17,24 @@ export default function SelectPlanButton({ tierName, popular, className }: Selec
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const handleCheckout = () => {
-        router.push(`/signup?plan=${tierName.toLowerCase()}`);
+    const handleCheckout = async () => {
+        setLoading(true);
+        try {
+            const supabase = createBrowserClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            );
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (session) {
+                router.push(`/onboarding?skip_password=true&plan=${tierName.toLowerCase()}`);
+            } else {
+                router.push(`/signup?plan=${tierName.toLowerCase()}`);
+            }
+        } catch (error) {
+            console.error('Checkout error:', error);
+            router.push(`/signup?plan=${tierName.toLowerCase()}`);
+        }
     };
 
     return (
