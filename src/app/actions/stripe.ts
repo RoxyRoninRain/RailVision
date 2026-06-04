@@ -16,7 +16,7 @@ export async function createCheckoutSession(tierName: TierName) {
     } = await supabase.auth.getUser();
 
     if (!user) {
-        throw new Error('User not logged in');
+        return { error: 'User not logged in' };
     }
 
     // 2. Get Profile to check for existing Stripe Customer ID
@@ -29,7 +29,7 @@ export async function createCheckoutSession(tierName: TierName) {
 
     if (profileError || !profile) {
         console.error('Error fetching profile:', profileError);
-        throw new Error('Could not fetch user profile');
+        return { error: 'Could not fetch user profile' };
     }
 
     // Handle case-insensitivity and aliases like 'pro'
@@ -39,12 +39,12 @@ export async function createCheckoutSession(tierName: TierName) {
 
     if (!actualTierName) {
         console.error(`Pricing tier ${tierName} not found.`);
-        throw new Error(`Pricing tier ${tierName} not found.`);
+        return { error: `Pricing tier ${tierName} not found.` };
     }
 
     const tier = PRICING_TIERS[actualTierName as TierName];
     if (!tier || !tier.stripePriceId) {
-        throw new Error(`Pricing tier ${actualTierName} configuration missing.`);
+        return { error: `Pricing tier ${actualTierName} configuration missing.` };
     }
 
     // 3. Get or Create Stripe Customer
@@ -131,11 +131,11 @@ export async function createCheckoutSession(tierName: TierName) {
         });
     } catch (err: any) {
         console.error('[STRIPE] Checkout Session Creation Failed:', err);
-        throw new Error(`Stripe Checkout Failed: ${err.message}`);
+        return { error: `Stripe Checkout Failed: ${err.message}` };
     }
 
     if (!session?.url) {
-        throw new Error('Failed to create checkout session');
+        return { error: 'Failed to create checkout session' };
     }
 
     return { url: session.url };
