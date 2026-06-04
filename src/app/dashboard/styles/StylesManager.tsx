@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles } from '@/app/actions'; // Ensure these are exported from actions.ts
+import { listBucketFiles } from '@/app/admin/actions';
 import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { compressImage } from '@/utils/imageUtils';
@@ -241,6 +242,21 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
     const [hasBottomRail, setHasBottomRail] = useState(true); // Default to True (Safe Default)
+    const [showAssetPicker, setShowAssetPicker] = useState(false);
+
+    const handleAssetSelect = async (url: string) => {
+        try {
+            setShowAssetPicker(false);
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
+            const file = new File([blob], `asset.${ext}`, { type: blob.type });
+            setMainFile(file);
+            setMainPreview(URL.createObjectURL(file));
+        } catch (e) {
+            alert('Failed to load asset from URL');
+        }
+    };
 
     const handleMainFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -387,9 +403,16 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
 
                     {/* Main Image */}
                     <div>
-                        <label className="text-xs text-[var(--primary)] uppercase font-bold mb-2 block">1. Main Style Image (Visible)</label>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs text-[var(--primary)] uppercase font-bold block">1. Main Style Image (Visible)</label>
+                            {isAdmin && adminTenantId && (
+                                <button type="button" onClick={() => setShowAssetPicker(true)} className="text-[10px] font-bold uppercase bg-zinc-800 hover:bg-zinc-700 text-white px-2 py-1 rounded">
+                                    Select from Assets
+                                </button>
+                            )}
+                        </div>
                         <div className="border border-dashed border-gray-700 p-4 rounded text-center cursor-pointer hover:bg-white/5 relative aspect-square flex items-center justify-center overflow-hidden bg-black/20">
-                            <input type="file" onChange={handleMainFile} className="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" required />
+                            <input type="file" onChange={handleMainFile} className="absolute inset-0 opacity-0 cursor-pointer z-10" accept="image/*" required={!mainPreview} />
                             {mainPreview ? (
                                 <img src={mainPreview} className="w-full h-full object-cover" />
                             ) : (
@@ -397,6 +420,12 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                             )}
                         </div>
                     </div>
+
+                    <AnimatePresence>
+                        {showAssetPicker && isAdmin && adminTenantId && (
+                            <AssetPickerModal tenantId={adminTenantId} onSelect={handleAssetSelect} onClose={() => setShowAssetPicker(false)} />
+                        )}
+                    </AnimatePresence>
 
                     {/* Reference Images */}
                     <div>
@@ -459,6 +488,24 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     const [keptRefs, setKeptRefs] = useState<string[]>(style.reference_images || []);
     const [newRefFiles, setNewRefFiles] = useState<File[]>([]);
     const [newRefPreviews, setNewRefPreviews] = useState<string[]>([]);
+    const [showAssetPicker, setShowAssetPicker] = useState(false);
+
+    const handleAssetSelect = async (url: string) => {
+        try {
+            setShowAssetPicker(false);
+            const res = await fetch(url);
+            const blob = await res.blob();
+            const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
+            const file = new File([blob], `asset.${ext}`, { type: blob.type });
+            setImageSrc(URL.createObjectURL(file));
+            setNewFile(file);
+            setIsDirty(true);
+            setZoom(1);
+            setCrop({ x: 0, y: 0 });
+        } catch (e) {
+            alert('Failed to load asset from URL');
+        }
+    };
 
 
     // Load new image for cropping
@@ -771,10 +818,23 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                         />
                     </div>
 
-                    <div className="relative border border-[#333] rounded p-2 text-center hover:bg-[#222] cursor-pointer transition-colors">
-                        <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
-                        <span className="text-xs text-gray-400 uppercase font-bold">Upload Replacement Image</span>
+                    <div className="flex gap-2">
+                        <div className="relative border border-[#333] rounded p-2 text-center hover:bg-[#222] cursor-pointer transition-colors flex-1">
+                            <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
+                            <span className="text-xs text-gray-400 uppercase font-bold">Upload Replacement Image</span>
+                        </div>
+                        {isAdmin && adminTenantId && (
+                            <button type="button" onClick={() => setShowAssetPicker(true)} className="border border-[var(--primary)] text-[var(--primary)] rounded p-2 text-center hover:bg-[var(--primary)] hover:text-black transition-colors font-bold uppercase text-xs">
+                                Select Asset
+                            </button>
+                        )}
                     </div>
+
+                    <AnimatePresence>
+                        {showAssetPicker && isAdmin && adminTenantId && (
+                            <AssetPickerModal tenantId={adminTenantId} onSelect={handleAssetSelect} onClose={() => setShowAssetPicker(false)} />
+                        )}
+                    </AnimatePresence>
 
                     {/* Reference Images Section */}
                     {/* ... (Kept as is) ... */}
@@ -867,4 +927,64 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             </motion.div>
         </div>
     )
+}
+
+function AssetPickerModal({ tenantId, onSelect, onClose }: { tenantId: string, onSelect: (url: string) => void, onClose: () => void }) {
+    const [assets, setAssets] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchAssets() {
+            setLoading(true);
+            try {
+                const [logosRes, quotesRes, assetsRes] = await Promise.all([
+                    listBucketFiles('logos', tenantId),
+                    listBucketFiles('quote-uploads', tenantId),
+                    listBucketFiles('tenant-assets', tenantId)
+                ]);
+                const all = [
+                    ...(logosRes.data || []),
+                    ...(quotesRes.data || []),
+                    ...(assetsRes.data || [])
+                ];
+                // Filter to only images with publicUrl
+                const images = all.filter(f => f.publicUrl && (f.metadata?.mimetype?.startsWith('image/') || f.name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)));
+                setAssets(images);
+            } catch (e) {
+                console.error("Failed to fetch assets", e);
+            } finally {
+                setLoading(false);
+            }
+        }
+        if (tenantId) fetchAssets();
+    }, [tenantId]);
+
+    return (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#111] border border-[#333] w-full max-w-4xl p-6 rounded-2xl relative shadow-2xl max-h-[90vh] overflow-y-auto">
+                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20} /></button>
+                <h3 className="text-xl font-bold text-white uppercase mb-6 flex items-center gap-2">
+                    Select from Tenant Assets
+                </h3>
+                
+                {loading ? (
+                    <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-gray-500" /></div>
+                ) : assets.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">No images found in tenant buckets.</div>
+                ) : (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {assets.map((asset, idx) => (
+                            <div key={idx} onClick={() => onSelect(asset.publicUrl)} className="group cursor-pointer border border-white/10 rounded-lg overflow-hidden hover:border-[var(--primary)] transition-colors aspect-square relative bg-black/50">
+                                <img src={asset.publicUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity">
+                                    <span className="text-xs font-bold text-white uppercase px-2 py-1 bg-[var(--primary)] text-black rounded">Select</span>
+                                    <span className="text-[10px] text-gray-300 truncate w-full px-2 text-center mt-2" title={asset.name}>{asset.name.split('/').pop()}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </motion.div>
+        </div>
+    );
 }

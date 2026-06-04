@@ -4,7 +4,6 @@ import path from 'path';
 
 const connectionString = 'postgresql://postgres.zlwcdhgdmshtmkqngfzg:Reneg@d3roxyronin@aws-0-us-west-2.pooler.supabase.com:6543/postgres';
 
-
 async function runMigration() {
     const client = new Client({
         connectionString,
@@ -14,7 +13,7 @@ async function runMigration() {
         await client.connect();
         console.log('Connected to database.');
 
-        const migrationPath = path.join(process.cwd(), 'supabase', 'migrations', '20260118_restore_storage_read.sql');
+        const migrationPath = path.join(process.cwd(), 'supabase', 'migrations', '20260118_add_style_columns.sql');
         const sql = fs.readFileSync(migrationPath, 'utf8');
 
         console.log('Executing migration...');

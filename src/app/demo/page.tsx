@@ -44,9 +44,27 @@ export default async function Page({
                 shop_name: null,
                 phone: null,
                 address: null,
-                primary_color: null
+                primary_color: null,
+                subscription_status: 'active'
             };
         }
+    }
+
+    // --- SUBSCRIPTION CHECK (Widget) ---
+    // Only block if this is a tenant widget (orgId is present) AND their status is not active.
+    // We allow the generic demo (!orgId) to proceed.
+    if (orgId && tenantProfile && tenantProfile.subscription_status !== 'active') {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-8 text-center font-sans">
+                <div className="w-16 h-16 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 mb-6">
+                    <ShieldAlert size={32} />
+                </div>
+                <h1 className="text-2xl font-bold mb-2">Service Unavailable</h1>
+                <p className="text-gray-400 max-w-md">
+                    This interactive design tool is temporarily offline.
+                </p>
+            </div>
+        );
     }
 
     // Fallback styles: ONLY if we are in "Generic Mode" (!orgId) and have no styles.

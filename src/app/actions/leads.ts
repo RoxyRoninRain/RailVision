@@ -13,6 +13,16 @@ export async function trackDownload(formData: FormData) {
     const supabase = await createClient();
     const adminSupabase = createAdminClient();
     const orgId = formData.get('organization_id') as string;
+    
+    // --- SUBSCRIPTION CHECK ---
+    if (orgId) {
+        const { getTenantProfile } = await import('@/app/actions/profile');
+        const profile = await getTenantProfile(orgId);
+        if (profile && profile.subscription_status !== 'active') {
+            return { success: false, error: 'Service Unavailable' };
+        }
+    }
+
     const styleName = formData.get('style_name') as string;
     let generatedUrl = formData.get('generated_design_url') as string;
 
@@ -95,6 +105,17 @@ export async function submitLead(formData: FormData) {
     const supabase = await createClient(); // Use server client
     const adminSupabase = createAdminClient(); // Admin client for storage/inserts
 
+    const orgId = formData.get('organization_id') as string;
+
+    // --- SUBSCRIPTION CHECK ---
+    if (orgId) {
+        const { getTenantProfile } = await import('@/app/actions/profile');
+        const profile = await getTenantProfile(orgId);
+        if (profile && profile.subscription_status !== 'active') {
+            return { success: false, error: 'Service Unavailable: The account associated with this tool is not currently active.' };
+        }
+    }
+
     // Extract Form Data
     const escapeHtml = (str: string | null): string => {
         if (!str) return '';
@@ -105,7 +126,6 @@ export async function submitLead(formData: FormData) {
     const customer_name = escapeHtml(formData.get('customer_name') as string) || 'Guest';
     const styleName = formData.get('style_name') as string;
     let generatedUrl = formData.get('generated_design_url') as string;
-    const orgId = formData.get('organization_id') as string;
     const phone = escapeHtml(formData.get('phone') as string);
     const message = escapeHtml(formData.get('message') as string);
     const estimate_json = formData.get('estimate_json') ? JSON.parse(formData.get('estimate_json') as string) : null;

@@ -81,6 +81,7 @@ export async function generateDesign(formData: FormData) {
     // Context for billing:
     let profileIdToBill = user?.id; // Default to logged-in user
     let shouldUseAdminClient = false;
+    let isGenericDemo = false;
 
     // Check for guest/embedded access if no user
     if (!user) {
@@ -92,7 +93,7 @@ export async function generateDesign(formData: FormData) {
             // Must use Admin Client to read/write another user's profile (since we are guest)
             shouldUseAdminClient = true;
         } else {
-            return { error: 'You must be logged in to generate designs.' };
+            isGenericDemo = true;
         }
     }
 
@@ -142,11 +143,18 @@ export async function generateDesign(formData: FormData) {
     // ---------------------------------
 
     // 1. Fetch current usage & tier details
-    const { data: profile, error: dbError } = await dbClient
-        .from('profiles')
-        .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name, website')
-        .eq('id', profileIdToBill)
-        .single();
+    let profile: any = null;
+    let dbError: any = null;
+    
+    if (!isGenericDemo) {
+        const res = await dbClient
+            .from('profiles')
+            .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name, website, subscription_status')
+            .eq('id', profileIdToBill)
+            .single();
+        profile = res.data;
+        dbError = res.error;
+    }
 
     // Lazy load pricing configs
 
@@ -155,26 +163,34 @@ export async function generateDesign(formData: FormData) {
     // A signed JWT token system should be implemented for robust security here.
     const { PRICING_TIERS, DEFAULT_TIER } = await import('@/config/pricing');
 
-    if (dbError || !profile) {
-        console.error('[BILLING] Profile fetch failed:', dbError);
-        return { error: 'Could not fetch profile for billing check.' };
+    if (!isGenericDemo) {
+        if (dbError || !profile) {
+            console.error('[BILLING] Profile fetch failed:', dbError);
+            return { error: 'Could not fetch profile for billing check.' };
+        }
+
+        if (profile.subscription_status !== 'active') {
+            return { error: 'Service Unavailable: The account associated with this tool is not currently active.' };
+        }
     }
 
-    const tierName = (profile.tier_name || DEFAULT_TIER) as keyof typeof PRICING_TIERS;
+    const tierName = profile ? (profile.tier_name || DEFAULT_TIER) as keyof typeof PRICING_TIERS : DEFAULT_TIER;
     const tier = PRICING_TIERS[tierName] || PRICING_TIERS[DEFAULT_TIER];
 
-    const currentUsage = profile.current_usage || 0;
+    const currentUsage = profile?.current_usage || 0;
     // With Utility Model, allowance is 0. All usage is metered.
-    const allowance = tier.allowance || 0;
+    const allowance = tier?.allowance || 0;
     let overageCost = 0;
     let transactionOverageCount = 0;
 
     // 2. Usage Check Logic (Utility Model: Always "Overdrive")
-    const notificationState = (profile.notification_state as any) || {};
+    const notificationState = profile ? (profile.notification_state as any) || {} : {};
 
     // Standard Metered Logic (Applies to everyone unless allowance > 0)
     // Legacy support: If they somehow have an allowance (Unlimited Plan), we consume it first.
-    if (currentUsage < allowance) {
+    if (isGenericDemo) {
+        // Skip billing for generic demo
+    } else if (currentUsage < allowance) {
         // --- LEGACY/UNLIMITED ALLOWANCE LOGIC ---
         // Just consume allowance, no billing.
         // (Skipping low balance warning for now as it's legacy/internal focus)
@@ -296,11 +312,11 @@ export async function generateDesign(formData: FormData) {
     }
 
     // 3. Billing Threshold Check (Charge Card)
-    let newPendingBalance = (profile.pending_overage_balance || 0) + overageCost;
-    let newOverageCount = (profile.current_overage_count || 0) + transactionOverageCount;
+    let newPendingBalance = (profile?.pending_overage_balance || 0) + overageCost;
+    let newOverageCount = (profile?.current_overage_count || 0) + transactionOverageCount;
 
     // Check against Tier Threshold (e.g. Charge every $20 or $50)
-    if (newPendingBalance >= tier.billingThreshold && tier.billingThreshold > 0) {
+    if (!isGenericDemo && tier && newPendingBalance >= tier.billingThreshold && tier.billingThreshold > 0) {
         console.log(`[BILLING] THRESHOLD HIT! Tier: ${tier.name}, Balance: $${newPendingBalance} >= Threshold: $${tier.billingThreshold}`);
 
         // TRIGGER IMMEDIATE CHARGE (Mock Implementation - In real world, this triggers Stripe Invoice Pay)
@@ -316,19 +332,21 @@ export async function generateDesign(formData: FormData) {
     }
 
     // 4. Commit Usage Update
-    const { error: updateError } = await dbClient
-        .from('profiles')
-        .update({
-            current_usage: currentUsage + 1,
-            pending_overage_balance: newPendingBalance,
-            current_overage_count: newOverageCount,
-            notification_state: notificationState
-        })
-        .eq('id', profileIdToBill);
+    if (!isGenericDemo) {
+        const { error: updateError } = await dbClient
+            .from('profiles')
+            .update({
+                current_usage: currentUsage + 1,
+                pending_overage_balance: newPendingBalance,
+                current_overage_count: newOverageCount,
+                notification_state: notificationState
+            })
+            .eq('id', profileIdToBill);
 
-    if (updateError) {
-        console.error('[BILLING] Failed to update usage:', updateError);
-        return { error: 'Transaction failed. Please try again.' };
+        if (updateError) {
+            console.error('[BILLING] Failed to update usage:', updateError);
+            return { error: 'Transaction failed. Please try again.' };
+        }
     }
     // --- METERED BILLING LOGIC (END) ---
 

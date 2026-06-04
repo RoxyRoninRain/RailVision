@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -33,6 +33,27 @@ function OnboardingContent() {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
+
+    const [isPolling, setIsPolling] = useState(searchParams.get('checkout') === 'success');
+
+    useEffect(() => {
+        if (!isPolling) return;
+        
+        let interval: NodeJS.Timeout;
+        const checkStatus = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+            const { data } = await supabase.from('profiles').select('subscription_status').eq('id', user.id).single();
+            if (data?.subscription_status === 'active') {
+                router.push('/dashboard');
+            }
+        };
+
+        checkStatus(); // Initial check
+        interval = setInterval(checkStatus, 2000);
+
+        return () => clearInterval(interval);
+    }, [isPolling, router, supabase]);
 
     const handlePasswordSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -127,6 +148,18 @@ function OnboardingContent() {
             setPreviewUrl(url);
         }
     };
+
+    if (isPolling) {
+        return (
+            <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center p-6">
+                <div className="bg-[#111] border border-gray-800 rounded-2xl p-8 shadow-2xl text-center max-w-sm w-full">
+                    <Loader2 className="animate-spin w-12 h-12 text-primary mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold mb-2">Verifying Payment...</h2>
+                    <p className="text-gray-400 text-sm">Please wait while we confirm your subscription.</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center p-6">

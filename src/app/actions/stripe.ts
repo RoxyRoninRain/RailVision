@@ -116,7 +116,7 @@ export async function createCheckoutSession(tierName: TierName) {
             customer: customerId,
             line_items: lineItems,
             mode: 'subscription',
-            success_url: `${baseUrl}/dashboard?checkout=success`,
+            success_url: `${baseUrl}/onboarding?checkout=success`,
             cancel_url: `${baseUrl}/pricing?checkout=cancel`,
             subscription_data: {
                 metadata: {
