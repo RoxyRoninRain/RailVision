@@ -57,7 +57,7 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         isWhiteLabel: true,
         features: ['White Label', 'Volume Discount', 'Priority Support'],
         stripePriceId: 'price_1SlwRiEJNh6NAPEXb1FsDlQy',
-        stripeMeteredPriceId: 'price_1SlwRiEJNh6NAPEXANKMR94u',
+        stripeMeteredPriceId: 'price_1SlwRiEJNh6NAPEXANkMR94u',
         stripeOnboardingPriceId: 'price_1SlwT9EJNh6NAPEXR8z1dv1z'
     },
     'The Unlimited': {
