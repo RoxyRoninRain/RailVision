@@ -215,8 +215,14 @@ export default function TenantsPage() {
                                         </div>
                                     </td>
                                     <td className="p-4">
-                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium bg-green-900/10 text-green-500 border border-green-900/20">
-                                            Active
+                                        <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border uppercase tracking-wider ${
+                                            stat.subscription_status === 'active' 
+                                                ? 'bg-green-900/10 text-green-500 border-green-900/20' 
+                                                : stat.subscription_status === 'cancelled'
+                                                    ? 'bg-red-900/10 text-red-500 border-red-900/20'
+                                                    : 'bg-yellow-900/10 text-yellow-500 border-yellow-900/20'
+                                        }`}>
+                                            {stat.subscription_status || 'inactive'}
                                         </span>
                                     </td>
                                     <td className="p-4 pr-6 text-right">

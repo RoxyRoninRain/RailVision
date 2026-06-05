@@ -27,7 +27,7 @@ export async function getAdminStats() {
     // 1. Get All Profiles (Tenants)
     const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, shop_name, email');
+        .select('id, shop_name, email, subscription_status');
 
     // 2. Get Lead Counts per Org
     const { data: leads } = await supabase
@@ -63,6 +63,7 @@ export async function getAdminStats() {
             organization_id: orgId,
             shop_name: profile?.shop_name || 'Unknown Shop', // New Field
             email: profile?.email || '', // New Field
+            subscription_status: profile?.subscription_status || 'inactive',
             count: leadCounts[orgId] || 0,
             generation_count: genCounts[orgId] || 0
         };
