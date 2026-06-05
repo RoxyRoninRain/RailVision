@@ -86,8 +86,8 @@ export default function TenantsPage() {
         try {
             const res = await deleteTenant(tenantId);
             if (res.success) {
-                setStats(prev => prev.filter(s => s.organization_id !== tenantId));
-                setGlobalStats(prev => ({
+                setStats((prev: any[]) => prev.filter(s => s.organization_id !== tenantId));
+                setGlobalStats((prev: any) => ({
                     ...prev,
                     activeTenants: Math.max(0, prev.activeTenants - 1)
                 }));
