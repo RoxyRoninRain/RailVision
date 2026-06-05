@@ -361,8 +361,9 @@ export async function generateDesign(formData: FormData) {
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
 
-        let styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean } } = style;
+        let styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean; description?: string } } = style;
         const styleId = formData.get('styleId') as string;
+        const styleDescription = formData.get('style_description') as string;
 
         if (styleFile) {
             const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
@@ -426,7 +427,8 @@ export async function generateDesign(formData: FormData) {
                             styleInput = {
                                 base64StyleImages: validBase64s,
                                 technicalSpecs: {
-                                    hasBottomRail: styleData.has_bottom_rail
+                                    hasBottomRail: styleData.has_bottom_rail,
+                                    description: styleDescription
                                 }
                             };
                             console.log(`[DEBUG] Successfully loaded ${validBase64s.length} style images for multi-shot generation.`);

@@ -292,6 +292,9 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             if (styleSource === 'preset') {
                 formData.append('styleId', styleList[selectedStyleIndex].id);
                 formData.append('style', styleList[selectedStyleIndex].name);
+                if (styleList[selectedStyleIndex].description) {
+                    formData.append('style_description', styleList[selectedStyleIndex].description);
+                }
                 if (styleList[selectedStyleIndex].image_url) {
                     formData.append('style_url', styleList[selectedStyleIndex].image_url);
                 }

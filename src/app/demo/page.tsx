@@ -44,9 +44,8 @@ export default async function Page({
                 shop_name: null,
                 phone: null,
                 address: null,
-                primary_color: null,
-                subscription_status: 'active'
-            };
+                primary_color: null
+            } as any;
         }
     }
 

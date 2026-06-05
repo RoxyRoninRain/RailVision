@@ -109,7 +109,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function generateDesignWithNanoBanana(
     base64TargetImage: string,
-    styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean } },
+    styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean; description?: string } },
     promptConfig?: { systemInstruction: string; userTemplate: string; negative_prompt?: string }
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     const maxAttempts = 5;
@@ -203,6 +203,7 @@ export async function generateDesignWithNanoBanana(
 
             // DYNAMIC MOUNTING INSTRUCTION
             let mountingInstructionStep = "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2."; // Default generic fallback
+            let materialInstructionStep = "";
 
             if (typeof styleInput !== 'string' && styleInput.technicalSpecs) {
                 const specs = styleInput.technicalSpecs;
@@ -214,6 +215,9 @@ export async function generateDesignWithNanoBanana(
                         // CASE 2: DIRECT MOUNT REQUIRED
                         mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each spindle must drill INDIVIDUALLY into the stair tread/floor.`;
                     }
+                }
+                if (specs.description) {
+                    materialInstructionStep = `\n    **MATERIAL SPECS:** ${specs.description}`;
                 }
             }
 
@@ -240,7 +244,7 @@ Analyze the User's Staircase.
 Apply **IMAGE B (Style)** and **TECHNICAL SPECS**.
 1.  **Mounting Logic:**
     ${mountingInstructionStep}
-2.  **Materials:** Extract the exact wood stain, metal finish, or glass type from **IMAGE B**. Apply this texture to your new model.
+2.  **Materials:** Extract the exact wood stain, metal finish, or glass type from **IMAGE B**. Apply this texture to your new model.${materialInstructionStep}
 3.  **Preservation:** DO NOT CHANGE THE STAIRS, WALLS, OR FLOORING of Image A (except for the healed areas from Phase 1).
 
 ### PHASE 3: EXECUTION
