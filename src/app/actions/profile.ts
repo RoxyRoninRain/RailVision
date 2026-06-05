@@ -54,15 +54,15 @@ export async function getTenantProfile(organizationId: string) {
 }
 
 export async function getProfile() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return null;
 
-    const { data, error } = await supabase
+    const { data, error } = await actingSupabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', tenantId)
         .single();
 
     if (!data && !error) {

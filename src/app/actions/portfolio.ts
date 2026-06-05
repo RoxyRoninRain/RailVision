@@ -279,30 +279,30 @@ export async function updateStyle(formData: FormData) {
 }
 
 export async function updateStyleStatus(id: string, isActive: boolean) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
     if (!user) return { error: 'Unauthorized' };
 
-    const { error } = await supabase
+    const { error } = await actingSupabase
         .from('portfolio')
         .update({ is_active: isActive })
         .eq('id', id)
-        .eq('tenant_id', user.id);
+        .eq('tenant_id', tenantId);
 
     if (error) return { error: error.message };
     return { success: true };
 }
 
 export async function seedDefaultStyles() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
     if (!user) return { error: 'Unauthorized' };
 
     // Check if user already has styles
-    const { count } = await supabase
+    const { count } = await actingSupabase
         .from('portfolio')
         .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', user.id);
+        .eq('tenant_id', tenantId);
 
     if (count && count > 0) return { success: true, message: 'Styles already exist' };
 
@@ -314,11 +314,11 @@ export async function seedDefaultStyles() {
         { name: 'Art Deco', description: 'Bold geometric patterns and luxury', image_url: '/styles/artdeco.png' },
     ];
 
-    const { error } = await supabase
+    const { error } = await actingSupabase
         .from('portfolio')
         .insert(defaults.map(d => ({
             ...d,
-            tenant_id: user.id,
+            tenant_id: tenantId,
             is_active: true
         })));
 
@@ -508,18 +508,18 @@ export async function getStyles(tenantId?: string) {
 }
 
 export async function reorderStyles(items: { id: string; order: number }[]) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return { error: 'Not authenticated' };
 
     try {
         const updates = items.map(item =>
-            supabase
+            actingSupabase
                 .from('portfolio')
                 .update({ display_order: item.order })
                 .eq('id', item.id)
-                .eq('tenant_id', user.id)
+                .eq('tenant_id', tenantId)
         );
 
         await Promise.all(updates);

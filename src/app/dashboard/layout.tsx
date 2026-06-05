@@ -23,8 +23,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
             // Gate access if user is not an admin and subscription is not active
             if (!isAdmin && profile.subscription_status !== 'active') {
-                const plan = profile.tier_name?.toLowerCase() || 'professional';
-                redirect(`/onboarding?skip_password=true&plan=${plan}`);
+                redirect('/pricing');
             }
         }
     }
