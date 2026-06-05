@@ -571,3 +571,21 @@ export async function listBucketFiles(bucket: string, path: string = '') {
         return { error: error.message };
     }
 }
+
+export async function deleteTenant(tenantId: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    try {
+        const { error } = await supabase.auth.admin.deleteUser(tenantId);
+        if (error) throw error;
+        return { success: true };
+    } catch (error: any) {
+        console.error('Delete Tenant Failed:', error);
+        return { error: error.message };
+    }
+}
+

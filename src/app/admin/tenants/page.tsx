@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { getAdminStats, inviteTenant } from '@/app/actions';
-import { getGlobalStats } from '@/app/admin/actions'; // New import
-import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check, Users, TrendingUp, Activity, Eye } from 'lucide-react';
+import { getGlobalStats, deleteTenant } from '@/app/admin/actions'; // New import
+import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check, Users, TrendingUp, Activity, Eye, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
@@ -78,6 +78,25 @@ export default function TenantsPage() {
         navigator.clipboard.writeText(code);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDelete = async (tenantId: string, shopName: string) => {
+        if (!confirm(`Are you sure you want to permanently delete tenant: ${shopName}? This action cannot be undone and will delete all their data.`)) return;
+        
+        try {
+            const res = await deleteTenant(tenantId);
+            if (res.success) {
+                setStats(prev => prev.filter(s => s.organization_id !== tenantId));
+                setGlobalStats(prev => ({
+                    ...prev,
+                    activeTenants: Math.max(0, prev.activeTenants - 1)
+                }));
+            } else {
+                alert('Failed to delete tenant: ' + res.error);
+            }
+        } catch (error: any) {
+            alert('System Error during deletion: ' + error.message);
+        }
     };
 
     // Pagination Logic
@@ -210,9 +229,16 @@ export default function TenantsPage() {
                                             </Link>
                                             <button
                                                 onClick={() => { setSelectedTenant(stat); setShowWidgetModal(true); }}
-                                                className="text-[10px] font-mono text-red-500 hover:text-white border border-red-900/30 hover:bg-red-600 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                                className="text-[10px] font-mono text-blue-500 hover:text-white border border-blue-900/30 hover:bg-blue-600 px-2 py-1 rounded transition-colors flex items-center gap-1"
                                             >
                                                 <Code className="w-3 h-3" /> WIDGET
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(stat.organization_id, stat.shop_name)}
+                                                className="text-[10px] font-mono text-red-500 hover:text-white border border-red-900/30 hover:bg-red-600 px-2 py-1 rounded transition-colors flex items-center gap-1 ml-1"
+                                                title="Delete Tenant"
+                                            >
+                                                <Trash2 className="w-3 h-3" /> DELETE
                                             </button>
                                         </div>
                                     </td>
