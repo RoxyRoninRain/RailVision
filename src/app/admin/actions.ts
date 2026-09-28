@@ -514,8 +514,21 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
 // STORAGE
 // STORAGE
 export async function listBucketFiles(bucket: string, path: string = '') {
-    const isAdmin = await checkIsAdmin();
-    if (!isAdmin) return { error: 'Unauthorized' };
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, isAdmin, isImpersonating, tenantId } = await getActingUser();
+    if (!user) return { error: 'Unauthorized' };
+
+    // If not admin and not impersonating, ensure user can only query their own tenant assets
+    if (!isAdmin && !isImpersonating) {
+        const isOwnPath = !path || path === user.id || path.startsWith(`${user.id}/`) ||
+                          (tenantId && (path === tenantId || path.startsWith(`${tenantId}/`)));
+        if (!isOwnPath) {
+            return { error: 'Unauthorized access to tenant files' };
+        }
+        if (!path) {
+            path = tenantId || user.id;
+        }
+    }
 
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
@@ -531,44 +544,45 @@ export async function listBucketFiles(bucket: string, path: string = '') {
                 sortBy: { column: 'name', order: 'asc' },
             });
 
-        if (error) throw error;
-
-        // 2. Identify Folders (items without metadata are typically folders/placeholders in Supabase Storage)
-        // Note: Supabase ID logic for folders can be tricky. Often, if 'id' is null, it's a folder, OR we check if it has no metadata.
-        // However, a robust way is to try and list its content if it looks like a folder (no mimetype etc).
-        // Let's assume items with `id: null` are folders or valid separate entities.
+        if (error) {
+            // Folder may not exist in this bucket yet
+            return { data: [] };
+        }
 
         const allFiles = [];
 
-        for (const item of rootItems) {
-            if (!item.id) {
-                // It is likely a folder. Fetch its contents.
-                const folderPath = path ? `${path}/${item.name}` : item.name;
-                const { data: folderItems, error: folderError } = await supabase
-                    .storage
-                    .from(bucket)
-                    .list(folderPath, { limit: 100 });
+        if (rootItems && Array.isArray(rootItems)) {
+            for (const item of rootItems) {
+                // Identify Folders (items without id or metadata mimetype)
+                const isFolder = !item.id || !item.metadata || !item.metadata.mimetype;
+                if (isFolder) {
+                    const folderPath = path ? `${path}/${item.name}` : item.name;
+                    const { data: folderItems, error: folderError } = await supabase
+                        .storage
+                        .from(bucket)
+                        .list(folderPath, { limit: 100 });
 
-                if (!folderError && folderItems) {
-                    // Add folder items to list, flattening the structure
-                    for (const fItem of folderItems) {
-                        const fileFullPath = `${folderPath}/${fItem.name}`;
-                        const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(fileFullPath, 3600);
-                        allFiles.push({ ...fItem, name: `${item.name}/${fItem.name}`, publicUrl: signedData?.signedUrl });
+                    if (!folderError && folderItems) {
+                        for (const fItem of folderItems) {
+                            const fileFullPath = `${folderPath}/${fItem.name}`;
+                            const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(fileFullPath, 3600);
+                            const publicUrl = signedData?.signedUrl || supabase.storage.from(bucket).getPublicUrl(fileFullPath)?.data?.publicUrl;
+                            allFiles.push({ ...fItem, bucket, name: `${item.name}/${fItem.name}`, publicUrl });
+                        }
                     }
+                } else {
+                    const fileFullPath = path ? `${path}/${item.name}` : item.name;
+                    const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(fileFullPath, 3600);
+                    const publicUrl = signedData?.signedUrl || supabase.storage.from(bucket).getPublicUrl(fileFullPath)?.data?.publicUrl;
+                    allFiles.push({ ...item, bucket, publicUrl });
                 }
-            } else {
-                // It is a file in the root of 'path'
-                const fileFullPath = path ? `${path}/${item.name}` : item.name;
-                const { data: signedData } = await supabase.storage.from(bucket).createSignedUrl(fileFullPath, 3600);
-                allFiles.push({ ...item, publicUrl: signedData?.signedUrl });
             }
         }
 
         return { data: allFiles };
     } catch (error: any) {
         console.error(`List Bucket (${bucket}) Failed:`, error);
-        return { error: error.message };
+        return { data: [] };
     }
 }
 

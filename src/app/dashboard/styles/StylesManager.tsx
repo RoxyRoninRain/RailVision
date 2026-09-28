@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles } from '@/app/actions'; // Ensure these are exported from actions.ts
 import { listBucketFiles } from '@/app/admin/actions';
-import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical, Check, FolderOpen, Search } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { compressImage } from '@/utils/imageUtils';
 import { createClient } from '@/lib/supabase/client';
@@ -15,7 +15,21 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
+    const [detectedTenantId, setDetectedTenantId] = useState<string | undefined>(adminTenantId);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    useEffect(() => {
+        if (!detectedTenantId) {
+            const supabase = createClient();
+            supabase.auth.getUser().then(({ data }) => {
+                if (data?.user?.id) {
+                    setDetectedTenantId(data.user.id);
+                }
+            });
+        }
+    }, [detectedTenantId]);
+
+    const effectiveTenantId = adminTenantId || detectedTenantId;
 
     // Auto-Seed Defaults
     useEffect(() => {
@@ -126,14 +140,14 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
             {/* Add Modal */}
             <AnimatePresence>
                 {isAdding && (
-                    <AddStyleModal onClose={() => setIsAdding(false)} onSuccess={() => window.location.reload()} isAdmin={isAdmin} adminTenantId={adminTenantId} />
+                    <AddStyleModal onClose={() => setIsAdding(false)} onSuccess={() => window.location.reload()} isAdmin={isAdmin} adminTenantId={effectiveTenantId} />
                 )}
             </AnimatePresence>
 
             {/* Edit Modal */}
             <AnimatePresence>
                 {editingStyle && (
-                    <EditStyleModal style={editingStyle} onClose={() => setEditingStyle(null)} onSuccess={() => window.location.reload()} isAdmin={isAdmin} adminTenantId={adminTenantId} />
+                    <EditStyleModal style={editingStyle} onClose={() => setEditingStyle(null)} onSuccess={() => window.location.reload()} isAdmin={isAdmin} adminTenantId={effectiveTenantId} />
                 )}
             </AnimatePresence>
         </div>
@@ -242,20 +256,51 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
     const [hasBottomRail, setHasBottomRail] = useState(true); // Default to True (Safe Default)
-    const [showAssetPicker, setShowAssetPicker] = useState(false);
+    const [showMainAssetPicker, setShowMainAssetPicker] = useState(false);
+    const [showRefAssetPicker, setShowRefAssetPicker] = useState(false);
+    const [isLoadingRefAssets, setIsLoadingRefAssets] = useState(false);
 
-    const handleAssetSelect = async (url: string) => {
+    const handleMainAssetSelect = async (url: string) => {
         try {
-            setShowAssetPicker(false);
+            setShowMainAssetPicker(false);
             const res = await fetch(url);
             const blob = await res.blob();
             const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
-            const file = new File([blob], `asset.${ext}`, { type: blob.type });
+            const file = new File([blob], `asset_main_${Date.now()}.${ext}`, { type: blob.type || 'image/jpeg' });
             setMainFile(file);
             setMainPreview(URL.createObjectURL(file));
         } catch (e) {
             alert('Failed to load asset from URL');
         }
+    };
+
+    const handleAddRefAssets = async (urls: string[]) => {
+        setShowRefAssetPicker(false);
+        setIsLoadingRefAssets(true);
+        try {
+            const newFiles: File[] = [];
+            const newPreviews: string[] = [];
+            for (const url of urls) {
+                const res = await fetch(url);
+                const blob = await res.blob();
+                const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
+                const file = new File([blob], `asset_ref_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`, { type: blob.type || 'image/jpeg' });
+                newFiles.push(file);
+                newPreviews.push(URL.createObjectURL(file));
+            }
+            setRefFiles(prev => [...prev, ...newFiles]);
+            setRefPreviews(prev => [...prev, ...newPreviews]);
+        } catch (e) {
+            console.error("Failed to load reference assets", e);
+            alert("Failed to load one or more selected assets.");
+        } finally {
+            setIsLoadingRefAssets(false);
+        }
+    };
+
+    const removeRefFile = (idx: number) => {
+        setRefFiles(prev => prev.filter((_, i) => i !== idx));
+        setRefPreviews(prev => prev.filter((_, i) => i !== idx));
     };
 
     const handleMainFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -269,8 +314,8 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const handleRefFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const files = Array.from(e.target.files);
-            setRefFiles(files);
-            setRefPreviews(files.map(f => URL.createObjectURL(f)));
+            setRefFiles(prev => [...prev, ...files]);
+            setRefPreviews(prev => [...prev, ...files.map(f => URL.createObjectURL(f))]);
         }
     };
 
@@ -405,8 +450,13 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                     <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="text-xs text-[var(--primary)] uppercase font-bold block">1. Main Style Image (Visible)</label>
-                            {isAdmin && adminTenantId && (
-                                <button type="button" onClick={() => setShowAssetPicker(true)} className="text-[10px] font-bold uppercase bg-zinc-800 hover:bg-zinc-700 text-white px-2 py-1 rounded">
+                            {adminTenantId && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowMainAssetPicker(true)}
+                                    className="text-[10px] font-bold uppercase bg-zinc-800 hover:bg-zinc-700 text-white px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                >
+                                    <FolderOpen size={12} />
                                     Select from Assets
                                 </button>
                             )}
@@ -422,26 +472,73 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                     </div>
 
                     <AnimatePresence>
-                        {showAssetPicker && isAdmin && adminTenantId && (
-                            <AssetPickerModal tenantId={adminTenantId} onSelect={handleAssetSelect} onClose={() => setShowAssetPicker(false)} />
+                        {showMainAssetPicker && adminTenantId && (
+                            <AssetPickerModal
+                                tenantId={adminTenantId}
+                                title="Select Main Style Image"
+                                onSelect={handleMainAssetSelect}
+                                onClose={() => setShowMainAssetPicker(false)}
+                            />
                         )}
                     </AnimatePresence>
 
                     {/* Reference Images */}
                     <div>
-                        <label className="text-xs text-gray-400 uppercase font-bold mb-2 block">2. AI Reference Images (Hidden)</label>
+                        <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs text-gray-400 uppercase font-bold block">2. AI Reference Images (Hidden)</label>
+                            {adminTenantId && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRefAssetPicker(true)}
+                                    className="text-[10px] font-bold uppercase bg-zinc-800 hover:bg-zinc-700 text-[var(--primary)] px-2.5 py-1 rounded transition-colors border border-white/10 flex items-center gap-1.5"
+                                >
+                                    <Plus size={12} />
+                                    Select from Assets
+                                </button>
+                            )}
+                        </div>
+
                         <div className="border border-dashed border-gray-700 p-4 rounded text-center cursor-pointer hover:bg-white/5 relative mb-2">
                             <input type="file" onChange={handleRefFiles} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" multiple />
-                            <div className="text-gray-500 text-sm"><Plus className="mx-auto mb-2" />Add Reference Images</div>
+                            <div className="text-gray-500 text-sm"><Plus className="mx-auto mb-2" />Upload from PC or click button above to choose from assets</div>
                         </div>
+
+                        {isLoadingRefAssets && (
+                            <div className="flex items-center gap-2 text-xs font-mono text-[var(--primary)] py-2">
+                                <Loader2 className="animate-spin w-3.5 h-3.5" /> Loading selected assets...
+                            </div>
+                        )}
+
                         {refPreviews.length > 0 && (
-                            <div className="flex gap-2 overflow-x-auto py-2">
+                            <div className="grid grid-cols-4 gap-2 py-2">
                                 {refPreviews.map((src, idx) => (
-                                    <img key={idx} src={src} className="w-16 h-16 object-cover rounded border border-gray-800" />
+                                    <div key={idx} className="relative group aspect-square">
+                                        <img src={src} className="w-full h-full object-cover rounded border border-gray-800" />
+                                        <button
+                                            type="button"
+                                            onClick={() => removeRefFile(idx)}
+                                            className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow"
+                                        >
+                                            <X size={10} />
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
                         )}
                     </div>
+
+                    <AnimatePresence>
+                        {showRefAssetPicker && adminTenantId && (
+                            <AssetPickerModal
+                                tenantId={adminTenantId}
+                                multiple={true}
+                                title="Select Reference Images from Tenant Assets"
+                                onSelect={(url) => handleAddRefAssets([url])}
+                                onSelectMultiple={(urls) => handleAddRefAssets(urls)}
+                                onClose={() => setShowRefAssetPicker(false)}
+                            />
+                        )}
+                    </AnimatePresence>
 
                     <button disabled={isSubmitting} className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded mt-4 relative overflow-hidden">
                         {isSubmitting ? (
@@ -488,15 +585,17 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     const [keptRefs, setKeptRefs] = useState<string[]>(style.reference_images || []);
     const [newRefFiles, setNewRefFiles] = useState<File[]>([]);
     const [newRefPreviews, setNewRefPreviews] = useState<string[]>([]);
-    const [showAssetPicker, setShowAssetPicker] = useState(false);
+    const [showMainAssetPicker, setShowMainAssetPicker] = useState(false);
+    const [showRefAssetPicker, setShowRefAssetPicker] = useState(false);
+    const [isLoadingRefAssets, setIsLoadingRefAssets] = useState(false);
 
-    const handleAssetSelect = async (url: string) => {
+    const handleMainAssetSelect = async (url: string) => {
         try {
-            setShowAssetPicker(false);
+            setShowMainAssetPicker(false);
             const res = await fetch(url);
             const blob = await res.blob();
             const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
-            const file = new File([blob], `asset.${ext}`, { type: blob.type });
+            const file = new File([blob], `asset_main_${Date.now()}.${ext}`, { type: blob.type || 'image/jpeg' });
             setImageSrc(URL.createObjectURL(file));
             setNewFile(file);
             setIsDirty(true);
@@ -504,6 +603,30 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             setCrop({ x: 0, y: 0 });
         } catch (e) {
             alert('Failed to load asset from URL');
+        }
+    };
+
+    const handleAddRefAssets = async (urls: string[]) => {
+        setShowRefAssetPicker(false);
+        setIsLoadingRefAssets(true);
+        try {
+            const newFiles: File[] = [];
+            const newPreviews: string[] = [];
+            for (const url of urls) {
+                const res = await fetch(url);
+                const blob = await res.blob();
+                const ext = url.split('.').pop()?.split('?')[0] || 'jpg';
+                const file = new File([blob], `asset_ref_${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`, { type: blob.type || 'image/jpeg' });
+                newFiles.push(file);
+                newPreviews.push(URL.createObjectURL(file));
+            }
+            setNewRefFiles(prev => [...prev, ...newFiles]);
+            setNewRefPreviews(prev => [...prev, ...newPreviews]);
+        } catch (e) {
+            console.error("Failed to load reference assets", e);
+            alert("Failed to load one or more selected assets.");
+        } finally {
+            setIsLoadingRefAssets(false);
         }
     };
 
@@ -823,44 +946,84 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                             <input type="file" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" />
                             <span className="text-xs text-gray-400 uppercase font-bold">Upload Replacement Image</span>
                         </div>
-                        {isAdmin && adminTenantId && (
-                            <button type="button" onClick={() => setShowAssetPicker(true)} className="border border-[var(--primary)] text-[var(--primary)] rounded p-2 text-center hover:bg-[var(--primary)] hover:text-black transition-colors font-bold uppercase text-xs">
+                        {adminTenantId && (
+                            <button
+                                type="button"
+                                onClick={() => setShowMainAssetPicker(true)}
+                                className="border border-[var(--primary)] text-[var(--primary)] rounded p-2 text-center hover:bg-[var(--primary)] hover:text-black transition-colors font-bold uppercase text-xs flex items-center gap-1"
+                            >
+                                <FolderOpen size={14} />
                                 Select Asset
                             </button>
                         )}
                     </div>
 
                     <AnimatePresence>
-                        {showAssetPicker && isAdmin && adminTenantId && (
-                            <AssetPickerModal tenantId={adminTenantId} onSelect={handleAssetSelect} onClose={() => setShowAssetPicker(false)} />
+                        {showMainAssetPicker && adminTenantId && (
+                            <AssetPickerModal
+                                tenantId={adminTenantId}
+                                title="Select Replacement Main Image"
+                                onSelect={handleMainAssetSelect}
+                                onClose={() => setShowMainAssetPicker(false)}
+                            />
                         )}
                     </AnimatePresence>
 
                     {/* Reference Images Section */}
-                    {/* ... (Kept as is) ... */}
                     <div className="mt-4 border-t border-[#333] pt-4">
-                        <h4 className="text-white text-sm font-bold uppercase tracking-widest mb-2">AI Reference Images (Hidden)</h4>
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-white text-sm font-bold uppercase tracking-widest">AI Reference Images (Hidden)</h4>
+                            {adminTenantId && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowRefAssetPicker(true)}
+                                    className="text-[10px] font-bold uppercase bg-zinc-800 hover:bg-zinc-700 text-[var(--primary)] px-2.5 py-1 rounded transition-colors border border-white/10 flex items-center gap-1.5"
+                                >
+                                    <Plus size={12} />
+                                    Select from Assets
+                                </button>
+                            )}
+                        </div>
+
+                        {isLoadingRefAssets && (
+                            <div className="flex items-center gap-2 text-xs font-mono text-[var(--primary)] mb-2">
+                                <Loader2 className="animate-spin w-3.5 h-3.5" /> Loading selected assets...
+                            </div>
+                        )}
 
                         {/* List Kept Refs */}
                         <div className="grid grid-cols-4 gap-2 mb-2">
                             {keptRefs.map((url, idx) => (
                                 <div key={url} className="relative group aspect-square">
                                     <img src={url} className="w-full h-full object-cover rounded border border-gray-800" />
-                                    <button onClick={() => removeKeptRef(idx)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><X size={10} /></button>
+                                    <button type="button" onClick={() => removeKeptRef(idx)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow"><X size={10} /></button>
                                 </div>
                             ))}
                             {newRefPreviews.map((url, idx) => (
                                 <div key={url} className="relative group aspect-square">
                                     <img src={url} className="w-full h-full object-cover rounded border border-green-800 opacity-80" />
-                                    <button onClick={() => removeNewRef(idx)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"><X size={10} /></button>
+                                    <button type="button" onClick={() => removeNewRef(idx)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow"><X size={10} /></button>
                                 </div>
                             ))}
 
-                            <div className="relative border border-dashed border-gray-800 rounded aspect-square flex items-center justify-center hover:bg-white/5 cursor-pointer">
+                            <div className="relative border border-dashed border-gray-800 rounded aspect-square flex items-center justify-center hover:bg-white/5 cursor-pointer" title="Upload from PC">
                                 <input type="file" onChange={handleNewRefs} className="absolute inset-0 opacity-0 cursor-pointer" accept="image/*" multiple />
                                 <Plus size={20} className="text-gray-500" />
                             </div>
                         </div>
+
+                        <AnimatePresence>
+                            {showRefAssetPicker && adminTenantId && (
+                                <AssetPickerModal
+                                    tenantId={adminTenantId}
+                                    multiple={true}
+                                    title="Select Reference Images from Tenant Assets"
+                                    onSelect={(url) => handleAddRefAssets([url])}
+                                    onSelectMultiple={(urls) => handleAddRefAssets(urls)}
+                                    onClose={() => setShowRefAssetPicker(false)}
+                                />
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
 
@@ -929,26 +1092,57 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     )
 }
 
-function AssetPickerModal({ tenantId, onSelect, onClose }: { tenantId: string, onSelect: (url: string) => void, onClose: () => void }) {
+interface AssetPickerModalProps {
+    tenantId: string;
+    onSelect: (url: string) => void;
+    onSelectMultiple?: (urls: string[]) => void;
+    multiple?: boolean;
+    title?: string;
+    onClose: () => void;
+}
+
+function AssetPickerModal({
+    tenantId,
+    onSelect,
+    onSelectMultiple,
+    multiple = false,
+    title = 'Select from Tenant Assets',
+    onClose
+}: AssetPickerModalProps) {
     const [assets, setAssets] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedBucket, setSelectedBucket] = useState<string>('all');
+    const [selectedUrls, setSelectedUrls] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         async function fetchAssets() {
             setLoading(true);
             try {
-                const [logosRes, quotesRes, assetsRes] = await Promise.all([
+                const [logosRes, quotesRes, assetsRes, portfolioRes] = await Promise.all([
                     listBucketFiles('logos', tenantId),
                     listBucketFiles('quote-uploads', tenantId),
-                    listBucketFiles('tenant-assets', tenantId)
+                    listBucketFiles('tenant-assets', tenantId),
+                    listBucketFiles('portfolio', tenantId)
                 ]);
                 const all = [
-                    ...(logosRes.data || []),
+                    ...(assetsRes.data || []),
+                    ...(portfolioRes.data || []),
                     ...(quotesRes.data || []),
-                    ...(assetsRes.data || [])
+                    ...(logosRes.data || [])
                 ];
-                // Filter to only images with publicUrl
-                const images = all.filter(f => f.publicUrl && (f.metadata?.mimetype?.startsWith('image/') || f.name.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)));
+                // Filter to only images with publicUrl and remove duplicates
+                const seen = new Set<string>();
+                const images: any[] = [];
+                for (const item of all) {
+                    if (!item.publicUrl || seen.has(item.publicUrl)) continue;
+                    const isImage = item.metadata?.mimetype?.startsWith('image/') ||
+                        item.name?.match(/\.(jpg|jpeg|png|gif|webp|svg|heic|avif)$/i);
+                    if (isImage) {
+                        seen.add(item.publicUrl);
+                        images.push(item);
+                    }
+                }
                 setAssets(images);
             } catch (e) {
                 console.error("Failed to fetch assets", e);
@@ -959,29 +1153,237 @@ function AssetPickerModal({ tenantId, onSelect, onClose }: { tenantId: string, o
         if (tenantId) fetchAssets();
     }, [tenantId]);
 
+    const buckets = useMemo(() => {
+        const set = new Set<string>();
+        assets.forEach(a => {
+            if (a.bucket) set.add(a.bucket);
+        });
+        return Array.from(set);
+    }, [assets]);
+
+    const filteredAssets = useMemo(() => {
+        return assets.filter(item => {
+            if (selectedBucket !== 'all' && item.bucket !== selectedBucket) return false;
+            if (searchQuery.trim()) {
+                const q = searchQuery.toLowerCase();
+                const name = (item.name || '').toLowerCase();
+                if (!name.includes(q)) return false;
+            }
+            return true;
+        });
+    }, [assets, selectedBucket, searchQuery]);
+
+    const toggleSelect = (url: string) => {
+        setSelectedUrls(prev => {
+            const next = new Set(prev);
+            if (next.has(url)) next.delete(url);
+            else next.add(url);
+            return next;
+        });
+    };
+
+    const handleConfirmMultiple = () => {
+        if (selectedUrls.size === 0) return;
+        if (onSelectMultiple) {
+            onSelectMultiple(Array.from(selectedUrls));
+        } else {
+            const first = Array.from(selectedUrls)[0];
+            onSelect(first);
+        }
+    };
+
+    const handleSelectAll = () => {
+        if (selectedUrls.size === filteredAssets.length) {
+            setSelectedUrls(new Set());
+        } else {
+            setSelectedUrls(new Set(filteredAssets.map(a => a.publicUrl)));
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#111] border border-[#333] w-full max-w-4xl p-6 rounded-2xl relative shadow-2xl max-h-[90vh] overflow-y-auto">
-                <button onClick={onClose} className="absolute top-4 right-4 text-gray-500 hover:text-white"><X size={20} /></button>
-                <h3 className="text-xl font-bold text-white uppercase mb-6 flex items-center gap-2">
-                    Select from Tenant Assets
-                </h3>
-                
-                {loading ? (
-                    <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-gray-500" /></div>
-                ) : assets.length === 0 ? (
-                    <div className="text-center py-12 text-gray-500">No images found in tenant buckets.</div>
-                ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {assets.map((asset, idx) => (
-                            <div key={idx} onClick={() => onSelect(asset.publicUrl)} className="group cursor-pointer border border-white/10 rounded-lg overflow-hidden hover:border-[var(--primary)] transition-colors aspect-square relative bg-black/50">
-                                <img src={asset.publicUrl} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center transition-opacity">
-                                    <span className="text-xs font-bold text-white uppercase px-2 py-1 bg-[var(--primary)] text-black rounded">Select</span>
-                                    <span className="text-[10px] text-gray-300 truncate w-full px-2 text-center mt-2" title={asset.name}>{asset.name.split('/').pop()}</span>
-                                </div>
-                            </div>
-                        ))}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#111] border border-[#333] w-full max-w-4xl p-6 rounded-2xl relative shadow-2xl max-h-[90vh] flex flex-col">
+                {/* Header */}
+                <div className="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 className="text-xl font-bold text-white uppercase flex items-center gap-2">
+                            <FolderOpen className="text-[var(--primary)]" size={20} />
+                            {title}
+                        </h3>
+                        <p className="text-xs text-gray-500 font-mono mt-1">
+                            {multiple
+                                ? "Click images to select multiple reference images, then click Add Selected."
+                                : "Click any image to select as your main style image."}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-500 hover:text-white p-1"><X size={20} /></button>
+                </div>
+
+                {/* Filters & Search Bar */}
+                <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={14} />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            placeholder="Search assets by file name..."
+                            className="w-full bg-[#050505] border border-[#333] pl-9 pr-3 py-2 rounded text-xs text-white placeholder-gray-600 focus:border-[var(--primary)] focus:outline-none"
+                        />
+                        {searchQuery && (
+                            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs">
+                                <X size={12} />
+                            </button>
+                        )}
+                    </div>
+
+                    {buckets.length > 1 && (
+                        <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 text-xs font-mono">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedBucket('all')}
+                                className={`px-2.5 py-1.5 rounded transition-colors whitespace-nowrap ${selectedBucket === 'all' ? 'bg-[var(--primary)] text-black font-bold' : 'bg-zinc-900 text-gray-400 hover:text-white border border-white/5'}`}
+                            >
+                                All ({assets.length})
+                            </button>
+                            {buckets.map(b => {
+                                const count = assets.filter(a => a.bucket === b).length;
+                                return (
+                                    <button
+                                        key={b}
+                                        type="button"
+                                        onClick={() => setSelectedBucket(b)}
+                                        className={`px-2.5 py-1.5 rounded transition-colors whitespace-nowrap ${selectedBucket === b ? 'bg-[var(--primary)] text-black font-bold' : 'bg-zinc-900 text-gray-400 hover:text-white border border-white/5'}`}
+                                    >
+                                        {b.replace('-', ' ')} ({count})
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Body / Grid */}
+                <div className="flex-1 overflow-y-auto min-h-[250px] max-h-[55vh] pr-1">
+                    {loading ? (
+                        <div className="py-20 flex flex-col items-center justify-center text-gray-500 gap-3">
+                            <Loader2 className="animate-spin" size={24} />
+                            <span className="text-xs font-mono">Loading tenant assets...</span>
+                        </div>
+                    ) : filteredAssets.length === 0 ? (
+                        <div className="text-center py-20 text-gray-500">
+                            {assets.length === 0
+                                ? "No images found in tenant buckets."
+                                : "No images match your search or filter."}
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                            {filteredAssets.map((asset, idx) => {
+                                const isSelected = selectedUrls.has(asset.publicUrl);
+                                return (
+                                    <div
+                                        key={idx}
+                                        onClick={() => {
+                                            if (multiple) {
+                                                toggleSelect(asset.publicUrl);
+                                            } else {
+                                                onSelect(asset.publicUrl);
+                                            }
+                                        }}
+                                        onDoubleClick={() => {
+                                            if (multiple && onSelectMultiple) {
+                                                onSelectMultiple([asset.publicUrl]);
+                                            } else {
+                                                onSelect(asset.publicUrl);
+                                            }
+                                        }}
+                                        className={`group cursor-pointer rounded-lg overflow-hidden aspect-square relative bg-black/50 transition-all ${
+                                            isSelected
+                                                ? 'border-2 border-[var(--primary)] shadow-lg shadow-[var(--primary)]/20 ring-2 ring-[var(--primary)]/30'
+                                                : 'border border-white/10 hover:border-gray-500'
+                                        }`}
+                                    >
+                                        <img
+                                            src={asset.publicUrl}
+                                            alt={asset.name}
+                                            className={`w-full h-full object-cover transition-opacity ${
+                                                isSelected ? 'opacity-100' : 'opacity-75 group-hover:opacity-100'
+                                            }`}
+                                        />
+
+                                        {/* Multi-select checkmark badge */}
+                                        {multiple && (
+                                            <div
+                                                className={`absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center transition-all ${
+                                                    isSelected
+                                                        ? 'bg-[var(--primary)] text-black'
+                                                        : 'bg-black/60 border border-white/30 text-transparent group-hover:border-white/60'
+                                                }`}
+                                            >
+                                                <Check size={12} className={isSelected ? 'stroke-[3]' : 'opacity-0'} />
+                                            </div>
+                                        )}
+
+                                        {/* Bucket Tag */}
+                                        {asset.bucket && (
+                                            <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-xs px-1.5 py-0.5 rounded text-[9px] font-mono text-gray-300 uppercase border border-white/5">
+                                                {asset.bucket.replace('tenant-', '')}
+                                            </div>
+                                        )}
+
+                                        {/* Name overlay */}
+                                        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2 pt-4">
+                                            <span className="text-[10px] text-gray-300 truncate block font-mono" title={asset.name}>
+                                                {asset.name?.split('/').pop()}
+                                            </span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer for Multiple Selection */}
+                {multiple && (
+                    <div className="mt-4 pt-4 border-t border-[#222] flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-mono text-gray-400">
+                                <span className="text-white font-bold">{selectedUrls.size}</span> image{selectedUrls.size === 1 ? '' : 's'} selected
+                            </span>
+                            {filteredAssets.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    className="text-xs text-[var(--primary)] hover:underline font-mono"
+                                >
+                                    {selectedUrls.size === filteredAssets.length ? 'Deselect All' : 'Select All'}
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-gray-300 rounded text-xs font-bold uppercase tracking-wider transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleConfirmMultiple}
+                                disabled={selectedUrls.size === 0}
+                                className={`px-5 py-2 rounded text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${
+                                    selectedUrls.size > 0
+                                        ? 'bg-[var(--primary)] text-black hover:brightness-110 shadow-lg shadow-[var(--primary)]/20'
+                                        : 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
+                                }`}
+                            >
+                                <Check size={14} />
+                                Add Selected Images ({selectedUrls.size})
+                            </button>
+                        </div>
                     </div>
                 )}
             </motion.div>

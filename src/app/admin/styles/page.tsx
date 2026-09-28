@@ -24,6 +24,8 @@ export default async function AdminStylesPage() {
                 initialStyles={initialStyles}
                 serverError={serverError}
                 logoUrl={profile?.logo_url || '/logo.png'}
+                isAdmin={true}
+                adminTenantId={profile?.id}
             />
         </div>
     );
