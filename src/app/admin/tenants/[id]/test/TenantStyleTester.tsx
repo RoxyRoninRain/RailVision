@@ -45,28 +45,28 @@ export interface PresetScene {
 const DEFAULT_PRESET_SCENES: PresetScene[] = [
     {
         id: 'interior-hardwood-stairs',
-        name: 'Interior Hardwood Stairs',
+        name: 'Interior Stairs (3/4 Angle)',
         category: 'Interior',
         url: '/presets/interior-hardwood-stairs.jpg',
         isDefault: true,
     },
     {
         id: 'front-porch-steps',
-        name: 'Front Porch Brick Steps',
+        name: 'Front Porch Steps (Side Angle)',
         category: 'Exterior',
         url: '/presets/front-porch-steps.jpg',
         isDefault: true,
     },
     {
         id: 'exterior-deck-steps',
-        name: 'Exterior Wood Deck Steps',
+        name: 'Deck Stairs & Rim (Side View)',
         category: 'Exterior',
         url: '/presets/exterior-deck-steps.jpg',
         isDefault: true,
     },
     {
         id: 'modern-floating-stairs',
-        name: 'Modern Floating Stairs',
+        name: 'Modern Open Treads (3/4 Angle)',
         category: 'Interior',
         url: '/presets/modern-floating-stairs.jpg',
         isDefault: true,
