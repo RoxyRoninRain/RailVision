@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     ArrowLeft,
@@ -17,7 +17,11 @@ import {
     Layers,
     Info,
     ImageIcon,
-    Palette
+    Palette,
+    Plus,
+    Trash2,
+    X,
+    BookmarkPlus
 } from 'lucide-react';
 import Link from 'next/link';
 import { testTenantStyle } from '@/app/admin/actions';
@@ -30,30 +34,42 @@ interface TenantStyleTesterProps {
     allTenants: any[];
 }
 
-const PRESET_SCENES = [
+export interface PresetScene {
+    id: string;
+    name: string;
+    category: string;
+    url: string;
+    isDefault?: boolean;
+}
+
+const DEFAULT_PRESET_SCENES: PresetScene[] = [
     {
-        id: 'interior-wood',
+        id: 'interior-hardwood-stairs',
         name: 'Interior Hardwood Stairs',
         category: 'Interior',
-        url: 'https://images.unsplash.com/photo-1541888946425-d0fbb186c5f8?auto=format&fit=crop&w=1000&q=80',
+        url: '/presets/interior-hardwood-stairs.jpg',
+        isDefault: true,
     },
     {
-        id: 'exterior-porch',
+        id: 'front-porch-steps',
         name: 'Front Porch Brick Steps',
         category: 'Exterior',
-        url: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1000&q=80',
+        url: '/presets/front-porch-steps.jpg',
+        isDefault: true,
     },
     {
-        id: 'exterior-deck',
+        id: 'exterior-deck-steps',
         name: 'Exterior Wood Deck Steps',
         category: 'Exterior',
-        url: 'https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=1000&q=80',
+        url: '/presets/exterior-deck-steps.jpg',
+        isDefault: true,
     },
     {
-        id: 'modern-open',
-        name: 'Modern Open-Riser Stairs',
+        id: 'modern-floating-stairs',
+        name: 'Modern Floating Stairs',
         category: 'Interior',
-        url: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80',
+        url: '/presets/modern-floating-stairs.jpg',
+        isDefault: true,
     },
 ];
 
@@ -67,9 +83,37 @@ export default function TenantStyleTester({
 
     // Scene Image state
     const [sceneFile, setSceneFile] = useState<File | null>(null);
-    const [scenePreview, setScenePreview] = useState<string | null>(PRESET_SCENES[0].url);
-    const [selectedPresetId, setSelectedPresetId] = useState<string | null>(PRESET_SCENES[0].id);
+    const [scenePreview, setScenePreview] = useState<string | null>(DEFAULT_PRESET_SCENES[0].url);
+    const [selectedPresetId, setSelectedPresetId] = useState<string | null>(DEFAULT_PRESET_SCENES[0].id);
     const [loadingScene, setLoadingScene] = useState(false);
+    const [uploadedDataUrl, setUploadedDataUrl] = useState<string | null>(null);
+
+    // Custom Presets Management State
+    const [customPresets, setCustomPresets] = useState<PresetScene[]>([]);
+    const [isAddingPreset, setIsAddingPreset] = useState(false);
+    const [newPresetName, setNewPresetName] = useState('');
+    const [newPresetCategory, setNewPresetCategory] = useState<'Interior' | 'Exterior'>('Interior');
+    const [newPresetDataUrl, setNewPresetDataUrl] = useState<string | null>(null);
+    const [newPresetFile, setNewPresetFile] = useState<File | null>(null);
+    const [isSavingPreset, setIsSavingPreset] = useState(false);
+
+    // Load custom presets from localStorage on client mount
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('ag_admin_preset_scenes');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed)) {
+                    setCustomPresets(parsed);
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to load custom presets from localStorage', err);
+        }
+    }, []);
+
+    // Combined presets list (custom presets first, then defaults)
+    const allPresets = [...customPresets, ...DEFAULT_PRESET_SCENES];
 
     // Style selection state
     const [selectedStyleId, setSelectedStyleId] = useState<string>(
@@ -95,10 +139,86 @@ export default function TenantStyleTester({
     const [viewMode, setViewMode] = useState<'side-by-side' | 'result-only' | 'scene-only'>('side-by-side');
 
     // Handler for selecting preset scene
-    const handleSelectPreset = async (preset: typeof PRESET_SCENES[0]) => {
+    const handleSelectPreset = async (preset: PresetScene) => {
         setSelectedPresetId(preset.id);
-        setSceneFile(null); // Clear custom file
+        setSceneFile(null); // Clear custom one-off file
+        setUploadedDataUrl(null);
         setScenePreview(preset.url);
+    };
+
+    // Save a custom preset to state and localStorage
+    const saveCustomPreset = (name: string, category: string, dataUrl: string) => {
+        const newPreset: PresetScene = {
+            id: `custom-preset-${Date.now()}`,
+            name: name.trim() || 'Custom Stair Scene',
+            category: category || 'Exterior',
+            url: dataUrl,
+            isDefault: false,
+        };
+        const updated = [newPreset, ...customPresets];
+        setCustomPresets(updated);
+        try {
+            localStorage.setItem('ag_admin_preset_scenes', JSON.stringify(updated));
+        } catch (storageErr) {
+            console.warn('LocalStorage quota limit reached, preset kept in-memory', storageErr);
+        }
+        handleSelectPreset(newPreset);
+    };
+
+    // Delete a custom preset
+    const handleDeleteCustomPreset = (presetId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const updated = customPresets.filter(p => p.id !== presetId);
+        setCustomPresets(updated);
+        try {
+            localStorage.setItem('ag_admin_preset_scenes', JSON.stringify(updated));
+        } catch (storageErr) {
+            console.warn('Failed to update localStorage', storageErr);
+        }
+        if (selectedPresetId === presetId) {
+            handleSelectPreset(DEFAULT_PRESET_SCENES[0]);
+        }
+    };
+
+    // File change handler for "+ Add Preset" form
+    const handleNewPresetFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || !e.target.files[0]) return;
+        try {
+            const rawFile = e.target.files[0];
+            const compressed = await compressImage(rawFile);
+            setNewPresetFile(compressed);
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setNewPresetDataUrl(reader.result as string);
+            };
+            reader.readAsDataURL(compressed);
+
+            if (!newPresetName) {
+                const cleanName = rawFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                setNewPresetName(cleanName.charAt(0).toUpperCase() + cleanName.slice(1));
+            }
+        } catch (err: any) {
+            setError(`Failed to process preset image: ${err.message}`);
+        }
+    };
+
+    // Submit new preset from form
+    const handleSubmitNewPreset = () => {
+        if (!newPresetDataUrl || !newPresetName.trim()) {
+            setError('Please choose an image and enter a name for the preset.');
+            return;
+        }
+        setIsSavingPreset(true);
+        try {
+            saveCustomPreset(newPresetName, newPresetCategory, newPresetDataUrl);
+            setIsAddingPreset(false);
+            setNewPresetName('');
+            setNewPresetFile(null);
+            setNewPresetDataUrl(null);
+        } finally {
+            setIsSavingPreset(false);
+        }
     };
 
     // Handler for uploading custom scene image
@@ -111,7 +231,14 @@ export default function TenantStyleTester({
             const compressed = await compressImage(rawFile);
             setSceneFile(compressed);
             setSelectedPresetId(null);
-            setScenePreview(URL.createObjectURL(compressed));
+
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const dataUrl = reader.result as string;
+                setUploadedDataUrl(dataUrl);
+                setScenePreview(dataUrl);
+            };
+            reader.readAsDataURL(compressed);
         } catch (err: any) {
             console.error('Failed to process image:', err);
             setError(`Image processing error: ${err.message}`);
@@ -331,35 +458,158 @@ export default function TenantStyleTester({
                             )}
                         </div>
 
-                        {/* Preset Quick-Picks */}
+                        {/* Preset Scenes Header & Add Button */}
                         <div>
-                            <label className="text-xs font-mono uppercase text-gray-400 block mb-2">Quick Test Presets (Instant):</label>
-                            <div className="grid grid-cols-2 gap-2">
-                                {PRESET_SCENES.map((preset) => (
-                                    <button
-                                        key={preset.id}
-                                        type="button"
-                                        onClick={() => handleSelectPreset(preset)}
-                                        className={`p-2 rounded-lg border text-left transition-all flex items-center gap-2.5 ${
-                                            selectedPresetId === preset.id
-                                                ? 'bg-emerald-950/40 border-emerald-500/60 text-white'
-                                                : 'bg-black/50 border-white/5 text-gray-400 hover:text-white hover:border-white/20'
-                                        }`}
-                                    >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={preset.url} alt={preset.name} className="w-9 h-9 rounded object-cover shrink-0" />
-                                        <div className="overflow-hidden">
-                                            <div className="text-xs font-semibold truncate">{preset.name}</div>
-                                            <div className="text-[10px] text-gray-500">{preset.category}</div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-xs font-mono uppercase text-gray-400 block">
+                                    Preset Scenes ({allPresets.length}):
+                                </label>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAddingPreset(!isAddingPreset)}
+                                    className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/30 px-2 py-0.5 rounded transition-colors"
+                                >
+                                    {isAddingPreset ? <X size={12} /> : <Plus size={12} />}
+                                    {isAddingPreset ? 'Cancel' : 'Add Custom Preset'}
+                                </button>
+                            </div>
+
+                            {/* Expandable Add Custom Preset Panel */}
+                            {isAddingPreset && (
+                                <div className="bg-black/60 border border-emerald-500/40 rounded-lg p-3 mb-3 space-y-3">
+                                    <div className="text-xs font-mono text-emerald-400 font-bold flex items-center gap-1.5">
+                                        <Plus size={13} /> Upload & Save Reusable Preset Scene
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="flex items-center justify-center p-3 border border-dashed border-white/20 hover:border-emerald-500/50 rounded cursor-pointer bg-black/40 text-center">
+                                            <input
+                                                type="file"
+                                                accept="image/*,.heic"
+                                                onChange={handleNewPresetFileChange}
+                                                className="hidden"
+                                            />
+                                            {newPresetDataUrl ? (
+                                                <div className="flex items-center gap-3">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={newPresetDataUrl} alt="Preview" className="w-12 h-12 object-cover rounded border border-white/20" />
+                                                    <div className="text-left">
+                                                        <div className="text-xs text-white font-mono truncate max-w-[180px]">
+                                                            {newPresetFile?.name || 'Image Selected'}
+                                                        </div>
+                                                        <div className="text-[10px] text-emerald-400 font-mono">Click to change image</div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 text-xs font-mono text-gray-300">
+                                                    <Upload size={14} className="text-emerald-400" />
+                                                    Select Stair or Deck Photo
+                                                </div>
+                                            )}
+                                        </label>
+
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="col-span-2">
+                                                <input
+                                                    type="text"
+                                                    value={newPresetName}
+                                                    onChange={(e) => setNewPresetName(e.target.value)}
+                                                    placeholder="Preset Name (e.g. Back Deck)"
+                                                    className="w-full bg-black/60 border border-white/10 rounded px-2.5 py-1.5 text-xs text-white placeholder-gray-500 font-mono focus:outline-none focus:border-emerald-500/50"
+                                                />
+                                            </div>
+                                            <div>
+                                                <select
+                                                    value={newPresetCategory}
+                                                    onChange={(e) => setNewPresetCategory(e.target.value as 'Interior' | 'Exterior')}
+                                                    className="w-full bg-black/60 border border-white/10 rounded px-2 py-1.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500/50"
+                                                >
+                                                    <option value="Interior">Interior</option>
+                                                    <option value="Exterior">Exterior</option>
+                                                </select>
+                                            </div>
                                         </div>
-                                    </button>
+
+                                        <div className="flex justify-end gap-2 pt-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setIsAddingPreset(false);
+                                                    setNewPresetDataUrl(null);
+                                                    setNewPresetFile(null);
+                                                    setNewPresetName('');
+                                                }}
+                                                className="px-2.5 py-1 rounded bg-black/40 hover:bg-black/60 text-gray-400 hover:text-white text-xs font-mono border border-white/10 transition-colors"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={!newPresetDataUrl || !newPresetName.trim() || isSavingPreset}
+                                                onClick={handleSubmitNewPreset}
+                                                className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-mono font-bold transition-colors flex items-center gap-1"
+                                            >
+                                                {isSavingPreset ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                                Save Preset
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Preset Scenes Grid */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {allPresets.map((preset) => (
+                                    <div
+                                        key={preset.id}
+                                        className="relative group"
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSelectPreset(preset)}
+                                            className={`w-full p-2 rounded-lg border text-left transition-all flex items-center gap-2.5 ${
+                                                selectedPresetId === preset.id
+                                                    ? 'bg-emerald-950/40 border-emerald-500/60 text-white shadow-sm'
+                                                    : 'bg-black/50 border-white/5 text-gray-400 hover:text-white hover:border-white/20'
+                                            }`}
+                                        >
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={preset.url}
+                                                alt={preset.name}
+                                                className="w-10 h-10 rounded object-cover shrink-0 bg-neutral-900 border border-white/10"
+                                            />
+                                            <div className="overflow-hidden pr-3">
+                                                <div className="text-xs font-semibold truncate">{preset.name}</div>
+                                                <div className="text-[10px] text-gray-500 flex items-center gap-1.5">
+                                                    <span>{preset.category}</span>
+                                                    {!preset.isDefault && (
+                                                        <span className="bg-emerald-500/20 text-emerald-300 text-[9px] px-1 rounded font-mono">
+                                                            Custom
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </button>
+
+                                        {/* Delete Custom Preset Button */}
+                                        {!preset.isDefault && (
+                                            <button
+                                                type="button"
+                                                title="Delete this custom preset"
+                                                onClick={(e) => handleDeleteCustomPreset(preset.id, e)}
+                                                className="absolute top-1.5 right-1.5 p-1 rounded bg-black/80 hover:bg-red-950 text-gray-400 hover:text-red-400 border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        )}
+                                    </div>
                                 ))}
                             </div>
                         </div>
 
-                        {/* Or Upload Custom Image */}
+                        {/* Or Upload Custom Image (One-Off) */}
                         <div>
-                            <label className="text-xs font-mono uppercase text-gray-400 block mb-2">Or Upload Custom Scene:</label>
+                            <label className="text-xs font-mono uppercase text-gray-400 block mb-2">Or Upload Scene Photo (One-Off):</label>
                             <label className="flex flex-col items-center justify-center border border-dashed border-white/20 hover:border-emerald-500/50 rounded-lg p-4 cursor-pointer bg-black/30 hover:bg-black/60 transition-all text-center group">
                                 <input
                                     type="file"
@@ -375,11 +625,33 @@ export default function TenantStyleTester({
                                     <div className="flex items-center gap-3">
                                         <Upload size={18} className="text-gray-500 group-hover:text-emerald-400 transition-colors" />
                                         <span className="text-xs text-gray-300 group-hover:text-white transition-colors font-mono">
-                                            {sceneFile ? sceneFile.name : 'Upload Customer Stairs / Porch Photo'}
+                                            {sceneFile ? sceneFile.name : 'Upload Stairs, Porch, or Deck Photo'}
                                         </span>
                                     </div>
                                 )}
                             </label>
+
+                            {/* Option to Save One-Off Uploaded Photo to Reusable Presets */}
+                            {sceneFile && uploadedDataUrl && (
+                                <div className="flex items-center justify-between bg-emerald-950/20 border border-emerald-500/20 rounded-lg p-2.5 mt-2">
+                                    <span className="text-[11px] text-gray-300 font-mono truncate max-w-[200px]">
+                                        {sceneFile.name}
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const defaultSuggestedName = sceneFile.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                                            const promptName = window.prompt('Enter a title for this preset scene:', defaultSuggestedName);
+                                            if (promptName && promptName.trim()) {
+                                                saveCustomPreset(promptName, 'Exterior', uploadedDataUrl);
+                                            }
+                                        }}
+                                        className="flex items-center gap-1 text-[11px] text-emerald-400 hover:text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/30 px-2 py-1 rounded font-mono transition-colors"
+                                    >
+                                        <BookmarkPlus size={13} /> Save as Preset Scene
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
 
