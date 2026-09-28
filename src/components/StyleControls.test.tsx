@@ -25,7 +25,7 @@ describe('StyleControls', () => {
 
     it('switches to upload mode when clicked', () => {
         render(<StyleControls {...mockProps} />)
-        const uploadTab = screen.getByText(/Custom Ref/i)
+        const uploadTab = screen.getByText(/Custom Upload/i)
         fireEvent.click(uploadTab)
         expect(mockProps.setStyleSource).toHaveBeenCalledWith('upload')
     })

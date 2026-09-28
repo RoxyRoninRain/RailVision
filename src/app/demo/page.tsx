@@ -10,11 +10,16 @@ export const maxDuration = 120; // 2 minutes
 export default async function Page({
     searchParams,
 }: {
-    searchParams: Promise<{ org?: string }>;
+    searchParams: Promise<{ org?: string; admin_test?: string }>;
 }) {
     // Await searchParams in Next.js 15+
-    const { org } = await searchParams;
+    const { org, admin_test } = await searchParams;
     let orgId = org || '';
+
+    // Check if user is an authenticated admin in test mode
+    const { checkIsAdmin } = await import('@/lib/auth-utils');
+    const isAdmin = await checkIsAdmin();
+    const isAdminTestMode = isAdmin && admin_test === 'true';
 
     // 1. If no Org ID in params, try to infer from session (Logged in Owner View)
     if (!orgId) {
@@ -51,8 +56,8 @@ export default async function Page({
 
     // --- SUBSCRIPTION CHECK (Widget) ---
     // Only block if this is a tenant widget (orgId is present) AND their status is not active.
-    // We allow the generic demo (!orgId) to proceed.
-    if (orgId && tenantProfile && tenantProfile.subscription_status !== 'active') {
+    // We allow the generic demo (!orgId) and admin test mode (!isAdminTestMode) to proceed.
+    if (orgId && tenantProfile && tenantProfile.subscription_status !== 'active' && !isAdminTestMode) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-8 text-center font-sans">
                 <div className="w-16 h-16 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 mb-6">
@@ -93,7 +98,7 @@ export default async function Page({
     const headersList = await headers();
     const referer = headersList.get('referer');
 
-    if (tenantProfile && tenantProfile.website && referer) {
+    if (!isAdminTestMode && tenantProfile && tenantProfile.website && referer) {
         try {
             const refererUrl = new URL(referer);
             const origin = refererUrl.origin;
@@ -165,7 +170,9 @@ export default async function Page({
 
     // --- BACK BUTTON LOGIC ---
     let dashboardUrl = undefined;
-    if (orgId) {
+    if (isAdminTestMode) {
+        dashboardUrl = `/admin/tenants/${orgId}/test`;
+    } else if (orgId) {
         // If we have an orgId, check if the current user matches it (Tenant View)
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
@@ -189,6 +196,8 @@ export default async function Page({
                 orgId={orgId}
                 dashboardUrl={dashboardUrl}
                 isWhiteLabel={isWhiteLabel}
+                isAdminTest={isAdminTestMode}
+                adminReturnUrl={`/admin/tenants/${orgId}/test`}
             />
         </div>
     );

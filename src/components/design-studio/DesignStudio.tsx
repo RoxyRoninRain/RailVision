@@ -39,9 +39,19 @@ interface DesignStudioProps {
     orgId: string;
     dashboardUrl?: string;
     isWhiteLabel?: boolean;
+    isAdminTest?: boolean;
+    adminReturnUrl?: string;
 }
 
-export default function DesignStudio({ styles: initialStyles, tenantProfile, orgId, dashboardUrl, isWhiteLabel = false }: DesignStudioProps) {
+export default function DesignStudio({ 
+    styles: initialStyles, 
+    tenantProfile, 
+    orgId, 
+    dashboardUrl, 
+    isWhiteLabel = false,
+    isAdminTest = false,
+    adminReturnUrl
+}: DesignStudioProps) {
     // --- STATE ---
     const [step, setStep] = useState(1); // 1=Upload, 2=Style, 3=Result
     const [direction, setDirection] = useState(0);
@@ -316,6 +326,10 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 formData.append('organization_id', orgId);
             }
 
+            if (isAdminTest) {
+                formData.append('is_admin_test', 'true');
+            }
+
             formData.append('prompt', "High quality architectural photorealistic render"); // Basic prompt, server handles rest
 
             console.log("Calling generateDesign with formData...");
@@ -518,19 +532,19 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
             x: direction > 0 ? '100%' : '-100%',
             opacity: 0,
             zIndex: 0,
-            position: 'absolute' as 'absolute'
+            position: 'absolute' as const
         }),
         center: {
             zIndex: 1,
             x: 0,
             opacity: 1,
-            position: 'absolute' as 'absolute'
+            position: 'absolute' as const
         },
         exit: (direction: number) => ({
             zIndex: 0,
             x: direction < 0 ? '100%' : '-100%',
             opacity: 0,
-            position: 'absolute' as 'absolute'
+            position: 'absolute' as const
         })
     };
 
@@ -568,8 +582,28 @@ export default function DesignStudio({ styles: initialStyles, tenantProfile, org
                 </div>
             </header>
 
-            {/* Admin Back Button */}
-            {dashboardUrl && (
+            {/* Admin Test Mode Banner */}
+            {isAdminTest && (
+                <div className="fixed top-0 left-0 right-0 bg-emerald-950/95 border-b border-emerald-500/40 text-emerald-200 px-4 py-2.5 z-[70] flex items-center justify-between text-xs font-mono backdrop-blur-md shadow-2xl">
+                    <div className="flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="font-bold text-white uppercase tracking-wider">ADMIN TEST MODE</span>
+                        <span className="text-emerald-400/90 hidden sm:inline">| Zero Usage Charges ($0.00) — Testing styles for {tenantProfile?.shop_name || 'Tenant'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <a
+                            href={adminReturnUrl || dashboardUrl || '/admin/tenants'}
+                            className="bg-emerald-500 hover:bg-emerald-400 text-black px-3 py-1 rounded text-xs font-bold uppercase transition-colors flex items-center gap-1"
+                        >
+                            <ChevronLeft size={14} />
+                            Exit Test Mode
+                        </a>
+                    </div>
+                </div>
+            )}
+
+            {/* Admin Back Button (when not in admin test mode banner) */}
+            {!isAdminTest && dashboardUrl && (
                 <div className="absolute top-6 left-6 z-[60]">
                     <a
                         href={dashboardUrl}

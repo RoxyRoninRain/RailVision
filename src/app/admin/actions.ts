@@ -589,3 +589,31 @@ export async function deleteTenant(tenantId: string) {
     }
 }
 
+export async function testTenantStyle(formData: FormData) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized: Admin privileges required.' };
+
+    // Explicitly enforce admin test mode so zero charges/usage are billed to the tenant
+    formData.set('is_admin_test', 'true');
+
+    const startTime = Date.now();
+    const { generateDesign } = await import('@/app/actions/ai');
+    const result = await generateDesign(formData);
+    const durationMs = Date.now() - startTime;
+
+    if (result.success && result.image) {
+        return {
+            success: true,
+            image: result.image,
+            durationMs,
+            usage: (result as any).usage,
+            zeroChargeConfirmed: true
+        };
+    }
+
+    return {
+        success: false,
+        error: result.error || 'Generation failed'
+    };
+}
+

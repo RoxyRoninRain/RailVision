@@ -39,13 +39,15 @@ export async function getAdminStats() {
         if (l.organization_id) leadCounts[l.organization_id] = (leadCounts[l.organization_id] || 0) + 1;
     });
 
-    // 3. Get Generation Counts per Org
+    // 3. Get Generation Counts per Org (excluding admin test runs)
     const { data: generations } = await supabase
         .from('generations')
-        .select('organization_id');
+        .select('organization_id, prompt_used');
 
     const genCounts: Record<string, number> = {};
     generations?.forEach(g => {
+        // Exclude admin test generations so they don't count towards tenant customer designs
+        if (g.prompt_used && g.prompt_used.includes('[ADMIN_TEST]')) return;
         if (g.organization_id) genCounts[g.organization_id] = (genCounts[g.organization_id] || 0) + 1;
     });
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Menu, LogOut, X, Presentation, Activity } from 'lucide-react';
+import { Menu, LogOut, X, Presentation, Activity, Sparkles } from 'lucide-react';
 import SignOutButton from '@/components/SignOutButton';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -93,6 +93,17 @@ export default function AdminLayoutClient({
                         className={`p-2 rounded transition-colors ${isActive('/admin/styles')}`}
                     >
                         Style Library
+                    </Link>
+                    <Link
+                        href="/admin/test-styles"
+                        onClick={closeSidebar}
+                        className={`p-2 rounded transition-colors ${isActive('/admin/test-styles') || pathname?.includes('/test') ? 'bg-emerald-950/60 text-emerald-300 font-bold border border-emerald-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                        title="Test Tenant Styles (Zero-Charge Mode)"
+                    >
+                        <div className="flex items-center gap-2">
+                            <Sparkles size={18} className="text-emerald-400" />
+                            <span>Test Tenant Styles</span>
+                        </div>
                     </Link>
                 </nav>
 

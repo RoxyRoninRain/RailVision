@@ -78,6 +78,14 @@ export async function generateDesign(formData: FormData) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
+    // --- ADMIN TEST MODE CHECK ---
+    const { checkIsAdmin } = await import('@/lib/auth-utils');
+    const isAdmin = await checkIsAdmin();
+    const isAdminTest = isAdmin && (
+        formData.get('is_admin_test') === 'true' ||
+        formData.get('admin_test') === 'true'
+    );
+
     // Context for billing:
     let profileIdToBill = user?.id; // Default to logged-in user
     let shouldUseAdminClient = false;
@@ -95,6 +103,14 @@ export async function generateDesign(formData: FormData) {
         } else {
             isGenericDemo = true;
         }
+    } else if (isAdminTest) {
+        // Admin testing a specific tenant
+        const targetTenantId = (formData.get('organization_id') as string) || (formData.get('tenant_id') as string);
+        if (targetTenantId) {
+            profileIdToBill = targetTenantId;
+            shouldUseAdminClient = true;
+        }
+        console.log(`[ADMIN TEST] Running in Zero-Charge Admin Test Mode for Tenant ID: ${profileIdToBill}`);
     }
 
     // Initialize the correct client interaction
@@ -104,7 +120,7 @@ export async function generateDesign(formData: FormData) {
     if (shouldUseAdminClient) {
         const adminClient = createAdminClient();
         if (!adminClient) {
-            console.error('[AUTH PROVISIONING] Failed to create admin client for guest access.');
+            console.error('[AUTH PROVISIONING] Failed to create admin client.');
             return { error: 'System configuration error. Please contact support.' };
         }
         dbClient = adminClient;
@@ -120,14 +136,15 @@ export async function generateDesign(formData: FormData) {
     // Pass profileIdToBill (Tenant ID) to check for tenant-specific blocks
     const ipStatus = await checkIpStatus(clientIp, profileIdToBill);
 
-    if (ipStatus.blocked) {
+    if (ipStatus.blocked && !isAdminTest) {
         console.warn(`[SECURITY] Blocked IP attempt: ${clientIp} for Tenant ${profileIdToBill} (${ipStatus.reason})`);
         return { error: 'Access Denied: Your IP address has been blocked by the site administrator.' };
     }
     // -------------------------
 
     // --- AUTO RATE LIMITER (20/hr) ---
-    if (clientIp !== 'unknown') {
+    // Bypassed for verified admin tests to support onboarding and troubleshooting
+    if (!isAdminTest && clientIp !== 'unknown') {
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
         const { count, error: rlError } = await dbClient
             .from('generations')
@@ -146,7 +163,7 @@ export async function generateDesign(formData: FormData) {
     let profile: any = null;
     let dbError: any = null;
     
-    if (!isGenericDemo) {
+    if (!isGenericDemo && profileIdToBill) {
         const res = await dbClient
             .from('profiles')
             .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name, website, subscription_status')
@@ -157,13 +174,10 @@ export async function generateDesign(formData: FormData) {
     }
 
     // Lazy load pricing configs
-
-    // Origin check removed: Iframes make requests from their own origin (railify.app)
-    // so checking the origin header against the tenant's website breaks the embed.
-    // A signed JWT token system should be implemented for robust security here.
     const { PRICING_TIERS, DEFAULT_TIER } = await import('@/config/pricing');
 
-    if (!isGenericDemo) {
+    // Only enforce active subscription for public/tenant usage, not admin test mode
+    if (!isGenericDemo && !isAdminTest) {
         if (dbError || !profile) {
             console.error('[BILLING] Profile fetch failed:', dbError);
             return { error: 'Could not fetch profile for billing check.' };
@@ -186,10 +200,11 @@ export async function generateDesign(formData: FormData) {
     // 2. Usage Check Logic (Utility Model: Always "Overdrive")
     const notificationState = profile ? (profile.notification_state as any) || {} : {};
 
-    // Standard Metered Logic (Applies to everyone unless allowance > 0)
+    // Standard Metered Logic (Applies to everyone unless allowance > 0 or in Admin Test Mode)
     // Legacy support: If they somehow have an allowance (Unlimited Plan), we consume it first.
-    if (isGenericDemo) {
-        // Skip billing for generic demo
+    if (isGenericDemo || isAdminTest) {
+        // Skip billing: Generic demo or Admin Test Mode (Zero charges for tenant)
+        console.log(`[BILLING] Bypassing billing - ${isAdminTest ? 'Admin Test Mode (Zero Usage Charges)' : 'Generic Demo'}`);
     } else if (currentUsage < allowance) {
         // --- LEGACY/UNLIMITED ALLOWANCE LOGIC ---
         // Just consume allowance, no billing.
@@ -316,7 +331,7 @@ export async function generateDesign(formData: FormData) {
     let newOverageCount = (profile?.current_overage_count || 0) + transactionOverageCount;
 
     // Check against Tier Threshold (e.g. Charge every $20 or $50)
-    if (!isGenericDemo && tier && newPendingBalance >= tier.billingThreshold && tier.billingThreshold > 0) {
+    if (!isGenericDemo && !isAdminTest && tier && newPendingBalance >= tier.billingThreshold && tier.billingThreshold > 0) {
         console.log(`[BILLING] THRESHOLD HIT! Tier: ${tier.name}, Balance: $${newPendingBalance} >= Threshold: $${tier.billingThreshold}`);
 
         // TRIGGER IMMEDIATE CHARGE (Mock Implementation - In real world, this triggers Stripe Invoice Pay)
@@ -325,14 +340,11 @@ export async function generateDesign(formData: FormData) {
 
         // Reset counters
         newPendingBalance = 0;
-        // newOverageCount = 0; // Optional: keep counting total lifetime usage? 
-        // Logic says "Charge card every $20". Code earlier reset usage count too. Let's keep count for stats, but maybe reset a 'billed_units' counter?
-        // Existing code reset 'current_overage_count'. I will follow suit to keep logic simple: "Usage since last bill".
         newOverageCount = 0;
     }
 
     // 4. Commit Usage Update
-    if (!isGenericDemo) {
+    if (!isGenericDemo && !isAdminTest) {
         const { error: updateError } = await dbClient
             .from('profiles')
             .update({
@@ -373,10 +385,10 @@ export async function generateDesign(formData: FormData) {
         } else if (styleId) {
             // Priority 2: Check for Gallery in DB via styleId
             try {
-                const supabase = await createClient();
-                const { data: styleData } = await supabase
+                const styleLookupClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
+                const { data: styleData } = await styleLookupClient
                     .from('portfolio')
-                    .select('reference_images, image_url, has_bottom_rail')
+                    .select('reference_images, image_url, has_bottom_rail, description')
                     .eq('id', styleId)
                     .single();
 
@@ -424,11 +436,16 @@ export async function generateDesign(formData: FormData) {
                             .map(b => b!.toString('base64'));
 
                         if (validBase64s.length > 0) {
+                            const formBottomRail = formData.get('has_bottom_rail');
+                            const hasBottomRailFinal = (formBottomRail !== null && formBottomRail !== undefined && formBottomRail !== '')
+                                ? formBottomRail === 'true'
+                                : styleData.has_bottom_rail;
+
                             styleInput = {
                                 base64StyleImages: validBase64s,
                                 technicalSpecs: {
-                                    hasBottomRail: styleData.has_bottom_rail,
-                                    description: styleDescription
+                                    hasBottomRail: hasBottomRailFinal,
+                                    description: styleDescription || styleData.description
                                 }
                             };
                             console.log(`[DEBUG] Successfully loaded ${validBase64s.length} style images for multi-shot generation.`);
@@ -510,19 +527,21 @@ export async function generateDesign(formData: FormData) {
 
             // --- TRACKING START (Added for Admin Stats) ---
             try {
-                // Determine Org ID if logged in (for attribution)
-                const supabase = await createClient();
-                const { data: { user } } = await supabase.auth.getUser();
+                const trackingClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
 
                 // Capture Analytics
                 const headersList = await headers();
                 const ip = headersList.get('x-forwarded-for') || 'unknown';
                 const userAgent = headersList.get('user-agent') || 'unknown';
 
-                await supabase.from('generations').insert([{
-                    organization_id: profileIdToBill, // Use the billed ID (User or Tenant)
+                const promptTag = isAdminTest
+                    ? `[ADMIN_TEST] ${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}`
+                    : (promptConfig ? 'Dynamic Prompt' : 'Default Prompt');
+
+                await trackingClient.from('generations').insert([{
+                    organization_id: profileIdToBill, // Use the tenant ID being tested
                     image_url: result.image.startsWith('data:') ? 'Base64 Image Data' : result.image,
-                    prompt_used: promptConfig ? 'Dynamic Prompt' : 'Default Prompt',
+                    prompt_used: promptTag,
                     style_id: style,
                     ip_address: ip,
                     user_agent: userAgent,
@@ -538,7 +557,12 @@ export async function generateDesign(formData: FormData) {
             }
             // --- TRACKING END ---
 
-            return { success: true, image: result.image };
+            return { 
+                success: true, 
+                image: result.image,
+                isAdminTest: !!isAdminTest,
+                usage: result.usage
+            };
         } else {
             throw new Error(result.error || 'Unknown Nano Banana error');
         }

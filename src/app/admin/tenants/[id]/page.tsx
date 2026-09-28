@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { getTenantDetails, updateSubscriptionStatus } from '@/app/admin/actions';
-import { ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, ExternalLink, Palette } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, ExternalLink, Palette, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 
 export default function TenantShadowPage() {
@@ -150,7 +150,14 @@ export default function TenantShadowPage() {
                                 <ExternalLink size={14} /> View All Assets (Safe Mode)
                             </Link>
 
-                            <div className="pt-4 mt-4 border-t border-white/10">
+                            <div className="pt-4 mt-4 border-t border-white/10 space-y-2">
+                                <Link
+                                    href={`/admin/tenants/${id}/test`}
+                                    className="flex items-center justify-center gap-2 w-full bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-500/50 text-emerald-400 rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors shadow-lg"
+                                >
+                                    <Sparkles size={14} /> Test Tenant Styles (Zero-Charge)
+                                </Link>
+
                                 <Link
                                     href={`/admin/tenants/${id}/styles`}
                                     className="flex items-center justify-center gap-2 w-full bg-[var(--primary)] text-black hover:brightness-110 border border-[var(--primary)] rounded py-3 text-xs font-bold uppercase tracking-wider transition-colors"

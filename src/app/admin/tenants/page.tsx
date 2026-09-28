@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getAdminStats, inviteTenant } from '@/app/actions';
 import { getGlobalStats, deleteTenant } from '@/app/admin/actions'; // New import
-import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check, Users, TrendingUp, Activity, Eye, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Shield, ExternalLink, Code, Plus, Copy, Check, Users, TrendingUp, Activity, Eye, Trash2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
@@ -227,6 +227,13 @@ export default function TenantsPage() {
                                     </td>
                                     <td className="p-4 pr-6 text-right">
                                         <div className="flex items-center justify-end gap-2">
+                                            <Link
+                                                href={`/admin/tenants/${stat.organization_id}/test`}
+                                                className="text-[10px] font-mono text-emerald-400 hover:text-white border border-emerald-900/40 hover:bg-emerald-600 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                                                title="Test Styles (Zero Usage Charges)"
+                                            >
+                                                <Sparkles className="w-3 h-3" /> TEST
+                                            </Link>
                                             <Link
                                                 href={`/admin/tenants/${stat.organization_id}`}
                                                 className="text-[10px] font-mono text-gray-400 hover:text-white border border-gray-800 hover:border-gray-600 px-2 py-1 rounded transition-colors flex items-center gap-1"
