@@ -120,8 +120,15 @@ export default function CostDashboard() {
         return tokens.toLocaleString();
     };
 
-    // Gemini 3 Stats
-    const geminiStats = modelBreakdown['gemini-3.1-flash-image'] || modelBreakdown['gemini-3.1-pro-image'] || modelBreakdown['gemini-3-pro-image-preview'] || modelBreakdown['gemini-3.0-pro-image-preview'] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
+    // Active Image Model Stats
+    const activeModelKey = Object.keys(modelBreakdown).find(k => k.includes('flash')) 
+        || Object.keys(modelBreakdown).find(k => k.includes('gemini')) 
+        || 'gemini-3.1-flash-image';
+    const geminiStats = modelBreakdown[activeModelKey] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
+    const isFlash = activeModelKey.includes('flash');
+    const inputRateLabel = isFlash ? '$0.15/1M' : '$2.00/1M';
+    const outputRateLabel = isFlash ? '$0.60/1M' : '$12.00/1M';
+    const modelDisplayName = isFlash ? 'Gemini 3.1 Flash Image' : 'Gemini 3 Pro';
 
     const FilterTab = ({ label, value }: { label: string, value: string }) => (
         <button
@@ -321,7 +328,7 @@ export default function CostDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
                 {/* 1. Visual Breakdown Chart */}
                 <div className="bg-[#111] border border-white/10 p-6 rounded-2xl">
-                    <h3 className="text-lg font-bold mb-6">Cost Composition (Gemini 3.0 Pro)</h3>
+                    <h3 className="text-lg font-bold mb-6">Cost Composition ({modelDisplayName})</h3>
 
                     {geminiStats.count > 0 ? (
                         <div className="space-y-6">
@@ -390,7 +397,7 @@ export default function CostDashboard() {
                                     <span>${(geminiStats.inputCost / geminiStats.count).toFixed(4)}</span>
                                 </div>
                                 <div className="text-xs text-gray-500 pl-2 border-l border-blue-500/30">
-                                    ~{Math.round(geminiStats.inputTokens / geminiStats.count).toLocaleString()} tokens @ $2.00/1M
+                                    ~{Math.round(geminiStats.inputTokens / geminiStats.count).toLocaleString()} tokens @ {inputRateLabel}
                                 </div>
 
                                 {/* Output Math */}
@@ -399,7 +406,7 @@ export default function CostDashboard() {
                                     <span>${(geminiStats.outputCost / geminiStats.count).toFixed(4)}</span>
                                 </div>
                                 <div className="text-xs text-gray-500 pl-2 border-l border-purple-500/30">
-                                    ~{Math.round(geminiStats.outputTokens / geminiStats.count).toLocaleString()} tokens @ $12.00/1M
+                                    ~{Math.round(geminiStats.outputTokens / geminiStats.count).toLocaleString()} tokens @ {outputRateLabel}
                                 </div>
 
                                 {/* Total Math */}
@@ -449,7 +456,7 @@ export default function CostDashboard() {
             </div>
 
             <div className="mt-8 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-200 text-sm">
-                <strong>Pricing Note:</strong> Costs are based on Gemini 3.1 Flash Image: $2.00/1M Input, $12.00/1M Output (Thinking), ~$0.134/Image.
+                <strong>Pricing Note:</strong> Costs are based on Gemini 3.1 Flash Image: $0.15/1M Input, $0.60/1M Output (Thinking), ~$0.030/Image. (Legacy Gemini 3 Pro is tracked at $2.00/1M Input, $12.00/1M Output, $0.134/Image).
             </div>
         </div>
     );

@@ -430,21 +430,36 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
             totalInputTokens += input;
             totalOutputTokens += output;
 
-            // --- COST CALCULATION (Same logic as before) ---
+            // --- COST CALCULATION ---
             let cost = 0;
+            let inputCost = 0;
+            let outputCost = 0;
+            let imageCost = 0;
+
             // Prefer stored cost if available, else calculate
             if (gen.cost_usd !== undefined && gen.cost_usd !== null) {
                 cost = gen.cost_usd;
             } else {
-                if (model.includes('gemini-3')) {
+                if (model.includes('flash-image') || model.includes('flash')) {
+                    // Gemini 3.1 Flash Image
+                    // 1. Input Cost ($0.15 / 1M)
+                    inputCost = (input / 1000000) * 0.15;
+                    // 2. Output Cost ($0.60 / 1M)
+                    outputCost = (output / 1000000) * 0.60;
+                    // 3. Fixed Image Cost (~$0.030)
+                    imageCost = 0.030;
+                    cost = inputCost + outputCost + imageCost;
+                } else if (model.includes('gemini-3')) {
+                    // Legacy Gemini 3 Pro Image Preview
                     // 1. Input Cost ($2.00 / 1M)
-                    const inputCost = (input / 1000000) * 2.00;
+                    inputCost = (input / 1000000) * 2.00;
                     // 2. Output Cost ($12.00 / 1M)
-                    const outputCost = (output / 1000000) * 12.00;
+                    outputCost = (output / 1000000) * 12.00;
                     // 3. Fixed Image Cost (~$0.134)
-                    const imageCost = 0.134;
+                    imageCost = 0.134;
                     cost = inputCost + outputCost + imageCost;
                 } else if (model.includes('imagen')) {
+                    imageCost = 0.040;
                     cost = 0.040;
                 }
             }
@@ -454,12 +469,23 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
 
             // --- MODEL BREAKDOWN ---
             if (!modelBreakdown[model]) {
-                modelBreakdown[model] = { count: 0, inputTokens: 0, outputTokens: 0, cost: 0 };
+                modelBreakdown[model] = { 
+                    count: 0, 
+                    inputTokens: 0, 
+                    outputTokens: 0, 
+                    cost: 0,
+                    inputCost: 0,
+                    outputCost: 0,
+                    imageCost: 0
+                };
             }
             modelBreakdown[model].count++;
             modelBreakdown[model].inputTokens += input;
             modelBreakdown[model].outputTokens += output;
             modelBreakdown[model].cost += cost;
+            modelBreakdown[model].inputCost = (modelBreakdown[model].inputCost || 0) + inputCost;
+            modelBreakdown[model].outputCost = (modelBreakdown[model].outputCost || 0) + outputCost;
+            modelBreakdown[model].imageCost = (modelBreakdown[model].imageCost || 0) + imageCost;
 
             // --- CHART BUCKETING ---
             let bucketKey = '';
