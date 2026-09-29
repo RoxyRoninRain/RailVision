@@ -187,13 +187,17 @@ export default function TenantsPage() {
                         <thead className="bg-[#111] text-gray-400 border-b border-white/5">
                             <tr>
                                 <th className="p-4 pl-6 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Shop Name / ID</th>
-                                <th className="p-4 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Metrics</th>
+                                <th className="p-4 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Tier / Billing</th>
+                                <th className="p-4 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Generations & Leads</th>
                                 <th className="p-4 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500">Status</th>
                                 <th className="p-4 pr-6 font-mono uppercase text-[10px] tracking-widest font-semibold text-gray-500 text-right">Controls</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {currentItems.map(stat => (
+                            {currentItems.map(stat => {
+                                const tier = stat.tier_name || 'Starter';
+                                const tierPrice = tier.toLowerCase().includes('volume') ? 100 : tier.toLowerCase().includes('pro') ? 50 : 20;
+                                return (
                                 <tr key={stat.organization_id} className="hover:bg-white/[0.02] transition-colors group">
                                     <td className="p-4 pl-6">
                                         <div className="flex items-center gap-3">
@@ -209,18 +213,26 @@ export default function TenantsPage() {
                                         </div>
                                     </td>
                                     <td className="p-4">
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="font-mono text-xs font-bold text-white uppercase">{tier}</span>
+                                            <span className="font-mono text-[11px] text-gray-500">${tierPrice}/mo</span>
+                                        </div>
+                                    </td>
+                                    <td className="p-4">
                                         <div className="flex flex-col gap-1">
-                                            <div><span className="font-mono text-sm text-white">{stat.count}</span> <span className="text-xs text-gray-600">leads</span></div>
-                                            <div><span className="font-mono text-sm text-purple-400">{stat.generation_count || 0}</span> <span className="text-xs text-purple-900/50">designs</span></div>
+                                            <div><span className="font-mono text-sm text-purple-400 font-bold">{stat.generation_count || 0}</span> <span className="text-xs text-gray-400">renders</span></div>
+                                            <div><span className="font-mono text-xs text-gray-300">{stat.count}</span> <span className="text-[11px] text-gray-600">leads</span></div>
                                         </div>
                                     </td>
                                     <td className="p-4">
                                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-medium border uppercase tracking-wider ${
-                                            stat.subscription_status === 'active' 
-                                                ? 'bg-green-900/10 text-green-500 border-green-900/20' 
-                                                : stat.subscription_status === 'cancelled'
-                                                    ? 'bg-red-900/10 text-red-500 border-red-900/20'
-                                                    : 'bg-yellow-900/10 text-yellow-500 border-yellow-900/20'
+                                            stat.subscription_status === 'past_due'
+                                                ? 'bg-red-900/30 text-red-400 border-red-800/50 animate-pulse font-bold'
+                                                : stat.subscription_status === 'active' 
+                                                    ? 'bg-green-900/10 text-green-500 border-green-900/20' 
+                                                    : stat.subscription_status === 'cancelled'
+                                                        ? 'bg-red-900/10 text-red-500 border-red-900/20'
+                                                        : 'bg-yellow-900/10 text-yellow-500 border-yellow-900/20'
                                         }`}>
                                             {stat.subscription_status || 'inactive'}
                                         </span>
@@ -256,9 +268,10 @@ export default function TenantsPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                             {stats.length === 0 && (
-                                <tr><td colSpan={4} className="p-16 text-center text-gray-600 font-mono italic">No active tenants found.</td></tr>
+                                <tr><td colSpan={5} className="p-16 text-center text-gray-600 font-mono italic">No active tenants found.</td></tr>
                             )}
                         </tbody>
                     </table>
