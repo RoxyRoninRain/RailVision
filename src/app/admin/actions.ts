@@ -119,7 +119,11 @@ export interface TenantBillingInfo {
         overageRate: number;
         pendingOverageBalance: number;
         currentOverageCount: number;
+        pendingDiscountedAmount: number;
+        pendingDiscountedCount: number;
         currentCycleEstimatedTotal: number;
+        effectiveRenderRate: number;
+        activeRateLabel: string;
     };
     totalSpent: number;
     nextPaymentDueDate: string | null;
@@ -229,11 +233,25 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
         .limit(50);
 
     // 3. Fetch Generations & Compute Day, Month, Year & Admin Model Usage Costs
-    const { data: rawGenerations } = await supabase
+    let rawGenerations: any[] | null = null;
+    const { data: firstGenData, error: genErr } = await supabase
         .from('generations')
         .select('id, created_at, model_id, input_tokens, output_tokens, prompt_used, style_id, cost_usd')
         .eq('organization_id', tenantId)
         .order('created_at', { ascending: false });
+
+    rawGenerations = firstGenData;
+
+    // Fallback if cost_usd column is not present in PostgREST cache
+    if (genErr) {
+        console.warn('Generations query with cost_usd failed, falling back to base columns:', genErr.message);
+        const fallback = await supabase
+            .from('generations')
+            .select('id, created_at, model_id, input_tokens, output_tokens, prompt_used, style_id')
+            .eq('organization_id', tenantId)
+            .order('created_at', { ascending: false });
+        rawGenerations = fallback.data;
+    }
 
     const generationsList = rawGenerations || [];
 
@@ -457,12 +475,50 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
 
     const pendingOverageBalance = Number(profile.pending_overage_balance) || 0;
     const currentOverageCount = Number(profile.current_overage_count) || 0;
-    const currentCycleEstimatedTotal = parseFloat((basePrice + pendingOverageBalance).toFixed(2));
+    const pendingDiscountedAmount = Number(profile.pending_discounted_amount) || 0;
+    const pendingDiscountedCount = Number(profile.pending_discounted_count) || 0;
+    const freeRemaining = Number(profile.free_credits_remaining) || 0;
+    const discountedRemaining = Number(profile.discounted_credits_remaining) || 0;
+    const discountedRate = profile.discounted_rate !== null && profile.discounted_rate !== undefined 
+        ? Number(profile.discounted_rate) 
+        : parseFloat((tierConfig.overageRate * 0.5).toFixed(2));
+
+    const currentCycleEstimatedTotal = parseFloat((basePrice + pendingOverageBalance + pendingDiscountedAmount).toFixed(2));
+
+    let effectiveRenderRate = tierConfig.overageRate;
+    let activeRateLabel = `$${tierConfig.overageRate.toFixed(2)}/render (Standard)`;
+    if (freeRemaining > 0) {
+        effectiveRenderRate = 0;
+        activeRateLabel = `$0.00 (${freeRemaining} Free Credits Active)`;
+    } else if (discountedRemaining > 0) {
+        effectiveRenderRate = discountedRate;
+        activeRateLabel = `$${discountedRate.toFixed(2)} (${discountedRemaining} 50% Credits Active)`;
+    }
 
     // 7. How Much They Have Spent (Total Spent)
     const paidInvoicesTotal = paidInvoices.reduce((sum, inv) => sum + ((inv.amount_paid || 0) / 100), 0);
+    const invoiceChargeIds = new Set(paidInvoices.map(inv => typeof inv.charge === 'string' ? inv.charge : inv.charge?.id).filter(Boolean));
+    const invoicePaymentIntentIds = new Set(paidInvoices.map(inv => typeof inv.payment_intent === 'string' ? inv.payment_intent : inv.payment_intent?.id).filter(Boolean));
+    const invoiceIds = new Set(paidInvoices.map(inv => inv.id).filter(Boolean));
+
+    // Exclude any charges that were already counted under paid invoices to prevent double counting
     const directChargesTotal = stripeCharges
-        .filter(c => c.paid && !c.refunded && !c.invoice)
+        .filter(c => {
+            if (!c.paid || c.refunded) return false;
+            if (c.invoice && (invoiceIds.has(c.invoice) || typeof c.invoice === 'string')) return false;
+            if (invoiceChargeIds.has(c.id)) return false;
+            if (c.payment_intent && invoicePaymentIntentIds.has(c.payment_intent)) return false;
+            // Also deduplicate if a paid invoice matches the exact same charge amount and occurred around the same time
+            const chargeCreated = c.created;
+            const chargeAmount = (c.amount - (c.amount_refunded || 0)) / 100;
+            const matchesInvoice = paidInvoices.some(inv => {
+                const invCreated = inv.status_transitions?.paid_at || inv.created;
+                const invAmount = (inv.amount_paid || 0) / 100;
+                return invAmount === chargeAmount && Math.abs(invCreated - chargeCreated) < 86400;
+            });
+            if (matchesInvoice) return false;
+            return true;
+        })
         .reduce((sum, c) => sum + ((c.amount - (c.amount_refunded || 0)) / 100), 0);
 
     let totalSpent = parseFloat((paidInvoicesTotal + directChargesTotal).toFixed(2));
@@ -470,20 +526,43 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
         totalSpent = tierConfig.onboardingFee;
     }
 
-    // 8. Next Payment Due Date & Days Remaining
+    // 8. Last Payment Date (Derived from paid invoices or recorded subscription start date)
+    let lastPaymentDate: string | null = null;
+    if (paidInvoices.length > 0) {
+        const sorted = [...paidInvoices].sort((a, b) => (b.status_transitions?.paid_at || b.created || 0) - (a.status_transitions?.paid_at || a.created || 0));
+        if (sorted[0]?.status_transitions?.paid_at) {
+            lastPaymentDate = new Date(sorted[0].status_transitions.paid_at * 1000).toISOString();
+        } else if (sorted[0]?.created) {
+            lastPaymentDate = new Date(sorted[0].created * 1000).toISOString();
+        }
+    } else if (profile.subscription_start_date) {
+        lastPaymentDate = new Date(profile.subscription_start_date).toISOString();
+    }
+
+    // 9. Next Payment Due Date & Days Remaining
     let nextPaymentDueDate: string | null = null;
     if (upcomingInvoice?.next_payment_attempt) {
         nextPaymentDueDate = new Date(upcomingInvoice.next_payment_attempt * 1000).toISOString();
     } else if (stripeSub?.current_period_end) {
         nextPaymentDueDate = new Date(stripeSub.current_period_end * 1000).toISOString();
-    } else if (profile.subscription_start_date || profile.created_at) {
-        const start = new Date(profile.subscription_start_date || profile.created_at);
-        const nowTime = Date.now();
-        let nextDate = new Date(start);
-        while (nextDate.getTime() <= nowTime) {
-            nextDate.setMonth(nextDate.getMonth() + 1);
+    } else {
+        // Priority order: 1. lastPaymentDate, 2. profile.subscription_start_date, 3. profile.created_at
+        const anchorDateStr = lastPaymentDate || profile.subscription_start_date || profile.created_at;
+        if (anchorDateStr) {
+            const anchor = new Date(anchorDateStr);
+            const nowTime = Date.now();
+            let nextDate = new Date(anchor);
+            if (billingInterval === 'year') {
+                while (nextDate.getTime() <= nowTime) {
+                    nextDate.setFullYear(nextDate.getFullYear() + 1);
+                }
+            } else {
+                while (nextDate.getTime() <= nowTime) {
+                    nextDate.setMonth(nextDate.getMonth() + 1);
+                }
+            }
+            nextPaymentDueDate = nextDate.toISOString();
         }
-        nextPaymentDueDate = nextDate.toISOString();
     }
 
     let daysRemaining: number | null = null;
@@ -491,7 +570,7 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
         daysRemaining = Math.ceil((new Date(nextPaymentDueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
     }
 
-    // 9. Past Due Check
+    // 10. Past Due Check
     const nowSec = Math.floor(Date.now() / 1000);
     const hasOverdueInvoice = openInvoices.some(inv =>
         (inv.due_date && inv.due_date < nowSec) || (inv.attempt_count > 0 && !inv.paid)
@@ -501,17 +580,6 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
     const isPastDue = isStatusPastDue || hasOverdueInvoice;
 
     const pastDueAmount = parseFloat(openInvoices.reduce((sum, inv) => sum + ((inv.amount_due || 0) / 100), 0).toFixed(2));
-
-    // 10. Last Payment Date
-    let lastPaymentDate: string | null = null;
-    if (paidInvoices.length > 0) {
-        const sorted = [...paidInvoices].sort((a, b) => b.created - a.created);
-        if (sorted[0]?.status_transitions?.paid_at) {
-            lastPaymentDate = new Date(sorted[0].status_transitions.paid_at * 1000).toISOString();
-        } else if (sorted[0]?.created) {
-            lastPaymentDate = new Date(sorted[0].created * 1000).toISOString();
-        }
-    }
 
     // 11. Profitability on Tenant
     const roundedModelCostTotal = parseFloat(modelCostTotal.toFixed(2));
@@ -538,7 +606,11 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
                 overageRate: tierConfig.overageRate,
                 pendingOverageBalance,
                 currentOverageCount,
-                currentCycleEstimatedTotal
+                pendingDiscountedAmount,
+                pendingDiscountedCount,
+                currentCycleEstimatedTotal,
+                effectiveRenderRate,
+                activeRateLabel
             },
             totalSpent,
             nextPaymentDueDate,
@@ -1177,7 +1249,7 @@ export async function deleteTenant(tenantId: string) {
 // UPDATE TENANT CREDENTIALS & PROFILE
 export async function updateTenantCredentials(
     tenantId: string,
-    data: { email?: string; shopName?: string; phone?: string; website?: string }
+    data: { email?: string; shopName?: string; phone?: string; website?: string; subscriptionStartDate?: string }
 ) {
     const isAdmin = await checkIsAdmin();
     if (!isAdmin) return { error: 'Unauthorized' };
@@ -1186,7 +1258,7 @@ export async function updateTenantCredentials(
     if (!supabase) return { error: 'Admin client missing' };
 
     try {
-        const { email, shopName, phone, website } = data;
+        const { email, shopName, phone, website, subscriptionStartDate } = data;
 
         // 1. Fetch current profile
         const { data: currentProfile, error: profileFetchErr } = await supabase
@@ -1231,6 +1303,9 @@ export async function updateTenantCredentials(
         if (shopName !== undefined) profileUpdates.shop_name = shopName.trim();
         if (phone !== undefined) profileUpdates.phone = phone.trim();
         if (website !== undefined) profileUpdates.website = website.trim();
+        if (subscriptionStartDate !== undefined) {
+            profileUpdates.subscription_start_date = subscriptionStartDate ? new Date(subscriptionStartDate).toISOString() : null;
+        }
 
         const { error: profileUpdateErr } = await supabase
             .from('profiles')
@@ -1249,6 +1324,7 @@ export async function updateTenantCredentials(
                 shop_name: shopName?.trim() || currentProfile?.shop_name,
                 phone,
                 website,
+                subscription_start_date: profileUpdates.subscription_start_date,
             }
         };
     } catch (error: any) {

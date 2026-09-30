@@ -28,6 +28,7 @@ export default function TenantShadowPage() {
         email: '',
         phone: '',
         website: '',
+        subscriptionStartDate: '',
     });
     const [isSavingCredentials, setIsSavingCredentials] = useState(false);
     const [credentialsMsg, setCredentialsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -119,6 +120,7 @@ export default function TenantShadowPage() {
                 email: data.profile.email || '',
                 phone: data.profile.phone || '',
                 website: data.profile.website || '',
+                subscriptionStartDate: data.profile.subscription_start_date ? String(data.profile.subscription_start_date).substring(0, 10) : '',
             });
             setCredentialsMsg(null);
             setResetResult(null);
@@ -137,6 +139,7 @@ export default function TenantShadowPage() {
                 shopName: editForm.shopName,
                 phone: editForm.phone,
                 website: editForm.website,
+                subscriptionStartDate: editForm.subscriptionStartDate,
             });
             if (res.error) {
                 setCredentialsMsg({ type: 'error', text: res.error });
@@ -150,8 +153,11 @@ export default function TenantShadowPage() {
                         shop_name: res.updated?.shop_name || editForm.shopName,
                         phone: res.updated?.phone ?? editForm.phone,
                         website: res.updated?.website ?? editForm.website,
+                        subscription_start_date: res.updated?.subscription_start_date ?? prev.profile.subscription_start_date,
                     }
                 }));
+                // Reload tenant details to refresh billing dates with new anchor date
+                loadData();
             }
         } catch (err: any) {
             setCredentialsMsg({ type: 'error', text: err.message || 'Failed to update tenant' });
@@ -247,6 +253,7 @@ export default function TenantShadowPage() {
         if (!isoString) return 'Not Scheduled';
         try {
             return new Date(isoString).toLocaleDateString('en-US', {
+                timeZone: 'UTC',
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
@@ -463,12 +470,29 @@ export default function TenantShadowPage() {
                                 </span>
                                 <span className="text-xs font-mono text-gray-500">/{billing.amountPaying.interval}</span>
                             </div>
-                            <p className="text-xs text-purple-400 font-mono mb-3">
-                                +${billing.amountPaying.overageRate.toFixed(2)}/extra render
-                            </p>
-                            <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono text-gray-400">
-                                <span className="text-gray-500">Current Cycle Est:</span>
-                                <span className="font-bold text-white">${billing.amountPaying.currentCycleEstimatedTotal.toFixed(2)}</span>
+                            <div className="text-xs font-mono mb-2">
+                                <span className="text-purple-400 block font-semibold truncate" title={billing.amountPaying.activeRateLabel}>
+                                    {billing.amountPaying.activeRateLabel || `+$${billing.amountPaying.overageRate.toFixed(2)}/extra render`}
+                                </span>
+                                <span className="text-[10px] text-gray-500 block">
+                                    Base standard rate: ${billing.amountPaying.overageRate.toFixed(2)}/render
+                                </span>
+                            </div>
+                            <div className="pt-2 border-t border-white/5 space-y-1 text-[11px] font-mono">
+                                <div className="flex items-center justify-between text-gray-400">
+                                    <span className="text-gray-500">Current Cycle Est:</span>
+                                    <span className="font-bold text-white">${billing.amountPaying.currentCycleEstimatedTotal.toFixed(2)}</span>
+                                </div>
+                                {(billing.amountPaying.pendingOverageBalance > 0 || (billing.amountPaying.pendingDiscountedAmount || 0) > 0) && (
+                                    <div className="flex items-center justify-between text-[10px] text-gray-500 pt-0.5">
+                                        <span>Unbilled Usage:</span>
+                                        <span className="text-amber-400">
+                                            {billing.amountPaying.pendingOverageBalance > 0 ? `$${billing.amountPaying.pendingOverageBalance.toFixed(2)} standard` : ''}
+                                            {billing.amountPaying.pendingOverageBalance > 0 && (billing.amountPaying.pendingDiscountedAmount || 0) > 0 ? ' + ' : ''}
+                                            {(billing.amountPaying.pendingDiscountedAmount || 0) > 0 ? `$${(billing.amountPaying.pendingDiscountedAmount || 0).toFixed(2)} promo` : ''}
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1078,6 +1102,21 @@ export default function TenantShadowPage() {
                                             className="w-full bg-black/60 border border-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors"
                                             placeholder="https://example.com"
                                         />
+                                    </div>
+
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">
+                                            Billing Cycle Anchor / Initial Payment Date
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={editForm.subscriptionStartDate}
+                                            onChange={(e) => setEditForm({ ...editForm, subscriptionStartDate: e.target.value })}
+                                            className="w-full bg-black/60 border border-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                        />
+                                        <p className="text-[11px] text-gray-500 mt-1">
+                                            The initial payment date (e.g. 2026-09-21) used as the monthly renewal anchor to calculate the Next Payment Due date.
+                                        </p>
                                     </div>
                                 </div>
 
