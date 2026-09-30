@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Permissions-Policy',
-            value: "camera=(), microphone=(), geolocation=()", // Lock down unused features
+            value: "camera=*, microphone=(), geolocation=()", // Allow camera for visualizer photo capture
           },
           {
             key: 'Strict-Transport-Security',
