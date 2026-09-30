@@ -76,22 +76,23 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         // 1. Verify systemInstruction is present in request body
         expect(capturedRequestBody.systemInstruction).toBeDefined();
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('CRITICAL FABRICATION MANDATE (ZERO REDUCERS / ZERO STEMS / DIRECT COPED WELD)');
-        expect(sysText).toContain('Square posts MUST connect directly into the round top rail');
-        expect(sysText).toContain('DO NOT add, render, or hallucinate reducers, bell reducers, conical fittings, pipe adapters, post transition collars');
+        expect(sysText).toContain('POST-TO-RAIL JUNCTION (DIRECT FLUSH COPED WELD - NO REDUCERS)');
+        expect(sysText).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
+        expect(sysText).toContain('The square posts must connect directly into the round top rail with a continuous flush coped weld joint (zero gap)');
 
         // 2. Verify priority directive is at the start of parts
         const parts = capturedRequestBody.contents[0].parts;
         const priorityPart = parts[0];
-        expect(priorityPart.text).toContain('[CRITICAL FABRICATION DIRECTIVE: DIRECT FLUSH COPED WELD - ZERO REDUCERS / ZERO STEMS]');
+        expect(priorityPart.text).toContain('[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT FLUSH COPED WELD]');
+        expect(priorityPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
 
-        // 3. Verify user prompt text contains mandate, negative constraints, and final check
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL FABRICATION MANDATE: DIRECT COPED WELD'));
+        // 3. Verify user prompt text contains directive, connection focus, and final check
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT COPED WELD'));
         expect(promptPart).toBeDefined();
-        expect(promptPart.text).toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED):');
-        expect(promptPart.text).toContain('reducers, bell reducers, pipe reducers, post transition collars');
-        expect(promptPart.text).toContain('post stem');
-        expect(promptPart.text).toContain('**FINAL VERIFICATION:** Confirm there are NO reducers');
+        expect(promptPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
+        expect(promptPart.text).toContain('**FINAL VERIFICATION:** Confirm you examined the connection point in both IMAGE B and IMAGE C');
+        // Verify negative keyword dumping was eliminated
+        expect(promptPart.text).not.toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): reducers, bell reducers');
     });
 
     it('defaults to ZERO REDUCERS even when hasReducers is null or undefined', async () => {
@@ -112,14 +113,14 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(capturedRequestBody).toBeDefined();
 
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('CRITICAL FABRICATION MANDATE (ZERO REDUCERS / ZERO STEMS / DIRECT COPED WELD)');
+        expect(sysText).toContain('POST-TO-RAIL JUNCTION (DIRECT FLUSH COPED WELD - NO REDUCERS)');
+        expect(sysText).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
 
         const parts = capturedRequestBody.contents[0].parts;
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL FABRICATION MANDATE: DIRECT COPED WELD'));
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT COPED WELD'));
         expect(promptPart).toBeDefined();
-        expect(promptPart.text).toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED):');
-        expect(promptPart.text).toContain('bell reducers');
-        expect(promptPart.text).toContain('post stem');
+        expect(promptPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
+        expect(promptPart.text).not.toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): reducers, bell reducers');
     });
 
     it('instructs reducer fittings when hasReducers is explicitly true', async () => {
@@ -140,16 +141,17 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(capturedRequestBody).toBeDefined();
 
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
+        expect(sysText).toContain('POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED)');
+        expect(sysText).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
         expect(sysText).toContain('Square posts must connect to the round top rail using square-to-round reducer fittings');
-        expect(sysText).not.toContain('CRITICAL FABRICATION MANDATE (ZERO REDUCERS');
 
         const parts = capturedRequestBody.contents[0].parts;
-        // Priority directive should NOT forbid reducers
-        const forbidPart = parts.find((p: any) => p.text?.includes('DIRECT FLUSH MOUNT - NO REDUCERS'));
-        expect(forbidPart).toBeUndefined();
+        const priorityPart = parts[0];
+        expect(priorityPart.text).toContain('[CRITICAL POST-TO-RAIL DIRECTIVE: REDUCER FITTINGS REQUIRED]');
 
         const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('REDUCER FITTINGS REQUIRED'));
         expect(promptPart).toBeDefined();
+        expect(promptPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
         expect(promptPart.text).not.toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): reducers');
     });
 });

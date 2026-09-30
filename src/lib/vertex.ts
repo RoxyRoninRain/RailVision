@@ -163,13 +163,15 @@ export async function generateDesignWithNanoBanana(
             .replace('{{DATE}}', new Date().toISOString().split('T')[0]);
 
         if (!isReducerRequired) {
-            baseSystemInstruction += `\n\n**CRITICAL FABRICATION MANDATE (ZERO REDUCERS / ZERO STEMS / DIRECT COPED WELD):**
-*   ABSOLUTE PROHIBITION: DO NOT add, render, or hallucinate reducers, bell reducers, conical fittings, pipe adapters, post transition collars, adapter cups, post-top pins, vertical stems, neck risers, saddle brackets, standoffs, or spacers between square posts and the round top rail.
-*   Square posts MUST connect directly into the round top rail with a continuous coped weld joint (zero gap).
-*   On staircases, the top of each square post is cut at the matching rake slope of the stairs so the square post body meets the round handrail tube directly. The handrail must NOT float above the post on a pin or stem.
-*   Any image showing a reducer fitting, bell collar, adapter cup, vertical pin, neck, or stem between post and rail is an immediate fabrication failure.`;
+            baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION (DIRECT FLUSH COPED WELD - NO REDUCERS):**
+* Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C.
+* The square posts must connect directly into the round top rail with a continuous flush coped weld joint (zero gap).
+* The square post top meets the underside of the round rail directly with no transition collar, adapter cup, stem, or reducer fitting.
+* Replicate this direct connection precisely as shown in the reference imagery.`;
         } else {
-            baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):** Square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
+            baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):**
+* Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C.
+* Square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
         }
 
         finalSystemInstruction = baseSystemInstruction;
@@ -199,7 +201,11 @@ export async function generateDesignWithNanoBanana(
             // PRIORITY FABRICATION DIRECTIVE (Highest Attention Layer)
             if (!isReducerRequired) {
                 parts.push({
-                    text: `[CRITICAL FABRICATION DIRECTIVE: DIRECT FLUSH COPED WELD - ZERO REDUCERS / ZERO STEMS]\nSquare posts MUST connect DIRECTLY into the round handrail with a flush coped weld (zero gap). The square post body directly meets the underside of the round rail. STRICTLY PROHIBITED: DO NOT add bell reducers, conical fittings, pipe adapters, transition collars, vertical pins, post stems, neck risers, saddle brackets, or standoffs between posts and rail under any circumstances.`
+                    text: `[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT FLUSH COPED WELD]\nPay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C. The round top rail rests DIRECTLY on the top of the square posts with a continuous flush coped weld (zero gap). The square post body directly meets the underside of the round rail with no reducer fittings or transition collars.`
+                });
+            } else {
+                parts.push({
+                    text: `[CRITICAL POST-TO-RAIL DIRECTIVE: REDUCER FITTINGS REQUIRED]\nPay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C. Square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`
                 });
             }
 
@@ -218,7 +224,7 @@ export async function generateDesignWithNanoBanana(
             } else {
                 const styleImages = styleInput.base64StyleImages;
                 if (styleImages.length > 0) {
-                    parts.push({ text: "**IMAGE B (Style):** The aesthetic reference (Style Guide)." });
+                    parts.push({ text: "**IMAGE B (Primary Style):** The primary aesthetic and design reference (Style Guide)." });
                     parts.push({
                         inlineData: {
                             mimeType: 'image/jpeg',
@@ -227,7 +233,7 @@ export async function generateDesignWithNanoBanana(
                     });
 
                     if (styleImages.length > 1) {
-                        parts.push({ text: "**IMAGE C (Specs):** Technical details and mounting logic." });
+                        parts.push({ text: "**IMAGE C (Detailed Context References):** Additional reference photos providing extra context, close-up fabrication details, hardware, and construction methods." });
                         for (let i = 1; i < styleImages.length; i++) {
                             parts.push({
                                 inlineData: {
@@ -246,7 +252,6 @@ export async function generateDesignWithNanoBanana(
             let reducerInstructionStep = "";
             let styleSpecsStep = "";
             let customNoteStep = "";
-            const extraNegativeTerms: string[] = [];
 
             if (typeof styleInput !== 'string' && styleInput.technicalSpecs) {
                 const specs = styleInput.technicalSpecs as any;
@@ -263,57 +268,31 @@ export async function generateDesignWithNanoBanana(
                 // POST-TO-RAIL REDUCER SPECIFICATION:
                 // DEFAULT IS DIRECT FLUSH WELD (NO REDUCERS) UNLESS EXPLICITLY SET TO TRUE!
                 if (isReducerRequired) {
-                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):** The square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
+                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):**
+- Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
+- The square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
                 } else {
-                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (STRICTLY DIRECT COPED WELD - ZERO REDUCERS / ZERO STEMS):**
-- The round top rail rests DIRECTLY on the top of the square posts with a continuous flush coped weld (zero gap).
+                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (DIRECT COPED WELD - NO REDUCERS):**
+- Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
+- The round top rail connects DIRECTLY to the top of each square post with a continuous flush coped weld (zero gap).
 - On stairs, the top of each square post is cut/mitered at the matching rake slope angle so the square post body meets the round rail tube directly.
-- ZERO GAP: The square post body directly contacts the underside of the round rail. The rail must NOT float above the post.
-- ABSOLUTE PROHIBITION: DO NOT generate reducers, bell reducers, conical fittings, pipe adapters, transition collars, vertical pins, post stems, neck risers, saddle brackets, standoffs, or spacers between square posts and the round top rail.`;
-                    extraNegativeTerms.push(
-                        "reducers",
-                        "bell reducers",
-                        "pipe reducers",
-                        "post transition collars",
-                        "adapter cups between post and rail",
-                        "conical pipe fittings",
-                        "pipe transition adapters",
-                        "flared post tops",
-                        "round-to-square adapter fittings",
-                        "post stem",
-                        "vertical pin",
-                        "pin top",
-                        "post neck",
-                        "rail riser",
-                        "saddle bracket",
-                        "handrail bracket on post top",
-                        "standoff between post and rail",
-                        "spacer between post and rail",
-                        "floating rail",
-                        "gap between post and rail"
-                    );
+- Replicate this seamless direct connection without adding any reducer fittings or transition collars.`;
                 }
 
                 if (specs.description && specs.description.trim()) {
                     styleSpecsStep = `\n    **STYLE SPECIFICATIONS:** ${specs.description.trim()}`;
-                    if (/\b(no|without|zero|remove|exclude)\s+reducers?\b/i.test(specs.description)) {
-                        extraNegativeTerms.push("reducers, bell reducers, pipe reducers, post transition collars, adapter cups between post and rail");
-                    }
                 }
 
                 if (specs.customNote && specs.customNote.trim()) {
                     customNoteStep = `\n    **ADMIN/TEST DIRECTIVE (STRICT OVERRIDE):** ${specs.customNote.trim()}`;
-                    if (/\b(no|without|zero|remove|exclude)\s+reducers?\b/i.test(specs.customNote)) {
-                        extraNegativeTerms.push("reducers, bell reducers, pipe reducers, post transition collars, adapter cups between post and rail");
-                    }
                 }
             }
 
             // 3. User Prompt construction
             let promptText = promptConfig?.userTemplate || `[INPUTS]
 : **IMAGE A (Canvas):** [User's Staircase]
-: **IMAGE B (Style):** [Style Reference]
-: **IMAGE C (Specs):** [The Tech Sheet]
+: **IMAGE B (Primary Style):** [Primary Style Reference]
+: **IMAGE C (Detailed Context References):** [Extra Context & Detailed References]
 
 ***
 
@@ -329,11 +308,11 @@ Analyze the User's Staircase.
     - *Decision:* Choose the layout that maximizes safety and matches the architectural style of Image A.
 
 ### PHASE 2: STYLE & MOUNTING EXECUTION
-Apply **IMAGE B (Style)** and **TECHNICAL SPECS**.
-1.  **Mounting Logic:**
+Apply **IMAGE B (Primary Style)**, **IMAGE C (Detailed Context References)**, and **TECHNICAL SPECS**.
+1.  **Mounting & Junction Logic:**
     ${mountingInstructionStep}
     ${reducerInstructionStep ? `\n    ${reducerInstructionStep}` : ''}
-2.  **Materials:** Extract the exact wood stain, metal finish, or glass type from **IMAGE B**. Apply this texture to your new model.${styleSpecsStep}
+2.  **Materials & Fabrication:** Extract the exact materials, finishes, and fabrication methods from **IMAGE B** and **IMAGE C**. Apply this texture and detail to your new model.${styleSpecsStep}
 3.  **Preservation:** DO NOT CHANGE THE STAIRS, WALLS, OR FLOORING of Image A (except for the healed areas from Phase 1).
 
 ### PHASE 3: EXECUTION
@@ -344,8 +323,8 @@ Renovate **IMAGE A**.
 
 **FINAL CHECK:**
 - Is the old rail gone?
-- Is the new rail mounting (Shoe vs Direct) correct according to Image B?
-- Is the post-to-rail junction (Direct vs Reducer) correct according to the specification?
+- Is the new rail mounting (Shoe vs Direct) correct according to Image B and Image C?
+- Did you examine the post-to-rail junction in Image B and Image C and follow the connection specification (Direct vs Reducer)?
 - Is the background preserved?`;
 
             // If user has a custom template that includes placeholders, replace them.
@@ -389,19 +368,15 @@ Renovate **IMAGE A**.
 
             // Prepend Critical Fabrication Mandate to promptText
             if (!isReducerRequired) {
-                promptText = `[CRITICAL FABRICATION MANDATE: DIRECT COPED WELD / ZERO REDUCERS / ZERO STEMS]\n- Square posts must connect DIRECTLY into the round top rail with a continuous coped weld (zero gap).\n- On stairs, square post tops are cut/mitered at the staircase rake angle so the post body directly meets the underside of the round rail.\n- ZERO GAP: The square post body directly contacts the round rail tube.\n- STRICTLY PROHIBITED: bell reducers, conical adapters, transition collars, cups, vertical pins, post stems, neck risers, saddle brackets, or standoffs between posts and rail.\n***\n\n` + promptText;
-                promptText += `\n\n**FINAL VERIFICATION:** Confirm there are NO reducers, transition collars, bell adapters, vertical pins, post stems, neck risers, or saddle brackets between square posts and round top rail. Posts must meet the rail directly with zero gap.`;
+                promptText = `[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT COPED WELD - NO REDUCERS]\n- Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C.\n- Square posts must connect DIRECTLY into the round top rail with a continuous coped weld (zero gap).\n- Do not add reducer fittings or transition collars.\n***\n\n` + promptText;
+                promptText += `\n\n**FINAL VERIFICATION:** Confirm you examined the connection point in both IMAGE B and IMAGE C and rendered direct post-to-rail joints with zero reducers.`;
+            } else {
+                promptText = `[CRITICAL POST-TO-RAIL DIRECTIVE: REDUCER FITTINGS REQUIRED]\n- Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C.\n- Square posts must connect to the round top rail using square-to-round reducer fittings.\n***\n\n` + promptText;
+                promptText += `\n\n**FINAL VERIFICATION:** Confirm you examined the connection point in both IMAGE B and IMAGE C and rendered reducer fittings at the top of each square post.`;
             }
 
-            // Negative Constraints
+            // Negative Constraints (keep only clean user-defined negative prompt, no keyword dumping)
             let combinedNegative = (promptConfig?.negative_prompt || "").trim();
-            if (extraNegativeTerms.length > 0) {
-                const uniqueExtra = Array.from(new Set(extraNegativeTerms)).join(", ");
-                combinedNegative = combinedNegative 
-                    ? `${combinedNegative}, ${uniqueExtra}`
-                    : uniqueExtra;
-            }
-
             if (combinedNegative) {
                 promptText += `\n\nNEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): ${combinedNegative}`;
             }
