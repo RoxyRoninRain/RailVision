@@ -1,3 +1,5 @@
+import fs from 'fs';
+
 // STRICT LAZY LOAD: Do NOT import types from @google-cloud/vertexai at top level
 // This prevents the build system from trying to resolve the module during static analysis.
 
@@ -38,9 +40,13 @@ interface GoogleAuthResult {
 function getGoogleAuthOptions(): GoogleAuthResult {
     if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
         try {
-            const credsStr = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-            const isBase64 = !credsStr.trim().startsWith('{');
-            const jsonStr = isBase64 ? Buffer.from(credsStr, 'base64').toString('utf-8') : credsStr;
+            const credsStr = process.env.GOOGLE_APPLICATION_CREDENTIALS.trim();
+            let jsonStr = credsStr;
+            if (fs.existsSync(credsStr)) {
+                jsonStr = fs.readFileSync(credsStr, 'utf8');
+            } else if (!credsStr.startsWith('{')) {
+                jsonStr = Buffer.from(credsStr, 'base64').toString('utf-8');
+            }
             const creds = JSON.parse(jsonStr);
             console.log('[DEBUG] Credentials parsed successfully (Lazy Load)');
             return {
@@ -157,12 +163,13 @@ export async function generateDesignWithNanoBanana(
             .replace('{{DATE}}', new Date().toISOString().split('T')[0]);
 
         if (!isReducerRequired) {
-            baseSystemInstruction += `\n\n**CRITICAL FABRICATION MANDATE (ZERO REDUCERS / DIRECT FLUSH WELD):**
-*   ABSOLUTE PROHIBITION: DO NOT add, render, or hallucinate reducers, bell reducers, conical fittings, pipe adapters, or transition collars between square posts and the round top rail.
-*   Square posts MUST connect directly into the round top rail with a clean, flat coped/flush weld joint.
-*   Any image showing a reducer fitting, bell collar, or adapter cup between post and rail is an immediate fabrication defect.`;
+            baseSystemInstruction += `\n\n**CRITICAL FABRICATION MANDATE (ZERO REDUCERS / ZERO STEMS / DIRECT COPED WELD):**
+*   ABSOLUTE PROHIBITION: DO NOT add, render, or hallucinate reducers, bell reducers, conical fittings, pipe adapters, post transition collars, adapter cups, post-top pins, vertical stems, neck risers, saddle brackets, standoffs, or spacers between square posts and the round top rail.
+*   Square posts MUST connect directly into the round top rail with a continuous coped weld joint (zero gap).
+*   On staircases, the top of each square post is cut at the matching rake slope of the stairs so the square post body meets the round handrail tube directly. The handrail must NOT float above the post on a pin or stem.
+*   Any image showing a reducer fitting, bell collar, adapter cup, vertical pin, neck, or stem between post and rail is an immediate fabrication failure.`;
         } else {
-            baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION:** Square posts must connect to the round top rail using reducer fittings / transition collars at the top of each post.`;
+            baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):** Square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
         }
 
         finalSystemInstruction = baseSystemInstruction;
@@ -192,7 +199,7 @@ export async function generateDesignWithNanoBanana(
             // PRIORITY FABRICATION DIRECTIVE (Highest Attention Layer)
             if (!isReducerRequired) {
                 parts.push({
-                    text: `[CRITICAL FABRICATION DIRECTIVE: DIRECT FLUSH MOUNT - NO REDUCERS]\nSquare posts MUST connect DIRECTLY into the round handrail with a flush coped weld. STRICTLY PROHIBITED: DO NOT add bell reducers, conical fittings, pipe adapters, or transition collars between posts and rail under any circumstances.`
+                    text: `[CRITICAL FABRICATION DIRECTIVE: DIRECT FLUSH COPED WELD - ZERO REDUCERS / ZERO STEMS]\nSquare posts MUST connect DIRECTLY into the round handrail with a flush coped weld (zero gap). The square post body directly meets the underside of the round rail. STRICTLY PROHIBITED: DO NOT add bell reducers, conical fittings, pipe adapters, transition collars, vertical pins, post stems, neck risers, saddle brackets, or standoffs between posts and rail under any circumstances.`
                 });
             }
 
@@ -258,10 +265,11 @@ export async function generateDesignWithNanoBanana(
                 if (isReducerRequired) {
                     reducerInstructionStep = `**POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):** The square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
                 } else {
-                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (STRICTLY DIRECT FLUSH MOUNT - ZERO REDUCERS):**
-- The top rail connects DIRECTLY to the square posts with a clean, flat flush-weld or coped joint.
-- ABSOLUTE PROHIBITION: DO NOT generate reducers, bell reducers, conical fittings, pipe adapters, or transition collars between square posts and the round top rail.
-- The junction between square post and round top rail MUST BE SEAMLESS AND DIRECT. NO ADAPTER CUPS.`;
+                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (STRICTLY DIRECT COPED WELD - ZERO REDUCERS / ZERO STEMS):**
+- The round top rail rests DIRECTLY on the top of the square posts with a continuous flush coped weld (zero gap).
+- On stairs, the top of each square post is cut/mitered at the matching rake slope angle so the square post body meets the round rail tube directly.
+- ZERO GAP: The square post body directly contacts the underside of the round rail. The rail must NOT float above the post.
+- ABSOLUTE PROHIBITION: DO NOT generate reducers, bell reducers, conical fittings, pipe adapters, transition collars, vertical pins, post stems, neck risers, saddle brackets, standoffs, or spacers between square posts and the round top rail.`;
                     extraNegativeTerms.push(
                         "reducers",
                         "bell reducers",
@@ -271,7 +279,18 @@ export async function generateDesignWithNanoBanana(
                         "conical pipe fittings",
                         "pipe transition adapters",
                         "flared post tops",
-                        "round-to-square adapter fittings"
+                        "round-to-square adapter fittings",
+                        "post stem",
+                        "vertical pin",
+                        "pin top",
+                        "post neck",
+                        "rail riser",
+                        "saddle bracket",
+                        "handrail bracket on post top",
+                        "standoff between post and rail",
+                        "spacer between post and rail",
+                        "floating rail",
+                        "gap between post and rail"
                     );
                 }
 
@@ -370,8 +389,8 @@ Renovate **IMAGE A**.
 
             // Prepend Critical Fabrication Mandate to promptText
             if (!isReducerRequired) {
-                promptText = `[CRITICAL FABRICATION MANDATE: DIRECT FLUSH MOUNT / ZERO REDUCERS]\n- Square posts must connect DIRECTLY to the round top rail with a flat, coped flush weld.\n- STRICTLY PROHIBITED: bell reducers, conical adapters, transition collars, or cups between posts and rail.\n***\n\n` + promptText;
-                promptText += `\n\n**FINAL VERIFICATION:** Confirm there are NO reducers, transition collars, or bell adapters between square posts and round top rail. Posts must meet the rail flush.`;
+                promptText = `[CRITICAL FABRICATION MANDATE: DIRECT COPED WELD / ZERO REDUCERS / ZERO STEMS]\n- Square posts must connect DIRECTLY into the round top rail with a continuous coped weld (zero gap).\n- On stairs, square post tops are cut/mitered at the staircase rake angle so the post body directly meets the underside of the round rail.\n- ZERO GAP: The square post body directly contacts the round rail tube.\n- STRICTLY PROHIBITED: bell reducers, conical adapters, transition collars, cups, vertical pins, post stems, neck risers, saddle brackets, or standoffs between posts and rail.\n***\n\n` + promptText;
+                promptText += `\n\n**FINAL VERIFICATION:** Confirm there are NO reducers, transition collars, bell adapters, vertical pins, post stems, neck risers, or saddle brackets between square posts and round top rail. Posts must meet the rail directly with zero gap.`;
             }
 
             // Negative Constraints

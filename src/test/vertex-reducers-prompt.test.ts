@@ -76,20 +76,21 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         // 1. Verify systemInstruction is present in request body
         expect(capturedRequestBody.systemInstruction).toBeDefined();
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('CRITICAL FABRICATION MANDATE (ZERO REDUCERS / DIRECT FLUSH WELD)');
+        expect(sysText).toContain('CRITICAL FABRICATION MANDATE (ZERO REDUCERS / ZERO STEMS / DIRECT COPED WELD)');
         expect(sysText).toContain('Square posts MUST connect directly into the round top rail');
-        expect(sysText).toContain('DO NOT add, render, or hallucinate reducers, bell reducers, conical fittings, pipe adapters, or transition collars');
+        expect(sysText).toContain('DO NOT add, render, or hallucinate reducers, bell reducers, conical fittings, pipe adapters, post transition collars');
 
         // 2. Verify priority directive is at the start of parts
         const parts = capturedRequestBody.contents[0].parts;
         const priorityPart = parts[0];
-        expect(priorityPart.text).toContain('[CRITICAL FABRICATION DIRECTIVE: DIRECT FLUSH MOUNT - NO REDUCERS]');
+        expect(priorityPart.text).toContain('[CRITICAL FABRICATION DIRECTIVE: DIRECT FLUSH COPED WELD - ZERO REDUCERS / ZERO STEMS]');
 
         // 3. Verify user prompt text contains mandate, negative constraints, and final check
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL FABRICATION MANDATE: DIRECT FLUSH MOUNT'));
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL FABRICATION MANDATE: DIRECT COPED WELD'));
         expect(promptPart).toBeDefined();
         expect(promptPart.text).toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED):');
         expect(promptPart.text).toContain('reducers, bell reducers, pipe reducers, post transition collars');
+        expect(promptPart.text).toContain('post stem');
         expect(promptPart.text).toContain('**FINAL VERIFICATION:** Confirm there are NO reducers');
     });
 
@@ -111,13 +112,14 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(capturedRequestBody).toBeDefined();
 
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('CRITICAL FABRICATION MANDATE (ZERO REDUCERS / DIRECT FLUSH WELD)');
+        expect(sysText).toContain('CRITICAL FABRICATION MANDATE (ZERO REDUCERS / ZERO STEMS / DIRECT COPED WELD)');
 
         const parts = capturedRequestBody.contents[0].parts;
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL FABRICATION MANDATE: DIRECT FLUSH MOUNT'));
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL FABRICATION MANDATE: DIRECT COPED WELD'));
         expect(promptPart).toBeDefined();
         expect(promptPart.text).toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED):');
         expect(promptPart.text).toContain('bell reducers');
+        expect(promptPart.text).toContain('post stem');
     });
 
     it('instructs reducer fittings when hasReducers is explicitly true', async () => {
@@ -138,7 +140,7 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(capturedRequestBody).toBeDefined();
 
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('Square posts must connect to the round top rail using reducer fittings');
+        expect(sysText).toContain('Square posts must connect to the round top rail using square-to-round reducer fittings');
         expect(sysText).not.toContain('CRITICAL FABRICATION MANDATE (ZERO REDUCERS');
 
         const parts = capturedRequestBody.contents[0].parts;
