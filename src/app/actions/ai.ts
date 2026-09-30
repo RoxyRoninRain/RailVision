@@ -389,14 +389,33 @@ export async function generateDesign(formData: FormData) {
         const buffer = Buffer.from(arrayBuffer);
         const base64Image = buffer.toString('base64');
 
-        let styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean; description?: string } } = style;
+        let styleInput: string | { 
+            base64StyleImages: string[]; 
+            technicalSpecs?: { 
+                hasBottomRail?: boolean; 
+                hasReducers?: boolean | null;
+                description?: string; 
+                customNote?: string;
+            } 
+        } = style;
         const styleId = formData.get('styleId') as string;
         const styleDescription = formData.get('style_description') as string;
+        const customPromptNote = (formData.get('prompt') as string) || (formData.get('custom_prompt_note') as string);
 
         if (styleFile) {
             const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
             const styleBase64 = styleBuffer.toString('base64');
-            styleInput = { base64StyleImages: [styleBase64] };
+            const formBottomRail = formData.get('has_bottom_rail');
+            const formReducers = formData.get('has_reducers');
+            styleInput = { 
+                base64StyleImages: [styleBase64],
+                technicalSpecs: {
+                    hasBottomRail: (formBottomRail !== null && formBottomRail !== undefined && formBottomRail !== '') ? formBottomRail === 'true' : undefined,
+                    hasReducers: (formReducers !== null && formReducers !== undefined && formReducers !== '') ? formReducers === 'true' : undefined,
+                    description: styleDescription || undefined,
+                    customNote: customPromptNote?.trim() || undefined
+                }
+            };
             console.log('[DEBUG] Using CUSTOM Style Image for Nano Banana fusion');
         } else if (styleId) {
             // Priority 2: Check for Gallery in DB via styleId
@@ -404,7 +423,7 @@ export async function generateDesign(formData: FormData) {
                 const styleLookupClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
                 const { data: styleData } = await styleLookupClient
                     .from('portfolio')
-                    .select('reference_images, image_url, has_bottom_rail, description')
+                    .select('reference_images, image_url, has_bottom_rail, has_reducers, description')
                     .eq('id', styleId)
                     .single();
 
@@ -457,11 +476,18 @@ export async function generateDesign(formData: FormData) {
                                 ? formBottomRail === 'true'
                                 : styleData.has_bottom_rail;
 
+                            const formReducers = formData.get('has_reducers');
+                            const hasReducersFinal = (formReducers !== null && formReducers !== undefined && formReducers !== '')
+                                ? formReducers === 'true'
+                                : styleData.has_reducers;
+
                             styleInput = {
                                 base64StyleImages: validBase64s,
                                 technicalSpecs: {
                                     hasBottomRail: hasBottomRailFinal,
-                                    description: styleDescription || styleData.description
+                                    hasReducers: hasReducersFinal,
+                                    description: styleDescription || styleData.description,
+                                    customNote: customPromptNote?.trim() || undefined
                                 }
                             };
                             console.log(`[DEBUG] Successfully loaded ${validBase64s.length} style images for multi-shot generation.`);
@@ -503,7 +529,17 @@ export async function generateDesign(formData: FormData) {
 
                     if (styleBuffer) {
                         const styleBase64 = styleBuffer.toString('base64');
-                        styleInput = { base64StyleImages: [styleBase64] }; // Wrapped in array
+                        const formBottomRail = formData.get('has_bottom_rail');
+                        const formReducers = formData.get('has_reducers');
+                        styleInput = { 
+                            base64StyleImages: [styleBase64],
+                            technicalSpecs: {
+                                hasBottomRail: (formBottomRail !== null && formBottomRail !== undefined && formBottomRail !== '') ? formBottomRail === 'true' : undefined,
+                                hasReducers: (formReducers !== null && formReducers !== undefined && formReducers !== '') ? formReducers === 'true' : undefined,
+                                description: styleDescription || undefined,
+                                customNote: customPromptNote?.trim() || undefined
+                            }
+                        };
                         console.log(`[DEBUG] Successfully loaded style image for Nano Banana fusion`);
                     } else {
                         console.warn('[DEBUG] Could not load style image from URL, falling back to text.');
@@ -514,6 +550,15 @@ export async function generateDesign(formData: FormData) {
                 }
             } else {
                 console.log('[DEBUG] No style visuals found. Using Style Text only:', style);
+                if (customPromptNote || styleDescription) {
+                    styleInput = {
+                        base64StyleImages: [],
+                        technicalSpecs: {
+                            description: styleDescription || style,
+                            customNote: customPromptNote?.trim() || undefined
+                        }
+                    };
+                }
             }
         }
 

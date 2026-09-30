@@ -133,6 +133,7 @@ export async function generateDesignWithNanoBanana(
 **STRICT PROHIBITIONS (FATAL ERRORS):**
 *   **NO STYLE TRANSFER:** Do NOT output Image B. Your canvas is Image A.
 *   **NO GHOSTING:** Spindles must NEVER pass through a Shoe Rail.
+*   **NO UNWANTED FITTINGS:** Do NOT invent or add reducers, transition collars, or adapter cups between posts and handrails unless explicitly shown in the reference or instructed.
 *   **NO WARPING:** Do not change the angle or number of steps.
 *   **NO COLLAGES:** Single full-screen view only.
 *   **NO HALLUCINATIONS:** FAST FAIL if you create windows, doors, or furniture that do not exist.
@@ -201,12 +202,15 @@ export async function generateDesignWithNanoBanana(
             }
 
 
-            // DYNAMIC MOUNTING INSTRUCTION
+            // DYNAMIC FABRICATION & MOUNTING INSTRUCTIONS
             let mountingInstructionStep = "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2."; // Default generic fallback
-            let materialInstructionStep = "";
+            let reducerInstructionStep = "";
+            let styleSpecsStep = "";
+            let customNoteStep = "";
+            const extraNegativeTerms: string[] = [];
 
             if (typeof styleInput !== 'string' && styleInput.technicalSpecs) {
-                const specs = styleInput.technicalSpecs;
+                const specs = styleInput.technicalSpecs as any;
                 if (specs.hasBottomRail !== undefined && specs.hasBottomRail !== null) {
                     if (specs.hasBottomRail) {
                         // CASE 1: SHOE RAIL REQUIRED
@@ -216,8 +220,33 @@ export async function generateDesignWithNanoBanana(
                         mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each spindle must drill INDIVIDUALLY into the stair tread/floor.`;
                     }
                 }
-                if (specs.description) {
-                    materialInstructionStep = `\n    **MATERIAL SPECS:** ${specs.description}`;
+
+                // POST-TO-RAIL REDUCER SPECIFICATION
+                if (specs.hasReducers !== undefined && specs.hasReducers !== null) {
+                    if (specs.hasReducers === false) {
+                        // STRICT DIRECT MOUNT / NO REDUCERS
+                        reducerInstructionStep = `**POST-TO-RAIL JUNCTION (DIRECT / NO REDUCERS):** The top rail connects directly to the square posts with a flush, coped, or flat-welded joint. STRICTLY PROHIBITED: DO NOT generate reducers, bell reducers, conical fittings, rosettes, or transition collars between square posts and the round top rail. The connection must be direct and seamless.`;
+                        extraNegativeTerms.push("reducers, bell reducers, pipe reducers, post transition collars, adapter cups between post and rail, flared post tops");
+                    } else if (specs.hasReducers === true) {
+                        // REDUCERS REQUIRED
+                        reducerInstructionStep = `**POST-TO-RAIL JUNCTION (REDUCER FITTINGS):** The square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
+                    }
+                } else {
+                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION:** Match the reference image. If the reference shows square posts meeting a round rail directly without visible fittings, use a clean flush direct joint and DO NOT add reducers.`;
+                }
+
+                if (specs.description && specs.description.trim()) {
+                    styleSpecsStep = `\n    **STYLE SPECIFICATIONS:** ${specs.description.trim()}`;
+                    if (/\b(no|without|zero|remove|exclude)\s+reducers?\b/i.test(specs.description)) {
+                        extraNegativeTerms.push("reducers, bell reducers, pipe reducers, post transition collars, adapter cups between post and rail");
+                    }
+                }
+
+                if (specs.customNote && specs.customNote.trim()) {
+                    customNoteStep = `\n    **ADMIN/TEST DIRECTIVE (STRICT OVERRIDE):** ${specs.customNote.trim()}`;
+                    if (/\b(no|without|zero|remove|exclude)\s+reducers?\b/i.test(specs.customNote)) {
+                        extraNegativeTerms.push("reducers, bell reducers, pipe reducers, post transition collars, adapter cups between post and rail");
+                    }
                 }
             }
 
@@ -244,7 +273,8 @@ Analyze the User's Staircase.
 Apply **IMAGE B (Style)** and **TECHNICAL SPECS**.
 1.  **Mounting Logic:**
     ${mountingInstructionStep}
-2.  **Materials:** Extract the exact wood stain, metal finish, or glass type from **IMAGE B**. Apply this texture to your new model.${materialInstructionStep}
+    ${reducerInstructionStep ? `\n    ${reducerInstructionStep}` : ''}
+2.  **Materials:** Extract the exact wood stain, metal finish, or glass type from **IMAGE B**. Apply this texture to your new model.${styleSpecsStep}
 3.  **Preservation:** DO NOT CHANGE THE STAIRS, WALLS, OR FLOORING of Image A (except for the healed areas from Phase 1).
 
 ### PHASE 3: EXECUTION
@@ -256,13 +286,19 @@ Renovate **IMAGE A**.
 **FINAL CHECK:**
 - Is the old rail gone?
 - Is the new rail mounting (Shoe vs Direct) correct according to Image B?
+- Is the post-to-rail junction (Direct vs Reducer) correct according to the specification?
 - Is the background preserved?`;
 
-            // If user has a custom template that includes the placeholder, replace it.
+            // If user has a custom template that includes placeholders, replace them.
             if (promptText.includes('{{mounting_logic}}')) {
                 promptText = promptText.replace('{{mounting_logic}}', mountingInstructionStep);
             }
-
+            if (promptText.includes('{{reducers_logic}}') || promptText.includes('{{reducer_logic}}')) {
+                promptText = promptText.replace(/\{\{reducers?_logic\}\}/g, reducerInstructionStep);
+            }
+            if (promptText.includes('{{material_specs}}') || promptText.includes('{{description}}')) {
+                promptText = promptText.replace(/\{\{(material_specs|description)\}\}/g, styleSpecsStep);
+            }
 
             const styleDesc = typeof styleInput === 'string' ? styleInput : "The attached Style Reference Images";
             if (promptText.includes('{{style}}')) {
@@ -271,16 +307,38 @@ Renovate **IMAGE A**.
                 promptText += `\n\nTarget Style Description: "${styleInput}"`;
             }
 
-            // FALLBACK INJECTION (For older custom prompts without {{mounting_logic}})
-            // If the prompt DOES NOT contain the new placeholder, we append the logic to ensure safety.
-            if (!promptText.includes('{{mounting_logic}}') && promptConfig?.userTemplate && mountingInstructionStep !== "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2.") {
-                // The user has a custom template but didn't put the placeholder.
-                // We append the instruction to the rules section if possible, or end of prompt.
-                promptText += `\n\n**CRITICAL MOUNTING OVERRIDE:**\n${mountingInstructionStep}`;
+            // CRITICAL FABRICATION OVERRIDES (Ensure these are never dropped regardless of template used)
+            const overrides: string[] = [];
+            if (!promptText.includes(mountingInstructionStep) && mountingInstructionStep !== "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2.") {
+                overrides.push(mountingInstructionStep);
+            }
+            if (reducerInstructionStep && !promptText.includes(reducerInstructionStep)) {
+                overrides.push(reducerInstructionStep);
             }
 
-            if (promptConfig?.negative_prompt) {
-                promptText += `\n\nNEGATIVE CONSTRAINTS: ${promptConfig.negative_prompt}`;
+            if (overrides.length > 0) {
+                promptText += `\n\n**CRITICAL FABRICATION OVERRIDES:**\n${overrides.map(o => `- ${o}`).join('\n')}`;
+            }
+
+            if (styleSpecsStep && !promptText.includes(styleSpecsStep)) {
+                promptText += `\n\n${styleSpecsStep.trim()}`;
+            }
+
+            if (customNoteStep) {
+                promptText += `\n\n${customNoteStep.trim()}`;
+            }
+
+            // Negative Constraints
+            let combinedNegative = (promptConfig?.negative_prompt || "").trim();
+            if (extraNegativeTerms.length > 0) {
+                const uniqueExtra = Array.from(new Set(extraNegativeTerms)).join(", ");
+                combinedNegative = combinedNegative 
+                    ? `${combinedNegative}, ${uniqueExtra}`
+                    : uniqueExtra;
+            }
+
+            if (combinedNegative) {
+                promptText += `\n\nNEGATIVE CONSTRAINTS: ${combinedNegative}`;
             }
 
             parts.push({ text: promptText });

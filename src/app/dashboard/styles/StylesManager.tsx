@@ -256,6 +256,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const [priceMin, setPriceMin] = useState('');
     const [priceMax, setPriceMax] = useState('');
     const [hasBottomRail, setHasBottomRail] = useState(true); // Default to True (Safe Default)
+    const [hasReducers, setHasReducers] = useState(false); // Default to False (Direct / No Reducers)
     const [showMainAssetPicker, setShowMainAssetPicker] = useState(false);
     const [showRefAssetPicker, setShowRefAssetPicker] = useState(false);
     const [isLoadingRefAssets, setIsLoadingRefAssets] = useState(false);
@@ -355,6 +356,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
             if (priceMin) formData.append('price_min', priceMin);
             if (priceMax) formData.append('price_max', priceMax);
             formData.append('has_bottom_rail', hasBottomRail.toString());
+            formData.append('has_reducers', hasReducers.toString());
             if (isAdmin && adminTenantId) formData.append('admin_tenant_id', adminTenantId);
 
             // Client-Side Upload for Scalability vs Admin Server Upload
@@ -444,6 +446,22 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                         <label htmlFor="new_has_bottom_rail" className="text-white text-sm cursor-pointer select-none">
                             Bottom Rail (Shoe Rail) Required
                         </label>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-[#050505] border border-[#333] rounded">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="new_has_reducers"
+                                checked={hasReducers}
+                                onChange={e => setHasReducers(e.target.checked)}
+                                className="w-5 h-5 accent-[var(--primary)]"
+                            />
+                            <label htmlFor="new_has_reducers" className="text-white text-sm cursor-pointer select-none">
+                                Post-to-Rail Reducers / Adapters Required
+                            </label>
+                        </div>
+                        <span className="text-[11px] text-gray-500 font-mono">(Unchecked = Direct Flush Weld)</span>
                     </div>
 
                     {/* Main Image */}
@@ -567,6 +585,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     const [priceMin, setPriceMin] = useState(style.price_per_ft_min?.toString() || '');
     const [priceMax, setPriceMax] = useState(style.price_per_ft_max?.toString() || '');
     const [hasBottomRail, setHasBottomRail] = useState(style.has_bottom_rail !== false); // Default true unless explicitly false
+    const [hasReducers, setHasReducers] = useState(style.has_reducers === true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0); // Progress
 
@@ -754,6 +773,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             formData.append('price_min', priceMin);
             formData.append('price_max', priceMax);
             formData.append('has_bottom_rail', hasBottomRail.toString());
+            formData.append('has_reducers', hasReducers.toString());
             if (isAdmin && adminTenantId) formData.append('admin_tenant_id', adminTenantId);
 
             // Main Image Handling
@@ -1050,6 +1070,22 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                         <label htmlFor="edit_has_bottom_rail" className="text-white text-sm cursor-pointer select-none">
                             Bottom Rail (Shoe Rail) Required
                         </label>
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 bg-[#050505] border border-[#333] rounded">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="checkbox"
+                                id="edit_has_reducers"
+                                checked={hasReducers}
+                                onChange={e => setHasReducers(e.target.checked)}
+                                className="w-5 h-5 accent-[var(--primary)]"
+                            />
+                            <label htmlFor="edit_has_reducers" className="text-white text-sm cursor-pointer select-none">
+                                Post-to-Rail Reducers / Adapters Required
+                            </label>
+                        </div>
+                        <span className="text-[11px] text-gray-500 font-mono">(Unchecked = Direct Flush Weld)</span>
                     </div>
                     <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Description</label>

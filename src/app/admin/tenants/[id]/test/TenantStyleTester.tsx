@@ -124,6 +124,7 @@ export default function TenantStyleTester({
 
     // Troubleshooting / Technical Specs overrides
     const [bottomRailOverride, setBottomRailOverride] = useState<'default' | 'with_rail' | 'without_rail'>('default');
+    const [reducerOverride, setReducerOverride] = useState<'default' | 'without_reducers' | 'with_reducers'>('default');
     const [customPromptNote, setCustomPromptNote] = useState<string>('');
     const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -321,6 +322,12 @@ export default function TenantStyleTester({
                 formData.append('has_bottom_rail', 'true');
             } else if (bottomRailOverride === 'without_rail') {
                 formData.append('has_bottom_rail', 'false');
+            }
+
+            if (reducerOverride === 'with_reducers') {
+                formData.append('has_reducers', 'true');
+            } else if (reducerOverride === 'without_reducers') {
+                formData.append('has_reducers', 'false');
             }
 
             if (customPromptNote.trim()) {
@@ -728,6 +735,8 @@ export default function TenantStyleTester({
 
                                                 <div className="flex items-center gap-2 mt-2 text-[10px] font-mono text-gray-500">
                                                     <span>{style.has_bottom_rail ? 'Shoe Rail' : 'Direct Mount'}</span>
+                                                    <span>•</span>
+                                                    <span>{style.has_reducers === true ? 'With Reducers' : style.has_reducers === false ? 'No Reducers' : 'Reducers: Default'}</span>
                                                     {style.price_per_ft_min && (
                                                         <>
                                                             <span>•</span>
@@ -816,6 +825,30 @@ export default function TenantStyleTester({
                                                 onClick={() => setBottomRailOverride(opt.id as any)}
                                                 className={`p-2 rounded border text-center transition-all ${
                                                     bottomRailOverride === opt.id
+                                                        ? 'bg-emerald-950/60 border-emerald-500 text-white font-bold'
+                                                        : 'bg-black/50 border-white/10 text-gray-400 hover:text-white'
+                                                }`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-gray-400 block mb-1">Post-to-Rail Reducers Override:</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[
+                                            { id: 'default', label: 'Use Style Default' },
+                                            { id: 'without_reducers', label: 'Force Direct (No Reducers)' },
+                                            { id: 'with_reducers', label: 'Force Reducers' }
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => setReducerOverride(opt.id as any)}
+                                                className={`p-2 rounded border text-center transition-all ${
+                                                    reducerOverride === opt.id
                                                         ? 'bg-emerald-950/60 border-emerald-500 text-white font-bold'
                                                         : 'bg-black/50 border-white/10 text-gray-400 hover:text-white'
                                                 }`}
