@@ -1072,6 +1072,158 @@ export async function deleteTenant(tenantId: string) {
     }
 }
 
+// UPDATE TENANT CREDENTIALS & PROFILE
+export async function updateTenantCredentials(
+    tenantId: string,
+    data: { email?: string; shopName?: string; phone?: string; website?: string }
+) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    try {
+        const { email, shopName, phone, website } = data;
+
+        // 1. Fetch current profile
+        const { data: currentProfile, error: profileFetchErr } = await supabase
+            .from('profiles')
+            .select('email, shop_name')
+            .eq('id', tenantId)
+            .single();
+
+        if (profileFetchErr) {
+            return { error: 'Tenant profile not found: ' + profileFetchErr.message };
+        }
+
+        const cleanEmail = email?.trim().toLowerCase();
+
+        // 2. If email is changing, update auth.users
+        if (cleanEmail && cleanEmail !== currentProfile?.email?.toLowerCase()) {
+            const { error: authError } = await supabase.auth.admin.updateUserById(tenantId, {
+                email: cleanEmail,
+                email_confirm: true,
+                user_metadata: {
+                    ...(shopName ? { full_name: shopName.trim() } : {}),
+                }
+            });
+
+            if (authError) {
+                console.error('Auth email update error:', authError);
+                return { error: 'Failed to update login email: ' + authError.message };
+            }
+        } else if (shopName) {
+            // Update auth metadata name if shopName changed
+            await supabase.auth.admin.updateUserById(tenantId, {
+                user_metadata: { full_name: shopName.trim() }
+            });
+        }
+
+        // 3. Update public.profiles
+        const profileUpdates: Record<string, any> = {
+            updated_at: new Date().toISOString(),
+        };
+
+        if (cleanEmail) profileUpdates.email = cleanEmail;
+        if (shopName !== undefined) profileUpdates.shop_name = shopName.trim();
+        if (phone !== undefined) profileUpdates.phone = phone.trim();
+        if (website !== undefined) profileUpdates.website = website.trim();
+
+        const { error: profileUpdateErr } = await supabase
+            .from('profiles')
+            .update(profileUpdates)
+            .eq('id', tenantId);
+
+        if (profileUpdateErr) {
+            console.error('Profile update error:', profileUpdateErr);
+            return { error: 'Failed to update profile record: ' + profileUpdateErr.message };
+        }
+
+        return {
+            success: true,
+            updated: {
+                email: cleanEmail || currentProfile?.email,
+                shop_name: shopName?.trim() || currentProfile?.shop_name,
+                phone,
+                website,
+            }
+        };
+    } catch (error: any) {
+        console.error('updateTenantCredentials Failed:', error);
+        return { error: error.message || 'Failed to update tenant' };
+    }
+}
+
+// SEND PASSWORD RESET TO TENANT
+export async function sendTenantPasswordReset(tenantId: string) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    try {
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('email, shop_name')
+            .eq('id', tenantId)
+            .single();
+
+        if (profileError || !profile?.email) {
+            return { error: 'Tenant profile or email not found' };
+        }
+
+        const email = profile.email.trim();
+
+        // Build redirect URL based on request headers
+        const { headers } = await import('next/headers');
+        const headersList = await headers();
+        const host = headersList.get('x-forwarded-host') || headersList.get('host') || 'localhost:3000';
+        const proto = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+        const origin = `${proto}://${host}`;
+        const redirectTo = `${origin}/auth/callback?next=/reset-password`;
+
+        // 1. Send reset email via Supabase Auth
+        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+            redirectTo,
+        });
+
+        // 2. Generate direct link as fallback/convenience for admin
+        let directLink: string | null = null;
+        try {
+            const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+                type: 'recovery',
+                email,
+                options: {
+                    redirectTo,
+                },
+            });
+
+            if (!linkError && linkData?.properties?.action_link) {
+                directLink = linkData.properties.action_link;
+            }
+        } catch (linkGenErr) {
+            console.warn('Could not generate direct recovery link:', linkGenErr);
+        }
+
+        if (resetError && !directLink) {
+            throw resetError;
+        }
+
+        return {
+            success: true,
+            email,
+            directLink,
+            emailSent: !resetError,
+            errorNote: resetError ? resetError.message : undefined,
+        };
+    } catch (error: any) {
+        console.error('sendTenantPasswordReset Failed:', error);
+        return { error: error.message || 'Failed to send password reset' };
+    }
+}
+
 export async function testTenantStyle(formData: FormData) {
     const isAdmin = await checkIsAdmin();
     if (!isAdmin) return { error: 'Unauthorized: Admin privileges required.' };

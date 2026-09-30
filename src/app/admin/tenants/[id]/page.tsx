@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { getTenantDetails, updateSubscriptionStatus, TenantDetailsResult } from '@/app/admin/actions';
+import { getTenantDetails, updateSubscriptionStatus, updateTenantCredentials, sendTenantPasswordReset, TenantDetailsResult } from '@/app/admin/actions';
 import { 
     ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, ExternalLink, 
     Palette, Sparkles, CreditCard, DollarSign, Clock, AlertTriangle, 
     CheckCircle2, TrendingUp, Cpu, BarChart3, Layers, Zap, RefreshCw,
-    XCircle, CheckCircle, ArrowUpRight
+    XCircle, CheckCircle, ArrowUpRight, UserCog, KeyRound, Copy, Check, X, Save, Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -19,6 +19,20 @@ export default function TenantShadowPage() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<'daily' | 'monthly' | 'recent' | 'leads'>('daily');
+
+    // Edit Credentials & Password Reset Modal State
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [editForm, setEditForm] = useState({
+        shopName: '',
+        email: '',
+        phone: '',
+        website: '',
+    });
+    const [isSavingCredentials, setIsSavingCredentials] = useState(false);
+    const [credentialsMsg, setCredentialsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [isSendingReset, setIsSendingReset] = useState(false);
+    const [resetResult, setResetResult] = useState<{ success: boolean; email?: string; directLink?: string | null; error?: string } | null>(null);
+    const [copiedLink, setCopiedLink] = useState(false);
 
     const loadData = async () => {
         if (!id) return;
@@ -79,6 +93,76 @@ export default function TenantShadowPage() {
             }));
         } else {
             alert('Failed to update subscription: ' + res.error);
+        }
+    };
+
+    const openEditModal = () => {
+        if (data?.profile) {
+            setEditForm({
+                shopName: data.profile.shop_name || '',
+                email: data.profile.email || '',
+                phone: data.profile.phone || '',
+                website: data.profile.website || '',
+            });
+            setCredentialsMsg(null);
+            setResetResult(null);
+            setCopiedLink(false);
+            setIsEditModalOpen(true);
+        }
+    };
+
+    const handleSaveCredentials = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSavingCredentials(true);
+        setCredentialsMsg(null);
+        try {
+            const res = await updateTenantCredentials(id, {
+                email: editForm.email,
+                shopName: editForm.shopName,
+                phone: editForm.phone,
+                website: editForm.website,
+            });
+            if (res.error) {
+                setCredentialsMsg({ type: 'error', text: res.error });
+            } else {
+                setCredentialsMsg({ type: 'success', text: 'Tenant account updated successfully!' });
+                setData((prev: any) => ({
+                    ...prev,
+                    profile: {
+                        ...prev.profile,
+                        email: res.updated?.email || editForm.email,
+                        shop_name: res.updated?.shop_name || editForm.shopName,
+                        phone: res.updated?.phone ?? editForm.phone,
+                        website: res.updated?.website ?? editForm.website,
+                    }
+                }));
+            }
+        } catch (err: any) {
+            setCredentialsMsg({ type: 'error', text: err.message || 'Failed to update tenant' });
+        } finally {
+            setIsSavingCredentials(false);
+        }
+    };
+
+    const handleSendReset = async () => {
+        setIsSendingReset(true);
+        setResetResult(null);
+        setCopiedLink(false);
+        try {
+            const res = await sendTenantPasswordReset(id);
+            if (res.error) {
+                setResetResult({ success: false, error: res.error });
+            } else {
+                setResetResult({
+                    success: true,
+                    email: res.email,
+                    directLink: res.directLink,
+                });
+            }
+        } catch (err: any) {
+            setResetResult({ success: false, error: err.message || 'Failed to send password reset' });
+        } finally {
+            setIsSendingReset(false);
         }
     };
 
@@ -219,6 +303,13 @@ export default function TenantShadowPage() {
 
                         {/* QUICK ACTIONS BUTTONS */}
                         <div className="flex flex-wrap items-center gap-2">
+                            <button
+                                onClick={openEditModal}
+                                className="bg-blue-950/40 hover:bg-blue-900/60 border border-blue-800/60 text-blue-300 px-3.5 py-2 rounded text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm"
+                            >
+                                <UserCog size={13} /> Edit Account & Credentials
+                            </button>
+
                             <form action={async () => {
                                 await import('@/app/actions/impersonation').then(mod => mod.impersonateTenant(id));
                             }}>
@@ -788,6 +879,217 @@ export default function TenantShadowPage() {
                 </div>
 
             </main>
+
+            {/* EDIT ACCOUNT & PASSWORD RESET MODAL */}
+            {isEditModalOpen && (
+                <div 
+                    className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+                    onClick={(e) => {
+                        if (e.target === e.currentTarget) setIsEditModalOpen(false);
+                    }}
+                >
+                    <div className="bg-[#111] border border-gray-800 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+                        {/* Modal Header */}
+                        <div className="px-6 py-5 border-b border-gray-800/80 flex items-center justify-between bg-zinc-950/60">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-lg bg-blue-950/40 border border-blue-800/60 flex items-center justify-center text-blue-400">
+                                    <UserCog size={20} />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-bold text-white tracking-tight">Edit Tenant Account</h2>
+                                    <p className="text-xs font-mono text-gray-500">ID: {id}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 overflow-y-auto space-y-6">
+                            {/* SECTION 1: CREDENTIALS & PROFILE FORM */}
+                            <form onSubmit={handleSaveCredentials} className="space-y-4">
+                                <div className="text-xs font-mono uppercase tracking-wider text-gray-400 font-bold flex items-center gap-2">
+                                    <span>Account & Branding Details</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">
+                                            Shop / User Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editForm.shopName}
+                                            onChange={(e) => setEditForm({ ...editForm, shopName: e.target.value })}
+                                            className="w-full bg-black/60 border border-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                            placeholder="e.g. Iron Works Co."
+                                            required
+                                        />
+                                    </div>
+
+                                    <div className="sm:col-span-2">
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">
+                                            Login & Contact Email
+                                        </label>
+                                        <input
+                                            type="email"
+                                            value={editForm.email}
+                                            onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                                            className="w-full bg-black/60 border border-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                            placeholder="tenant@example.com"
+                                            required
+                                        />
+                                        <p className="text-[11px] text-gray-500 mt-1">
+                                            Updating this updates both their Supabase Auth login credentials and their store profile without losing historical data or access.
+                                        </p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">
+                                            Phone Number
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editForm.phone}
+                                            onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                                            className="w-full bg-black/60 border border-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                            placeholder="(555) 123-4567"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-mono text-gray-400 mb-1">
+                                            Website
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={editForm.website}
+                                            onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                                            className="w-full bg-black/60 border border-gray-700 text-white px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                                            placeholder="https://example.com"
+                                        />
+                                    </div>
+                                </div>
+
+                                {credentialsMsg && (
+                                    <div className={`p-3 rounded-lg text-xs font-mono ${
+                                        credentialsMsg.type === 'success' 
+                                            ? 'bg-emerald-950/40 border border-emerald-800/60 text-emerald-300' 
+                                            : 'bg-red-950/40 border border-red-900/60 text-red-300'
+                                    }`}>
+                                        {credentialsMsg.text}
+                                    </div>
+                                )}
+
+                                <button
+                                    type="submit"
+                                    disabled={isSavingCredentials}
+                                    className="w-full bg-blue-600 hover:bg-blue-500 text-white font-mono text-xs font-bold uppercase tracking-wider py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSavingCredentials ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                    Save Account Changes
+                                </button>
+                            </form>
+
+                            {/* SECTION 2: PASSWORD RESET WORKFLOW */}
+                            <div className="border-t border-gray-800/80 pt-6">
+                                <div className="bg-purple-950/20 border border-purple-900/40 rounded-xl p-5 space-y-4">
+                                    <div className="flex items-start gap-3">
+                                        <div className="w-8 h-8 rounded-lg bg-purple-950/60 border border-purple-800/60 flex items-center justify-center text-purple-400 shrink-0 mt-0.5">
+                                            <KeyRound size={16} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-bold text-white">Password Reset Workflow</h3>
+                                            <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                                                Send a secure password recovery link to <span className="text-purple-300 font-mono font-semibold">{data.profile.email}</span>. The link will take them directly to the password reset page to choose a new password.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleSendReset}
+                                        disabled={isSendingReset}
+                                        className="w-full bg-purple-900/40 hover:bg-purple-800/60 border border-purple-700/60 text-purple-200 font-mono text-xs font-bold uppercase tracking-wider py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        {isSendingReset ? (
+                                            <>
+                                                <Loader2 size={14} className="animate-spin" />
+                                                Sending Recovery Email...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <KeyRound size={14} />
+                                                Send Password Reset Link
+                                            </>
+                                        )}
+                                    </button>
+
+                                    {resetResult && (
+                                        <div className="space-y-3 pt-2">
+                                            {resetResult.success ? (
+                                                <div className="bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 p-3 rounded-lg text-xs font-mono space-y-2">
+                                                    <div className="flex items-center gap-1.5 font-bold">
+                                                        <CheckCircle2 size={14} className="text-emerald-400" />
+                                                        <span>Password reset link sent to {resetResult.email}!</span>
+                                                    </div>
+
+                                                    {resetResult.directLink && (
+                                                        <div className="mt-2 pt-2 border-t border-emerald-900/40 space-y-1.5">
+                                                            <div className="flex items-center justify-between text-gray-400 text-[11px]">
+                                                                <span>Direct Recovery Link (Optional):</span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        navigator.clipboard.writeText(resetResult.directLink!);
+                                                                        setCopiedLink(true);
+                                                                        setTimeout(() => setCopiedLink(false), 2500);
+                                                                    }}
+                                                                    className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1"
+                                                                >
+                                                                    {copiedLink ? <Check size={12} /> : <Copy size={12} />}
+                                                                    {copiedLink ? 'Copied!' : 'Copy Link'}
+                                                                </button>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                readOnly
+                                                                value={resetResult.directLink}
+                                                                onClick={(e) => (e.target as HTMLInputElement).select()}
+                                                                className="w-full bg-black/60 border border-emerald-900/60 text-emerald-200 px-2 py-1.5 rounded text-[11px] font-mono select-all outline-none"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <div className="bg-red-950/40 border border-red-900/60 text-red-300 p-3 rounded-lg text-xs font-mono flex items-center gap-2">
+                                                    <AlertTriangle size={14} className="text-red-400 shrink-0" />
+                                                    <span>{resetResult.error || 'Failed to send password reset.'}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-4 border-t border-gray-800/80 bg-zinc-950/60 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsEditModalOpen(false)}
+                                className="bg-zinc-800 hover:bg-zinc-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
