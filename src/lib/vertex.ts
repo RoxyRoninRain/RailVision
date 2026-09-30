@@ -107,19 +107,7 @@ async function getImagenModel() {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export async function generateDesignWithNanoBanana(
-    base64TargetImage: string,
-    styleInput: string | { base64StyleImages: string[]; technicalSpecs?: { hasBottomRail?: boolean; description?: string } },
-    promptConfig?: { systemInstruction: string; userTemplate: string; negative_prompt?: string }
-): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
-    const maxAttempts = 5;
-    let attempts = 0;
-
-    // Use lazy getter for the model
-    let model;
-    try {
-        const client = await getVertexClient(true); // Restore usage of Global Client for Nano Banana
-        const finalSystemInstruction = promptConfig?.systemInstruction || `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine.
+const DEFAULT_SYSTEM_INSTRUCTION = `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine.
 **TASK:** Renovate the user's staircase by overlaying a new handrail system.
 **DATA LAYERS (STRICT ADHERENCE):**
 **LAYER 1: THE SCENE (IMAGE A)**
@@ -142,6 +130,43 @@ export async function generateDesignWithNanoBanana(
 *   **Single Image Identity:** One unified photograph.
 *   **Camera Lock:** Exact aspect ratio and POV of Image A.`;
 
+export async function generateDesignWithNanoBanana(
+    base64TargetImage: string,
+    styleInput: string | { 
+        base64StyleImages: string[]; 
+        technicalSpecs?: { 
+            hasBottomRail?: boolean; 
+            hasReducers?: boolean | null; 
+            description?: string; 
+            customNote?: string; 
+        } 
+    },
+    promptConfig?: { systemInstruction: string; userTemplate: string; negative_prompt?: string }
+): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
+    const maxAttempts = 5;
+    let attempts = 0;
+
+    const isReducerRequired = typeof styleInput !== 'string' && styleInput.technicalSpecs?.hasReducers === true;
+
+    // Use lazy getter for the model
+    let model;
+    let finalSystemInstruction = '';
+    try {
+        const client = await getVertexClient(true); // Restore usage of Global Client for Nano Banana
+        let baseSystemInstruction = (promptConfig?.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION)
+            .replace('{{DATE}}', new Date().toISOString().split('T')[0]);
+
+        if (!isReducerRequired) {
+            baseSystemInstruction += `\n\n**CRITICAL FABRICATION MANDATE (ZERO REDUCERS / DIRECT FLUSH WELD):**
+*   ABSOLUTE PROHIBITION: DO NOT add, render, or hallucinate reducers, bell reducers, conical fittings, pipe adapters, or transition collars between square posts and the round top rail.
+*   Square posts MUST connect directly into the round top rail with a clean, flat coped/flush weld joint.
+*   Any image showing a reducer fitting, bell collar, or adapter cup between post and rail is an immediate fabrication defect.`;
+        } else {
+            baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION:** Square posts must connect to the round top rail using reducer fittings / transition collars at the top of each post.`;
+        }
+
+        finalSystemInstruction = baseSystemInstruction;
+
         console.log('--- SYSTEM INSTRUCTION ---');
         console.log(finalSystemInstruction);
         console.log('--- END SYSTEM INSTRUCTION ---');
@@ -163,6 +188,13 @@ export async function generateDesignWithNanoBanana(
             console.log(`[NANO BANANA] Generation attempt ${attempts + 1} of ${maxAttempts}...`);
 
             const parts: any[] = [];
+
+            // PRIORITY FABRICATION DIRECTIVE (Highest Attention Layer)
+            if (!isReducerRequired) {
+                parts.push({
+                    text: `[CRITICAL FABRICATION DIRECTIVE: DIRECT FLUSH MOUNT - NO REDUCERS]\nSquare posts MUST connect DIRECTLY into the round handrail with a flush coped weld. STRICTLY PROHIBITED: DO NOT add bell reducers, conical fittings, pipe adapters, or transition collars between posts and rail under any circumstances.`
+                });
+            }
 
             // 1. Target Image (Image A)
             parts.push({ text: "**IMAGE A (Canvas):** The user's original staircase." });
@@ -221,18 +253,26 @@ export async function generateDesignWithNanoBanana(
                     }
                 }
 
-                // POST-TO-RAIL REDUCER SPECIFICATION
-                if (specs.hasReducers !== undefined && specs.hasReducers !== null) {
-                    if (specs.hasReducers === false) {
-                        // STRICT DIRECT MOUNT / NO REDUCERS
-                        reducerInstructionStep = `**POST-TO-RAIL JUNCTION (DIRECT / NO REDUCERS):** The top rail connects directly to the square posts with a flush, coped, or flat-welded joint. STRICTLY PROHIBITED: DO NOT generate reducers, bell reducers, conical fittings, rosettes, or transition collars between square posts and the round top rail. The connection must be direct and seamless.`;
-                        extraNegativeTerms.push("reducers, bell reducers, pipe reducers, post transition collars, adapter cups between post and rail, flared post tops");
-                    } else if (specs.hasReducers === true) {
-                        // REDUCERS REQUIRED
-                        reducerInstructionStep = `**POST-TO-RAIL JUNCTION (REDUCER FITTINGS):** The square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
-                    }
+                // POST-TO-RAIL REDUCER SPECIFICATION:
+                // DEFAULT IS DIRECT FLUSH WELD (NO REDUCERS) UNLESS EXPLICITLY SET TO TRUE!
+                if (isReducerRequired) {
+                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):** The square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
                 } else {
-                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION:** Match the reference image. If the reference shows square posts meeting a round rail directly without visible fittings, use a clean flush direct joint and DO NOT add reducers.`;
+                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (STRICTLY DIRECT FLUSH MOUNT - ZERO REDUCERS):**
+- The top rail connects DIRECTLY to the square posts with a clean, flat flush-weld or coped joint.
+- ABSOLUTE PROHIBITION: DO NOT generate reducers, bell reducers, conical fittings, pipe adapters, or transition collars between square posts and the round top rail.
+- The junction between square post and round top rail MUST BE SEAMLESS AND DIRECT. NO ADAPTER CUPS.`;
+                    extraNegativeTerms.push(
+                        "reducers",
+                        "bell reducers",
+                        "pipe reducers",
+                        "post transition collars",
+                        "adapter cups between post and rail",
+                        "conical pipe fittings",
+                        "pipe transition adapters",
+                        "flared post tops",
+                        "round-to-square adapter fittings"
+                    );
                 }
 
                 if (specs.description && specs.description.trim()) {
@@ -328,6 +368,12 @@ Renovate **IMAGE A**.
                 promptText += `\n\n${customNoteStep.trim()}`;
             }
 
+            // Prepend Critical Fabrication Mandate to promptText
+            if (!isReducerRequired) {
+                promptText = `[CRITICAL FABRICATION MANDATE: DIRECT FLUSH MOUNT / ZERO REDUCERS]\n- Square posts must connect DIRECTLY to the round top rail with a flat, coped flush weld.\n- STRICTLY PROHIBITED: bell reducers, conical adapters, transition collars, or cups between posts and rail.\n***\n\n` + promptText;
+                promptText += `\n\n**FINAL VERIFICATION:** Confirm there are NO reducers, transition collars, or bell adapters between square posts and round top rail. Posts must meet the rail flush.`;
+            }
+
             // Negative Constraints
             let combinedNegative = (promptConfig?.negative_prompt || "").trim();
             if (extraNegativeTerms.length > 0) {
@@ -338,7 +384,7 @@ Renovate **IMAGE A**.
             }
 
             if (combinedNegative) {
-                promptText += `\n\nNEGATIVE CONSTRAINTS: ${combinedNegative}`;
+                promptText += `\n\nNEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): ${combinedNegative}`;
             }
 
             parts.push({ text: promptText });
@@ -365,6 +411,9 @@ Renovate **IMAGE A**.
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
+                    systemInstruction: {
+                        parts: [{ text: finalSystemInstruction }]
+                    },
                     contents: [{ role: 'user', parts }],
                     generationConfig: {
                         temperature: 0.4,

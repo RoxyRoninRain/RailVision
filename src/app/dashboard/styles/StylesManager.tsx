@@ -448,20 +448,42 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                         </label>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 bg-[#050505] border border-[#333] rounded">
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                id="new_has_reducers"
-                                checked={hasReducers}
-                                onChange={e => setHasReducers(e.target.checked)}
-                                className="w-5 h-5 accent-[var(--primary)]"
-                            />
-                            <label htmlFor="new_has_reducers" className="text-white text-sm cursor-pointer select-none">
-                                Post-to-Rail Reducers / Adapters Required
-                            </label>
+                    <div>
+                        <label className="block text-xs font-mono text-gray-400 uppercase mb-1.5">
+                            Post-to-Rail Junction Type
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setHasReducers(false)}
+                                className={`p-2.5 rounded border text-left transition-all ${
+                                    !hasReducers
+                                        ? 'bg-[var(--primary)]/15 border-[var(--primary)] text-white shadow-sm'
+                                        : 'bg-[#050505] border-[#333] text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${!hasReducers ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
+                                    Direct Flush Weld
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">No reducers / seamless joint (Default)</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setHasReducers(true)}
+                                className={`p-2.5 rounded border text-left transition-all ${
+                                    hasReducers
+                                        ? 'bg-[var(--primary)]/15 border-[var(--primary)] text-white shadow-sm'
+                                        : 'bg-[#050505] border-[#333] text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${hasReducers ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
+                                    Reducer Fittings
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Use square-to-round reducer collars</div>
+                            </button>
                         </div>
-                        <span className="text-[11px] text-gray-500 font-mono">(Unchecked = Direct Flush Weld)</span>
                     </div>
 
                     {/* Main Image */}
@@ -1072,20 +1094,42 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                         </label>
                     </div>
 
-                    <div className="flex items-center justify-between p-3 bg-[#050505] border border-[#333] rounded">
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                id="edit_has_reducers"
-                                checked={hasReducers}
-                                onChange={e => setHasReducers(e.target.checked)}
-                                className="w-5 h-5 accent-[var(--primary)]"
-                            />
-                            <label htmlFor="edit_has_reducers" className="text-white text-sm cursor-pointer select-none">
-                                Post-to-Rail Reducers / Adapters Required
-                            </label>
+                    <div>
+                        <label className="block text-xs font-mono text-gray-400 uppercase mb-1.5">
+                            Post-to-Rail Junction Type
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setHasReducers(false)}
+                                className={`p-2.5 rounded border text-left transition-all ${
+                                    !hasReducers
+                                        ? 'bg-[var(--primary)]/15 border-[var(--primary)] text-white shadow-sm'
+                                        : 'bg-[#050505] border-[#333] text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${!hasReducers ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
+                                    Direct Flush Weld
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">No reducers / seamless joint (Default)</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setHasReducers(true)}
+                                className={`p-2.5 rounded border text-left transition-all ${
+                                    hasReducers
+                                        ? 'bg-[var(--primary)]/15 border-[var(--primary)] text-white shadow-sm'
+                                        : 'bg-[#050505] border-[#333] text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${hasReducers ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
+                                    Reducer Fittings
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Use square-to-round reducer collars</div>
+                            </button>
                         </div>
-                        <span className="text-[11px] text-gray-500 font-mono">(Unchecked = Direct Flush Weld)</span>
                     </div>
                     <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Description</label>
