@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getProfile, updateProfile } from '@/app/actions';
-import { Copy, Check, Globe, Code2, Palette } from 'lucide-react';
+import { Copy, Check, Globe, Code2, Palette, ExternalLink, Link2, Smartphone } from 'lucide-react';
 
 export default function WidgetPage() {
     const [profile, setProfile] = useState<any>(null);
@@ -10,6 +10,7 @@ export default function WidgetPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [copiedLink, setCopiedLink] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState<string | null>(null);
     const [embedHeight, setEmbedHeight] = useState('800');
@@ -76,18 +77,81 @@ export default function WidgetPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
+    const demoUrl = profile?.id ? `https://railify.app/demo?org=${profile.id}` : 'https://railify.app/demo';
+
+    const copyLinkToClipboard = () => {
+        navigator.clipboard.writeText(demoUrl);
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2000);
+    };
+
     if (loading) return <div className="p-20 text-center text-gray-500 font-mono animate-pulse">LOADING...</div>;
 
     return (
         <div className="p-6 md:p-12 max-w-7xl mx-auto space-y-8 animate-fade-in-up">
             <div>
-                <h1 className="text-4xl font-bold mb-2 tracking-tight text-white">Widget Integration</h1>
-                <p className="text-gray-400">Manage your website embed settings and whitelisted domains.</p>
+                <h1 className="text-4xl font-bold mb-2 tracking-tight text-white">Widget & Direct Access</h1>
+                <p className="text-gray-400">Share direct access with your sales team or embed the tool on your website.</p>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                 {/* CONFIGURATION COLUMN */}
                 <div className="space-y-6">
+                    {/* Direct Link Card */}
+                    <div className="bg-[#0A0A0A] border border-white/10 shadow-xl overflow-hidden rounded-xl relative">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-[50px] pointer-events-none" />
+                        <div className="p-6 border-b border-white/5">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                                <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+                                    <Link2 size={20} />
+                                </div>
+                                Direct Standalone Link
+                            </h3>
+                            <p className="text-gray-400 text-sm mt-1">
+                                Share directly with your sales team, open on tablets, or link inside your CRM. No login required.
+                            </p>
+                        </div>
+                        <div className="p-6 space-y-4 relative z-10">
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1 bg-[#111] border border-white/10 rounded-lg px-4 py-3 text-sm text-gray-200 font-mono truncate select-all">
+                                    {demoUrl}
+                                </div>
+                                <button
+                                    onClick={copyLinkToClipboard}
+                                    className="px-4 py-3 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all active:scale-95 flex items-center gap-2 font-medium text-sm shrink-0 border border-white/5"
+                                    title="Copy direct link"
+                                >
+                                    {copiedLink ? (
+                                        <>
+                                            <Check size={16} className="text-emerald-400" />
+                                            <span className="text-emerald-400">Copied!</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Copy size={16} className="text-gray-300" />
+                                            <span>Copy Link</span>
+                                        </>
+                                    )}
+                                </button>
+                                <a
+                                    href={demoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="p-3 bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white rounded-lg transition-all border border-white/5 shrink-0"
+                                    title="Open in new tab"
+                                >
+                                    <ExternalLink size={18} />
+                                </a>
+                            </div>
+                            <div className="flex items-start gap-2 text-xs text-gray-500 pt-1">
+                                <Smartphone size={14} className="mt-0.5 text-gray-400 shrink-0" />
+                                <span>
+                                    <strong>Sales Team Tip:</strong> On iPads and iPhones, open this link in Safari and tap <em>Share &rarr; Add to Home Screen</em> to launch it as a full-screen, dedicated app during customer consultations.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Domain Card */}
                     <div className="bg-[#0A0A0A] border border-white/10 shadow-xl overflow-hidden rounded-xl relative">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-[50px] pointer-events-none" />
@@ -224,7 +288,17 @@ export default function WidgetPage() {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-xl font-bold text-white">Live Preview</h2>
-                        <span className="text-xs uppercase tracking-wider text-gray-500 font-mono">Live Render</span>
+                        <div className="flex items-center gap-3">
+                            <a
+                                href={demoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-primary hover:underline flex items-center gap-1 font-mono transition-colors"
+                            >
+                                Open in New Tab <ExternalLink size={12} />
+                            </a>
+                            <span className="text-xs uppercase tracking-wider text-gray-500 font-mono">Live Render</span>
+                        </div>
                     </div>
                     <div className="bg-[#151515] rounded-2xl overflow-hidden border border-white/10 h-[600px] relative shadow-2xl">
                         {/* Checkered background for transparency check */}
