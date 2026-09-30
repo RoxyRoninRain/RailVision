@@ -166,7 +166,7 @@ export async function generateDesign(formData: FormData) {
     if (!isGenericDemo && profileIdToBill) {
         const res = await dbClient
             .from('profiles')
-            .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name, website, subscription_status')
+            .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name, website, subscription_status, free_credits_remaining, discounted_credits_remaining, discounted_rate, pending_discounted_amount, pending_discounted_count')
             .eq('id', profileIdToBill)
             .single();
         profile = res.data;
@@ -200,26 +200,51 @@ export async function generateDesign(formData: FormData) {
     // 2. Usage Check Logic (Utility Model: Always "Overdrive")
     const notificationState = profile ? (profile.notification_state as any) || {} : {};
 
-    // Standard Metered Logic (Applies to everyone unless allowance > 0 or in Admin Test Mode)
-    // Legacy support: If they somehow have an allowance (Unlimited Plan), we consume it first.
+    const freeCredits = Number(profile?.free_credits_remaining) || 0;
+    const discountedCredits = Number(profile?.discounted_credits_remaining) || 0;
+    let isFreeCreditUsed = false;
+    let isDiscountedCreditUsed = false;
+
     if (isGenericDemo || isAdminTest) {
         // Skip billing: Generic demo or Admin Test Mode (Zero charges for tenant)
         console.log(`[BILLING] Bypassing billing - ${isAdminTest ? 'Admin Test Mode (Zero Usage Charges)' : 'Generic Demo'}`);
+    } else if (freeCredits > 0) {
+        // --- 1. FREE CREDITS FIRST (Used before any discounted or full price credits) ---
+        isFreeCreditUsed = true;
+        overageCost = 0;
+        transactionOverageCount = 0;
+        console.log(`[BILLING] Consuming FREE credit for ${profileIdToBill}. Remaining after this run: ${freeCredits - 1}`);
+    } else if (discountedCredits > 0) {
+        // --- 2. DISCOUNTED CREDITS SECOND (50% promotional rate: e.g. $0.40 Volume, $0.50 Pro) ---
+        isDiscountedCreditUsed = true;
+        const rate = profile?.discounted_rate ? Number(profile.discounted_rate) : (tier.overageRate * 0.5);
+        overageCost = rate;
+        transactionOverageCount = 0; // Not counted as a full-price standard overage
+        console.log(`[BILLING] Consuming DISCOUNTED credit ($${rate.toFixed(2)}) for ${profileIdToBill}. Remaining after this run: ${discountedCredits - 1}`);
+
+        const currentPending = (profile.pending_overage_balance || 0);
+        const projectedTotal = currentPending + overageCost;
+
+        // Safety cap check
+        if (profile.max_monthly_spend !== null && profile.max_monthly_spend > 0) {
+            if (projectedTotal > profile.max_monthly_spend) {
+                console.warn(`[BILLING] Safety Cap Hit! Projected: $${projectedTotal} > Limit: $${profile.max_monthly_spend}`);
+                return { error: `Monthly spend limit ($${profile.max_monthly_spend}) reached. Increase limit to continue.` };
+            }
+        }
+        // Note: We DO NOT report to Stripe metered price here, because Stripe metered price would charge full $0.80 or $1.00.
+        // Instead, pending_discounted_amount is tracked and added as an invoice item on the monthly renewal.
     } else if (currentUsage < allowance) {
         // --- LEGACY/UNLIMITED ALLOWANCE LOGIC ---
         // Just consume allowance, no billing.
-        // (Skipping low balance warning for now as it's legacy/internal focus)
     } else {
-        // --- METERED PAY-AS-YOU-GO LOGIC ---
-        // Auto-enable Overdrive: We don't check profile.enable_overdrive anymore.
-
+        // --- 3. FULL PRICE CREDITS (Standard Metered Pay-As-You-Go) ---
         overageCost = tier.overageRate;
         const currentPending = profile.pending_overage_balance || 0;
         const projectedTotal = currentPending + overageCost;
 
         // --- SAFETY CAP CHECK ---
         if (profile.max_monthly_spend !== null && profile.max_monthly_spend > 0) {
-
             // 1. HARD STOP
             if (projectedTotal > profile.max_monthly_spend) {
                 console.warn(`[BILLING] Safety Cap Hit! Project: $${projectedTotal} > Limit: $${profile.max_monthly_spend}`);
@@ -228,8 +253,6 @@ export async function generateDesign(formData: FormData) {
                 const now = new Date();
 
                 if (user) {
-                    // Scenario A: Tenant (Logged In)
-                    // Check rate limit (24h)
                     const lastSent = notificationState.limit_reached_sent_at ? new Date(notificationState.limit_reached_sent_at) : null;
                     const hoursSinceLast = lastSent ? (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60) : 999;
 
@@ -244,17 +267,13 @@ export async function generateDesign(formData: FormData) {
                                 subject: '⛔ Limit Reached: Action Required',
                                 react: LimitReachedEmail() as React.ReactElement,
                             });
-                            // Update DB state regarding notification
                             await dbClient.from('profiles').update({
                                 notification_state: { ...notificationState, limit_reached_sent_at: now.toISOString() }
                             }).eq('id', profileIdToBill);
                         } catch (e) { console.error('Limit Email error:', e); }
                     }
                     return { error: `Monthly spend limit ($${profile.max_monthly_spend}) reached. Increase limit to continue.` };
-
                 } else {
-                    // Scenario B: Guest (Public/Embed) - LOST LEAD
-                    // Send Lost Lead Alert (1 per hour)
                     const lastLostLead = notificationState.lost_lead_sent_at ? new Date(notificationState.lost_lead_sent_at) : null;
                     const hoursSinceLostLead = lastLostLead ? (now.getTime() - lastLostLead.getTime()) / (1000 * 60 * 60) : 999;
 
@@ -274,7 +293,6 @@ export async function generateDesign(formData: FormData) {
                             }).eq('id', profileIdToBill);
                         } catch (e) { console.error('Lost Lead Email error:', e); }
                     }
-                    // Generic User Error
                     return { error: 'This tool is currently experiencing high demand. Please try again later.' };
                 }
             }
@@ -283,8 +301,6 @@ export async function generateDesign(formData: FormData) {
             const remaining = profile.max_monthly_spend - currentPending;
             if (remaining <= 10 && remaining > 0) {
                 const now = new Date();
-                // Rate limit: One warning per month implies checking 'last_warning_month'? 
-                // Or simple 24h/48h debounce. Let's do 48h to be safe.
                 const lastWarn = notificationState.usage_warning_sent_at ? new Date(notificationState.usage_warning_sent_at) : null;
                 const hoursSinceWarn = lastWarn ? (now.getTime() - lastWarn.getTime()) / (1000 * 60 * 60) : 999;
 
@@ -292,11 +308,9 @@ export async function generateDesign(formData: FormData) {
                     console.log('[BILLING] Usage Warning Triggered (Within $10)');
                     try {
                         const { Resend } = await import('resend');
-                        // Dynamic import new email
                         const { UsageWarningEmail } = await import('@/emails/UsageWarningEmail');
                         const resend = new Resend(process.env.RESEND_API_KEY);
 
-                        // Fire and forget
                         resend.emails.send({
                             from: 'Railify <system@railify.app>',
                             to: profile.email,
@@ -304,21 +318,19 @@ export async function generateDesign(formData: FormData) {
                             react: UsageWarningEmail() as React.ReactElement,
                         }).then(() => console.log('Usage Warning Sent'));
 
-                        // Update state locally so we persist it at end of transaction
                         notificationState.usage_warning_sent_at = now.toISOString();
                     } catch (e) { console.error('Usage Warning Error:', e); }
                 }
             }
         }
 
-        // Proceed with billing accumulation
+        // Proceed with standard billing accumulation
         transactionOverageCount = 1;
 
-        // Report to Stripe (Metered Usage)
+        // Report to Stripe (Metered Usage) ONLY for standard full-price designs
         try {
             if (profileIdToBill && tier.stripeMeteredPriceId) {
                 const { reportUsage } = await import('@/app/actions/stripe');
-                // We report 1 unit. Price is handled by Stripe Price ID config or subscription logic
                 await reportUsage(profileIdToBill, 1);
             }
         } catch (err) {
@@ -326,33 +338,37 @@ export async function generateDesign(formData: FormData) {
         }
     }
 
-    // 3. Billing Threshold Check (Charge Card)
+    // 3. Billing Threshold Check (Charge Card for standard usage)
     let newPendingBalance = (profile?.pending_overage_balance || 0) + overageCost;
     let newOverageCount = (profile?.current_overage_count || 0) + transactionOverageCount;
 
-    // Check against Tier Threshold (e.g. Charge every $20 or $50)
-    if (!isGenericDemo && !isAdminTest && tier && newPendingBalance >= tier.billingThreshold && tier.billingThreshold > 0) {
+    // Check against Tier Threshold (e.g. Charge every $20 or $50) for standard usage
+    if (!isGenericDemo && !isAdminTest && !isFreeCreditUsed && !isDiscountedCreditUsed && tier && newPendingBalance >= tier.billingThreshold && tier.billingThreshold > 0) {
         console.log(`[BILLING] THRESHOLD HIT! Tier: ${tier.name}, Balance: $${newPendingBalance} >= Threshold: $${tier.billingThreshold}`);
-
-        // TRIGGER IMMEDIATE CHARGE (Mock Implementation - In real world, this triggers Stripe Invoice Pay)
-        // For now, we simulate success and reset the "Pending Bucket"
-        console.log(`[PAYMENT] Auto-Charging user ${profileIdToBill} for accumulated $${newPendingBalance}`);
-
-        // Reset counters
         newPendingBalance = 0;
         newOverageCount = 0;
     }
 
-    // 4. Commit Usage Update
+    // 4. Commit Usage & Credit Updates
     if (!isGenericDemo && !isAdminTest) {
+        const updatePayload: any = {
+            current_usage: currentUsage + 1,
+            pending_overage_balance: newPendingBalance,
+            current_overage_count: newOverageCount,
+            notification_state: notificationState
+        };
+
+        if (isFreeCreditUsed) {
+            updatePayload.free_credits_remaining = Math.max(0, freeCredits - 1);
+        } else if (isDiscountedCreditUsed) {
+            updatePayload.discounted_credits_remaining = Math.max(0, discountedCredits - 1);
+            updatePayload.pending_discounted_amount = parseFloat(((Number(profile?.pending_discounted_amount) || 0) + overageCost).toFixed(2));
+            updatePayload.pending_discounted_count = (Number(profile?.pending_discounted_count) || 0) + 1;
+        }
+
         const { error: updateError } = await dbClient
             .from('profiles')
-            .update({
-                current_usage: currentUsage + 1,
-                pending_overage_balance: newPendingBalance,
-                current_overage_count: newOverageCount,
-                notification_state: notificationState
-            })
+            .update(updatePayload)
             .eq('id', profileIdToBill);
 
         if (updateError) {

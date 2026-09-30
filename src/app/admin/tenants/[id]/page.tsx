@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { getTenantDetails, updateSubscriptionStatus, updateTenantCredentials, sendTenantPasswordReset, TenantDetailsResult } from '@/app/admin/actions';
+import { getTenantDetails, updateSubscriptionStatus, updateTenantCredentials, sendTenantPasswordReset, grantFreeCredits, grantDiscountedCredits, TenantDetailsResult } from '@/app/admin/actions';
 import { 
     ArrowLeft, Mail, Phone, MapPin, Calendar, Shield, ExternalLink, 
     Palette, Sparkles, CreditCard, DollarSign, Clock, AlertTriangle, 
     CheckCircle2, TrendingUp, Cpu, BarChart3, Layers, Zap, RefreshCw,
-    XCircle, CheckCircle, ArrowUpRight, UserCog, KeyRound, Copy, Check, X, Save, Loader2
+    XCircle, CheckCircle, ArrowUpRight, UserCog, KeyRound, Copy, Check, X, Save, Loader2,
+    Gift, Percent, Plus
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,8 +32,23 @@ export default function TenantShadowPage() {
     const [isSavingCredentials, setIsSavingCredentials] = useState(false);
     const [credentialsMsg, setCredentialsMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
     const [isSendingReset, setIsSendingReset] = useState(false);
-    const [resetResult, setResetResult] = useState<{ success: boolean; email?: string; directLink?: string | null; error?: string } | null>(null);
+    const [resetResult, setResetResult] = useState<{ 
+        success: boolean; 
+        email?: string; 
+        directLink?: string | null; 
+        emailSent?: boolean;
+        errorNote?: string;
+        error?: string 
+    } | null>(null);
     const [copiedLink, setCopiedLink] = useState(false);
+
+    // Credits & Promotion Modal State
+    const [isCreditsModalOpen, setIsCreditsModalOpen] = useState(false);
+    const [freeCreditsInput, setFreeCreditsInput] = useState('');
+    const [discountedCreditsInput, setDiscountedCreditsInput] = useState('');
+    const [isSubmittingFreeCredits, setIsSubmittingFreeCredits] = useState(false);
+    const [isSubmittingDiscountedCredits, setIsSubmittingDiscountedCredits] = useState(false);
+    const [creditsModalMsg, setCreditsModalMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const loadData = async () => {
         if (!id) return;
@@ -157,12 +173,64 @@ export default function TenantShadowPage() {
                     success: true,
                     email: res.email,
                     directLink: res.directLink,
+                    emailSent: res.emailSent,
+                    errorNote: res.errorNote,
                 });
             }
         } catch (err: any) {
             setResetResult({ success: false, error: err.message || 'Failed to send password reset' });
         } finally {
             setIsSendingReset(false);
+        }
+    };
+
+    const handleGrantFreeCredits = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const count = parseInt(freeCreditsInput, 10);
+        if (isNaN(count) || count <= 0) {
+            setCreditsModalMsg({ type: 'error', text: 'Please enter a valid positive number of free credits to grant.' });
+            return;
+        }
+        setIsSubmittingFreeCredits(true);
+        setCreditsModalMsg(null);
+        try {
+            const res = await grantFreeCredits(id, count);
+            if (res.success) {
+                setCreditsModalMsg({ type: 'success', text: `Successfully granted ${count} Free Credits! New balance: ${res.newTotal}` });
+                setFreeCreditsInput('');
+                loadData();
+            } else {
+                setCreditsModalMsg({ type: 'error', text: res.error || 'Failed to grant free credits' });
+            }
+        } catch (err: any) {
+            setCreditsModalMsg({ type: 'error', text: err?.message || 'Error granting free credits' });
+        } finally {
+            setIsSubmittingFreeCredits(false);
+        }
+    };
+
+    const handleGrantDiscountedCredits = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const count = parseInt(discountedCreditsInput, 10);
+        if (isNaN(count) || count <= 0) {
+            setCreditsModalMsg({ type: 'error', text: 'Please enter a valid positive number of 50% discounted credits to grant.' });
+            return;
+        }
+        setIsSubmittingDiscountedCredits(true);
+        setCreditsModalMsg(null);
+        try {
+            const res = await grantDiscountedCredits(id, count);
+            if (res.success) {
+                setCreditsModalMsg({ type: 'success', text: `Successfully granted ${count} credits at 50% discount ($${res.effectiveRate}/each)! New balance: ${res.newTotal}` });
+                setDiscountedCreditsInput('');
+                loadData();
+            } else {
+                setCreditsModalMsg({ type: 'error', text: res.error || 'Failed to grant discounted credits' });
+            }
+        } catch (err: any) {
+            setCreditsModalMsg({ type: 'error', text: err?.message || 'Error granting discounted credits' });
+        } finally {
+            setIsSubmittingDiscountedCredits(false);
         }
     };
 
@@ -334,6 +402,18 @@ export default function TenantShadowPage() {
                             >
                                 <Palette size={13} /> Styles
                             </Link>
+
+                            <button
+                                onClick={() => {
+                                    setFreeCreditsInput('');
+                                    setDiscountedCreditsInput('');
+                                    setCreditsModalMsg(null);
+                                    setIsCreditsModalOpen(true);
+                                }}
+                                className="bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/60 text-amber-300 px-3.5 py-2 rounded text-xs font-mono font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-sm"
+                            >
+                                <Gift size={13} /> Add Free / 50% Credits
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -345,7 +425,7 @@ export default function TenantShadowPage() {
                         Billing & Subscription Overview
                     </h2>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                         
                         {/* CARD 1: SIGNED UP TIER */}
                         <div className="bg-[#111] border border-white/5 p-5 rounded-xl relative overflow-hidden group hover:border-white/10 transition-colors">
@@ -448,6 +528,32 @@ export default function TenantShadowPage() {
                                 <span className={`font-bold ${generations.profitability.marginPercent >= 70 ? 'text-emerald-400' : 'text-yellow-400'}`}>
                                     {generations.profitability.marginPercent}%
                                 </span>
+                            </div>
+                        </div>
+
+                        {/* CARD 5: ACTIVE CREDITS & PROMOTIONS */}
+                        <div className="bg-[#111] border border-amber-500/20 p-5 rounded-xl relative overflow-hidden group hover:border-amber-500/40 transition-colors">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">Credits & Promos</span>
+                                <Gift size={16} className="text-amber-400 opacity-90" />
+                            </div>
+                            <div className="space-y-1.5 mb-2">
+                                <div className="flex items-baseline justify-between text-xs font-mono">
+                                    <span className="text-gray-400">Free Credits:</span>
+                                    <span className="font-bold text-emerald-400 text-base">
+                                        {billing.credits?.freeRemaining || 0}
+                                    </span>
+                                </div>
+                                <div className="flex items-baseline justify-between text-xs font-mono">
+                                    <span className="text-gray-400">50% Credits:</span>
+                                    <span className="font-bold text-purple-400 text-sm">
+                                        {billing.credits?.discountedRemaining || 0} <span className="text-[10px] text-gray-500">(@${(billing.credits?.discountedRate || 0).toFixed(2)})</span>
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] font-mono text-gray-500">
+                                <span>Unbilled Promo:</span>
+                                <span className="text-white font-bold">${(billing.credits?.pendingDiscountedAmount || 0).toFixed(2)}</span>
                             </div>
                         </div>
 
@@ -1035,8 +1141,18 @@ export default function TenantShadowPage() {
                                                 <div className="bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 p-3 rounded-lg text-xs font-mono space-y-2">
                                                     <div className="flex items-center gap-1.5 font-bold">
                                                         <CheckCircle2 size={14} className="text-emerald-400" />
-                                                        <span>Password reset link sent to {resetResult.email}!</span>
+                                                        <span>
+                                                            {resetResult.emailSent
+                                                                ? `Password reset email delivered to ${resetResult.email}!`
+                                                                : `Password recovery link generated for ${resetResult.email}!`}
+                                                        </span>
                                                     </div>
+
+                                                    {resetResult.errorNote && (
+                                                        <div className="text-[11px] text-amber-300/90 font-mono bg-amber-950/30 border border-amber-900/40 p-2 rounded">
+                                                            {resetResult.errorNote}
+                                                        </div>
+                                                    )}
 
                                                     {resetResult.directLink && (
                                                         <div className="mt-2 pt-2 border-t border-emerald-900/40 space-y-1.5">
@@ -1085,6 +1201,177 @@ export default function TenantShadowPage() {
                                 className="bg-zinc-800 hover:bg-zinc-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase transition-colors"
                             >
                                 Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* 6. CREDITS & PROMOTIONS MODAL */}
+            {isCreditsModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+                    <div className="bg-[#111] border border-gray-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+                        {/* Modal Header */}
+                        <div className="px-6 py-5 border-b border-gray-800/80 flex items-center justify-between bg-zinc-950/60">
+                            <div>
+                                <h3 className="text-base font-bold font-mono text-white flex items-center gap-2">
+                                    <Gift className="w-4 h-4 text-amber-400" />
+                                    MANAGE CREDITS & PROMOTIONS
+                                </h3>
+                                <p className="text-xs text-gray-400 font-mono mt-0.5">
+                                    {profile.shop_name || 'Tenant'} • {billing.tier} Tier (${billing.amountPaying.overageRate.toFixed(2)}/standard render)
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsCreditsModalOpen(false)}
+                                className="text-gray-500 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6 overflow-y-auto space-y-6">
+                            {/* Feedback Notification */}
+                            {creditsModalMsg && (
+                                <div className={`p-3 rounded-lg text-xs font-mono flex items-center gap-2.5 ${
+                                    creditsModalMsg.type === 'success'
+                                        ? 'bg-emerald-950/40 border border-emerald-800/60 text-emerald-300'
+                                        : 'bg-red-950/40 border border-red-900/60 text-red-300'
+                                }`}>
+                                    {creditsModalMsg.type === 'success' ? (
+                                        <CheckCircle size={15} className="text-emerald-400 shrink-0" />
+                                    ) : (
+                                        <AlertTriangle size={15} className="text-red-400 shrink-0" />
+                                    )}
+                                    <span>{creditsModalMsg.text}</span>
+                                </div>
+                            )}
+
+                            {/* Current Credit Balances Callout */}
+                            <div className="bg-black/60 border border-white/10 rounded-xl p-4 space-y-3 font-mono">
+                                <div className="text-[11px] text-gray-400 uppercase tracking-widest font-bold flex items-center justify-between">
+                                    <span>Current Tenant Balances</span>
+                                    <span className="text-[10px] text-gray-500 lowercase">priority: free → 50% → standard</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                    <div className="bg-white/5 p-3 rounded-lg border border-emerald-900/30">
+                                        <span className="text-[10px] text-gray-400 block uppercase">Free Credits</span>
+                                        <span className="text-2xl font-black text-emerald-400">
+                                            {billing.credits?.freeRemaining || 0}
+                                        </span>
+                                        <span className="text-[10px] text-gray-500 block mt-0.5">$0.00 / image</span>
+                                    </div>
+                                    <div className="bg-white/5 p-3 rounded-lg border border-purple-900/30">
+                                        <span className="text-[10px] text-gray-400 block uppercase">50% Rate Credits</span>
+                                        <span className="text-2xl font-black text-purple-400">
+                                            {billing.credits?.discountedRemaining || 0}
+                                        </span>
+                                        <span className="text-[10px] text-purple-300/70 block mt-0.5">
+                                            @ ${(billing.credits?.discountedRate || (billing.amountPaying.overageRate * 0.5)).toFixed(2)} / image
+                                        </span>
+                                    </div>
+                                </div>
+                                <p className="text-[11px] text-gray-400 leading-relaxed border-t border-white/5 pt-2">
+                                    💡 <strong>Billing Priority:</strong> The system automatically consumes <strong>Free Credits</strong> first, then <strong>50% Promotional Credits</strong>, and finally falls back to their standard rate (${billing.amountPaying.overageRate.toFixed(2)}/gen).
+                                </p>
+                            </div>
+
+                            {/* FORM 1: GRANT FREE CREDITS */}
+                            <div className="bg-zinc-950/60 border border-gray-800 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Gift size={16} className="text-emerald-400" />
+                                    <div>
+                                        <h4 className="text-xs font-bold font-mono text-white uppercase tracking-wider">
+                                            1. Grant Free Credits (Issues / Courtesy)
+                                        </h4>
+                                        <p className="text-[11px] text-gray-400 font-mono">
+                                            Adds 100% free credits ($0.00 each) to help test styles or compensate for issues.
+                                        </p>
+                                    </div>
+                                </div>
+                                <form onSubmit={handleGrantFreeCredits} className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        value={freeCreditsInput}
+                                        onChange={(e) => setFreeCreditsInput(e.target.value)}
+                                        placeholder="Enter credit count (e.g. 50)"
+                                        className="flex-1 bg-black/70 border border-gray-700 text-white px-3 py-2 rounded-lg text-xs font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingFreeCredits}
+                                        className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase transition-colors flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                                    >
+                                        {isSubmittingFreeCredits ? (
+                                            <>
+                                                <Loader2 size={13} className="animate-spin" />
+                                                <span>Adding...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Plus size={13} />
+                                                <span>Grant Free</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
+                            </div>
+
+                            {/* FORM 2: GRANT 50% DISCOUNTED CREDITS */}
+                            <div className="bg-zinc-950/60 border border-gray-800 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center gap-2">
+                                    <Percent size={16} className="text-purple-400" />
+                                    <div>
+                                        <h4 className="text-xs font-bold font-mono text-white uppercase tracking-wider">
+                                            2. Grant 50% Rate Credits (Special Occasion)
+                                        </h4>
+                                        <p className="text-[11px] text-gray-400 font-mono">
+                                            Applies a 50% discount rate (<strong>${(billing.amountPaying.overageRate * 0.5).toFixed(2)}/generation</strong> for {billing.tier}) billed on their monthly renewal.
+                                        </p>
+                                    </div>
+                                </div>
+                                <form onSubmit={handleGrantDiscountedCredits} className="flex gap-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        value={discountedCreditsInput}
+                                        onChange={(e) => setDiscountedCreditsInput(e.target.value)}
+                                        placeholder="Enter credit count (e.g. 100)"
+                                        className="flex-1 bg-black/70 border border-gray-700 text-white px-3 py-2 rounded-lg text-xs font-mono focus:outline-none focus:border-purple-500 transition-colors"
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={isSubmittingDiscountedCredits}
+                                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase transition-colors flex items-center gap-1.5 disabled:opacity-50 shrink-0"
+                                    >
+                                        {isSubmittingDiscountedCredits ? (
+                                            <>
+                                                <Loader2 size={13} className="animate-spin" />
+                                                <span>Adding...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Plus size={13} />
+                                                <span>Grant 50% Rate</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-4 border-t border-gray-800/80 bg-zinc-950/60 flex justify-end">
+                            <button
+                                type="button"
+                                onClick={() => setIsCreditsModalOpen(false)}
+                                className="bg-zinc-800 hover:bg-zinc-700 text-gray-300 px-4 py-2 rounded-lg text-xs font-mono font-bold uppercase transition-colors"
+                            >
+                                Done
                             </button>
                         </div>
                     </div>

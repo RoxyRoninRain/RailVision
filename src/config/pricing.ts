@@ -10,6 +10,7 @@ export interface PricingTier {
     canEmbed: boolean;
     isWhiteLabel: boolean;
     features: string[];
+    signupBonusCredits?: number;
     popular?: boolean;
     stripePriceId?: string;
     stripeOnboardingPriceId?: string; // Kept for type safety, though maybe unused in new model if no onboarding fee?
@@ -38,10 +39,11 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         overageRate: 1.00,
         billingThreshold: 50,
         onboardingFee: 250,
+        signupBonusCredits: 25,
         canEmbed: true,
         isWhiteLabel: true,
         popular: true,
-        features: ['White Label (No Badge)', 'Your Logo Watermark', 'Standard Processing'],
+        features: ['25 Free Credits on Signup (1st Time Bonus)', 'White Label (No Badge)', 'Your Logo Watermark', 'Standard Processing'],
         stripePriceId: 'price_1SlwPmEJNh6NAPEXCudj7EDt',
         stripeMeteredPriceId: 'price_1SlwPmEJNh6NAPEXdoogs38P',
         stripeOnboardingPriceId: 'price_1SlwT9EJNh6NAPEXR8z1dv1z'
@@ -53,9 +55,10 @@ export const PRICING_TIERS: Record<TierName, PricingTier> = {
         overageRate: 0.80,
         billingThreshold: 100,
         onboardingFee: 250,
+        signupBonusCredits: 50,
         canEmbed: true,
         isWhiteLabel: true,
-        features: ['White Label', 'Volume Discount', 'Priority Support'],
+        features: ['50 Free Credits on Signup (1st Time Bonus)', 'White Label', 'Volume Discount', 'Priority Support'],
         stripePriceId: 'price_1SlwRiEJNh6NAPEXb1FsDlQy',
         stripeMeteredPriceId: 'price_1SlwRiEJNh6NAPEXANkMR94u',
         stripeOnboardingPriceId: 'price_1SlwT9EJNh6NAPEXR8z1dv1z'

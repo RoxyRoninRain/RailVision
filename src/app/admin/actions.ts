@@ -133,6 +133,13 @@ export interface TenantBillingInfo {
     hasStripeAccount: boolean;
     lastPaymentDate: string | null;
     paidInvoicesCount: number;
+    credits: {
+        freeRemaining: number;
+        discountedRemaining: number;
+        discountedRate: number;
+        pendingDiscountedAmount: number;
+        pendingDiscountedCount: number;
+    };
 }
 
 export interface TenantGenerationsInfo {
@@ -544,7 +551,14 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
             cancelAtPeriodEnd: stripeSub?.cancel_at_period_end || false,
             hasStripeAccount: !!profile.stripe_customer_id,
             lastPaymentDate,
-            paidInvoicesCount: paidInvoices.length
+            paidInvoicesCount: paidInvoices.length,
+            credits: {
+                freeRemaining: Number(profile.free_credits_remaining) || 0,
+                discountedRemaining: Number(profile.discounted_credits_remaining) || 0,
+                discountedRate: profile.discounted_rate !== null && profile.discounted_rate !== undefined ? Number(profile.discounted_rate) : parseFloat((tierConfig.overageRate * 0.5).toFixed(2)),
+                pendingDiscountedAmount: Number(profile.pending_discounted_amount) || 0,
+                pendingDiscountedCount: Number(profile.pending_discounted_count) || 0,
+            }
         },
         generations: {
             counts: {
@@ -828,6 +842,94 @@ export async function updateSubscriptionStatus(tenantId: string, status: 'active
     } catch (error: any) {
         console.error('Update Subscription Failed:', error);
         return { error: error.message };
+    }
+}
+
+// CREDIT & PROMOTIONS MANAGEMENT
+export async function grantFreeCredits(tenantId: string, count: number) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
+    const parsedCount = parseInt(String(count), 10);
+    if (isNaN(parsedCount) || parsedCount <= 0) {
+        return { error: 'Please enter a valid positive number of credits.' };
+    }
+
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    try {
+        const { data: profile, error: fetchErr } = await supabase
+            .from('profiles')
+            .select('free_credits_remaining')
+            .eq('id', tenantId)
+            .single();
+
+        if (fetchErr) throw fetchErr;
+
+        const newTotal = (profile?.free_credits_remaining || 0) + parsedCount;
+
+        const { error: updateErr } = await supabase
+            .from('profiles')
+            .update({ free_credits_remaining: newTotal })
+            .eq('id', tenantId);
+
+        if (updateErr) throw updateErr;
+
+        console.log(`[ADMIN ACTION] Granted ${parsedCount} free credits to tenant ${tenantId}. New balance: ${newTotal}`);
+        return { success: true, newTotal };
+    } catch (err: any) {
+        console.error('Failed to grant free credits:', err);
+        return { error: err.message || 'Failed to grant free credits' };
+    }
+}
+
+export async function grantDiscountedCredits(tenantId: string, count: number, rate?: number) {
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized' };
+
+    const parsedCount = parseInt(String(count), 10);
+    if (isNaN(parsedCount) || parsedCount <= 0) {
+        return { error: 'Please enter a valid positive number of credits.' };
+    }
+
+    const supabase = createAdminClient();
+    if (!supabase) return { error: 'Admin client missing' };
+
+    try {
+        const { data: profile, error: fetchErr } = await supabase
+            .from('profiles')
+            .select('discounted_credits_remaining, tier_name')
+            .eq('id', tenantId)
+            .single();
+
+        if (fetchErr) throw fetchErr;
+
+        // If no rate passed, calculate 50% of their current tier rate
+        let effectiveRate = rate;
+        if (effectiveRate === undefined || effectiveRate === null) {
+            const tierKey = (profile?.tier_name || 'Volume') as TierName;
+            const tier = PRICING_TIERS[tierKey] || PRICING_TIERS['Volume'];
+            effectiveRate = parseFloat((tier.overageRate * 0.5).toFixed(2));
+        }
+
+        const newTotal = (profile?.discounted_credits_remaining || 0) + parsedCount;
+
+        const { error: updateErr } = await supabase
+            .from('profiles')
+            .update({
+                discounted_credits_remaining: newTotal,
+                discounted_rate: effectiveRate
+            })
+            .eq('id', tenantId);
+
+        if (updateErr) throw updateErr;
+
+        console.log(`[ADMIN ACTION] Granted ${parsedCount} discounted credits (@ $${effectiveRate}/gen) to tenant ${tenantId}. New balance: ${newTotal}`);
+        return { success: true, newTotal, effectiveRate };
+    } catch (err: any) {
+        console.error('Failed to grant discounted credits:', err);
+        return { error: err.message || 'Failed to grant discounted credits' };
     }
 }
 
@@ -1179,44 +1281,116 @@ export async function sendTenantPasswordReset(tenantId: string) {
         // Build redirect URL based on request headers
         const { headers } = await import('next/headers');
         const headersList = await headers();
-        const host = headersList.get('x-forwarded-host') || headersList.get('host') || 'localhost:3000';
-        const proto = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
-        const origin = `${proto}://${host}`;
+        const host = headersList.get('x-forwarded-host') || headersList.get('host');
+        let origin: string;
+        if (host) {
+            const proto = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+            origin = `${proto}://${host}`;
+        } else {
+            origin = process.env.NEXT_PUBLIC_APP_URL || 'https://railify.app';
+        }
         const redirectTo = `${origin}/auth/callback?next=/reset-password`;
 
-        // 1. Send reset email via Supabase Auth
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo,
+        // 1. Generate recovery link with Supabase Admin
+        let directLink: string | null = null;
+        const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+            type: 'recovery',
+            email,
+            options: {
+                redirectTo,
+            },
         });
 
-        // 2. Generate direct link as fallback/convenience for admin
-        let directLink: string | null = null;
-        try {
-            const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-                type: 'recovery',
-                email,
-                options: {
-                    redirectTo,
-                },
-            });
-
-            if (!linkError && linkData?.properties?.action_link) {
-                directLink = linkData.properties.action_link;
-            }
-        } catch (linkGenErr) {
-            console.warn('Could not generate direct recovery link:', linkGenErr);
+        if (linkError) {
+            console.error('Supabase generateLink error:', linkError);
+            throw new Error(`Failed to generate recovery link: ${linkError.message}`);
         }
 
-        if (resetError && !directLink) {
-            throw resetError;
+        if (linkData?.properties?.action_link) {
+            directLink = linkData.properties.action_link;
+        }
+
+        if (!directLink) {
+            throw new Error('Supabase did not return a valid recovery action link');
+        }
+
+        // 2. Dispatch email directly via Resend for reliable inbox delivery
+        let emailSent = false;
+        let emailErrorNote: string | undefined = undefined;
+
+        if (process.env.RESEND_API_KEY) {
+            try {
+                const { Resend } = await import('resend');
+                const resend = new Resend(process.env.RESEND_API_KEY);
+                const tenantName = profile.shop_name || 'Valued Partner';
+
+                const { data: resendData, error: resendErr } = await resend.emails.send({
+                    from: 'Railify <notifications@railify.app>',
+                    to: email,
+                    subject: 'Reset your Railify account password',
+                    html: `
+                    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; background-color: #050505; color: #ffffff; border-radius: 12px; border: 1px solid #222;">
+                        <div style="text-align: center; margin-bottom: 30px;">
+                            <h1 style="color: #7C3AED; font-size: 28px; font-weight: 900; letter-spacing: -1px; margin: 0; text-transform: uppercase;">Railify</h1>
+                            <p style="color: #888888; font-size: 11px; font-family: monospace; letter-spacing: 2px; text-transform: uppercase; margin-top: 5px;">Security & Password Recovery</p>
+                        </div>
+                        
+                        <div style="background-color: #111111; border: 1px solid #222222; border-radius: 8px; padding: 30px; margin-bottom: 24px;">
+                            <h2 style="color: #ffffff; font-size: 18px; margin-top: 0; margin-bottom: 12px;">Reset Your Password</h2>
+                            <p style="color: #aaaaaa; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
+                                Hello ${tenantName},<br/><br/>
+                                A password reset was requested for your Railify account (<strong>${email}</strong>). Click the button below to choose a new password:
+                            </p>
+                            
+                            <div style="text-align: center; margin: 30px 0;">
+                                <a href="${directLink}" style="background-color: #7C3AED; color: #ffffff; font-weight: bold; text-decoration: none; padding: 14px 32px; border-radius: 8px; display: inline-block; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
+                                    Reset Password
+                                </a>
+                            </div>
+                            
+                            <p style="color: #666666; font-size: 12px; line-height: 1.5; margin-bottom: 0;">
+                                If the button above does not work, copy and paste this link into your browser:<br/>
+                                <a href="${directLink}" style="color: #7C3AED; word-break: break-all;">${directLink}</a>
+                            </p>
+                        </div>
+                        
+                        <div style="text-align: center; font-size: 11px; color: #555555;">
+                            <p style="margin: 0;">This password reset link will expire in 24 hours. If you did not request this, you can safely ignore this email.</p>
+                            <p style="margin-top: 10px;">&copy; Railify &bull; Mississippi Metal Magic</p>
+                        </div>
+                    </div>
+                    `,
+                });
+
+                if (resendErr) {
+                    console.error('[sendTenantPasswordReset] Resend error:', resendErr);
+                    emailErrorNote = `Email dispatch failed: ${resendErr.message}`;
+                } else {
+                    emailSent = true;
+                    console.log(`[sendTenantPasswordReset] Reset email successfully delivered to ${email} (ID: ${resendData?.id})`);
+                }
+            } catch (dispatchErr: any) {
+                console.error('[sendTenantPasswordReset] Dispatch exception:', dispatchErr);
+                emailErrorNote = dispatchErr.message;
+            }
+        } else {
+            console.warn('[sendTenantPasswordReset] RESEND_API_KEY is not configured');
+            emailErrorNote = 'RESEND_API_KEY environment variable is missing.';
+        }
+
+        // 3. Fallback: also trigger Supabase's native resetPasswordForEmail in case SMTP is configured
+        try {
+            await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        } catch {
+            // Ignore error from native Supabase SMTP fallback
         }
 
         return {
             success: true,
             email,
             directLink,
-            emailSent: !resetError,
-            errorNote: resetError ? resetError.message : undefined,
+            emailSent,
+            errorNote: emailErrorNote,
         };
     } catch (error: any) {
         console.error('sendTenantPasswordReset Failed:', error);

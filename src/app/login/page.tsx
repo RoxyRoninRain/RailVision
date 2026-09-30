@@ -5,6 +5,7 @@ import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 import { Loader2, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { requestPasswordReset } from '@/app/actions/auth';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -70,12 +71,8 @@ export default function LoginPage() {
         setForgotSuccess(false);
 
         try {
-            const origin = window.location.origin;
-            const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-                redirectTo: `${origin}/auth/callback?next=/reset-password`,
-            });
-
-            if (resetErr) throw resetErr;
+            const res = await requestPasswordReset(email.trim());
+            if (res.error) throw new Error(res.error);
             setForgotSuccess(true);
         } catch (err: any) {
             setError(err.message || 'Failed to send recovery email.');

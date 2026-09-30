@@ -39,6 +39,11 @@ export default function PricingCarousel() {
                                     ? 'One-time Setup Fee'
                                     : 'No setup fee'}
                             </div>
+                            {tier.signupBonusCredits && (
+                                <div className="mt-2 text-[11px] font-mono text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 py-1 px-2 rounded-md inline-flex items-center gap-1.5 font-bold">
+                                    <span>🎁 +{tier.signupBonusCredits} Free Credits on Signup</span>
+                                </div>
+                            )}
                         </div>
 
                         <ul className="space-y-3 mb-8 text-sm text-gray-400 flex-1">

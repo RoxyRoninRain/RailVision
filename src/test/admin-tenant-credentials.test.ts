@@ -6,6 +6,15 @@ const mockGenerateLink = vi.fn();
 const mockResetPasswordForEmail = vi.fn();
 const mockProfileSelect = vi.fn();
 const mockProfileUpdate = vi.fn();
+const mockResendSend = vi.fn().mockResolvedValue({ data: { id: 'msg_123' }, error: null });
+
+vi.mock('resend', () => ({
+    Resend: class {
+        emails = {
+            send: mockResendSend,
+        };
+    },
+}));
 
 vi.mock('@/lib/auth-utils', () => ({
     checkIsAdmin: () => mockCheckIsAdmin(),
@@ -99,16 +108,18 @@ describe('Tenant Credentials & Password Reset Admin Actions', () => {
     });
 
     it('sends reset email and returns directLink on sendTenantPasswordReset', async () => {
+        process.env.RESEND_API_KEY = 're_test_mock_key';
         const { sendTenantPasswordReset } = await import('@/app/admin/actions');
         const res = await sendTenantPasswordReset('tenant-abc-123');
 
         expect(res.success).toBe(true);
         expect(res.email).toBe('current@tenant.com');
+        expect(res.emailSent).toBe(true);
         expect(res.directLink).toBe('https://app.railify.com/auth/callback?code=mock-code');
-        expect(mockResetPasswordForEmail).toHaveBeenCalledWith(
-            'current@tenant.com',
+        expect(mockResendSend).toHaveBeenCalledWith(
             expect.objectContaining({
-                redirectTo: 'https://app.railify.com/auth/callback?next=/reset-password',
+                to: 'current@tenant.com',
+                from: 'Railify <notifications@railify.app>',
             })
         );
     });

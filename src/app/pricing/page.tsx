@@ -71,6 +71,15 @@ export default function PricingPage() {
                                     </div>
                                 </div>
 
+                                {tier.signupBonusCredits && (
+                                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-md text-emerald-300 text-xs font-mono flex items-center justify-between">
+                                        <span className="font-semibold">🎁 1st-Time Perk:</span>
+                                        <span className="font-bold text-white bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/30">
+                                            +{tier.signupBonusCredits} Free Credits
+                                        </span>
+                                    </div>
+                                )}
+
                                 <ul className="space-y-3 pt-4 border-t border-gray-800">
                                     {tier.features.map((feature, i) => (
                                         <li key={i} className="flex items-start gap-3 text-sm text-gray-400">
