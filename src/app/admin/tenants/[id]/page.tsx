@@ -695,6 +695,11 @@ export default function TenantShadowPage() {
                                         {generations.counts.total}
                                     </span>
                                     <span className="text-xs text-gray-500 font-mono ml-1.5">total designs</span>
+                                    {generations.counts.adminTests > 0 && (
+                                        <div className="text-[10px] text-emerald-400 font-mono mt-0.5">
+                                            Includes {generations.counts.adminTests} admin tests ($0 charged)
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="pt-2 border-t border-white/5 flex items-center justify-between text-xs font-mono">
                                     <span className="text-gray-500">Total Model API Cost:</span>
