@@ -250,7 +250,9 @@ export async function generateDesignWithNanoBanana(
                     } else {
                         reducerInstructionStep = `2.  **POST-TO-RAIL JOINT (DIRECT SEAMLESS WELD):**
 - Exactly match the seamless joint shown in **IMAGE B** and **IMAGE C**.
-- The top edge of each square post (bottom newel post, intermediate stair posts, and landing posts) fuses directly into the round top handrail with a continuous flush mitered weld. Direct solid metal-to-metal fusion throughout.`;
+- Every square post (including the bottom newel post, intermediate stair posts, and landing posts) is a single continuous tube that reaches all the way to touch the underside of the top handrail.
+- The top of each square post meets the handrail directly with the handrail resting directly on top of each post. Direct solid metal-to-metal fusion throughout.
+- There is zero space, zero gap, and zero connecting pin between the post and the handrail; the two pieces of metal are welded directly together into a single continuous solid joint.`;
                     }
                 }
 

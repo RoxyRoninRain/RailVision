@@ -83,7 +83,7 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('POST-TO-RAIL JOINT (DIRECT SEAMLESS WELD)'));
         expect(promptPart).toBeDefined();
         expect(promptPart.text).toContain('Exactly match the seamless joint shown in **IMAGE B** and **IMAGE C**');
-        expect(promptPart.text).toContain('fuses directly into the round top handrail with a continuous flush mitered weld');
+        expect(promptPart.text).toContain('single continuous tube that reaches all the way to touch the underside of the top handrail');
         expect(promptPart.text).toContain('Direct solid metal-to-metal fusion throughout');
     });
 
