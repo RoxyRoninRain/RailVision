@@ -252,8 +252,8 @@ export async function generateDesignWithNanoBanana(
                         reducerInstructionStep = `2.  **POST-TO-RAIL JUNCTION (NO REDUCERS / DIRECT WELD):**
 - The style requires NO REDUCERS: Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
 - The top rail connects DIRECTLY to the top of every post with a continuous flush weld (zero gap).
-- On stairs: Every post (including the bottom newel post and all stair posts) must extend all the way up to touch the underside of the handrail directly with an angle-mitered cut.
-- ZERO stem reducers, ZERO mounting pins, and ZERO gap between the posts and the handrail. Solid direct metal-to-metal contact throughout.`;
+- On stairs and landings: Every post (including the bottom newel post, intermediate stair posts, and top landing posts) must extend all the way up to touch the handrail directly with an angle-mitered cut or direct flush weld.
+- ZERO stem reducers, ZERO mounting pins, ZERO standoff brackets, and ZERO gaps. No post should ever have a flat top with a standoff pin or bracket under the rail. Solid direct metal-to-metal welded contact throughout.`;
                     }
                 }
 

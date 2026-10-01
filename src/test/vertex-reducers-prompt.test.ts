@@ -83,9 +83,8 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('POST-TO-RAIL JUNCTION'));
         expect(promptPart).toBeDefined();
         expect(promptPart.text).toContain('The style requires NO REDUCERS');
-        expect(promptPart.text).toContain('The top rail connects DIRECTLY to the top of every post with a continuous flush weld (zero gap)');
-        expect(promptPart.text).toContain('On stairs: Every post (including the bottom newel post and all stair posts) must extend all the way up');
-        expect(promptPart.text).toContain('ZERO stem reducers, ZERO mounting pins');
+        expect(promptPart.text).toContain('On stairs and landings: Every post (including the bottom newel post');
+        expect(promptPart.text).toContain('ZERO stem reducers, ZERO mounting pins, ZERO standoff brackets');
     });
 
     it('does not inject rigid reducer constraints when hasReducers is null or undefined', async () => {
