@@ -163,10 +163,11 @@ export async function generateDesignWithNanoBanana(
             .replace('{{DATE}}', new Date().toISOString().split('T')[0]);
 
         if (!isReducerRequired) {
-            baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION (DIRECT FLUSH COPED WELD - NO REDUCERS):**
+            baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION (DIRECT SEAMLESS WELD):**
 * Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C.
-* The square posts must connect directly into the round top rail with a continuous flush coped weld joint (zero gap).
-* The square post top meets the underside of the round rail directly with no transition collar, adapter cup, stem, or reducer fitting.
+* The square posts connect directly to the round top rail with a continuous flush welded joint (zero gap).
+* On both flat landings and stairs, each square post extends all the way up until its top surface meets the underside of the round handrail.
+* The square post body directly contacts the round rail tube in a single solid welded structure.
 * Replicate this direct connection precisely as shown in the reference imagery.`;
         } else {
             baseSystemInstruction += `\n\n**POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):**
@@ -201,7 +202,7 @@ export async function generateDesignWithNanoBanana(
             // PRIORITY FABRICATION DIRECTIVE (Highest Attention Layer)
             if (!isReducerRequired) {
                 parts.push({
-                    text: `[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT FLUSH COPED WELD]\nPay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C. The round top rail rests DIRECTLY on the top of the square posts with a continuous flush coped weld (zero gap). The square post body directly meets the underside of the round rail with no reducer fittings or transition collars.`
+                    text: `[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT SEAMLESS WELD]\nPay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C. The round top rail rests DIRECTLY on the top of each square post with a continuous flush weld (zero gap). On stairs, the square post body extends all the way up to meet the underside of the round rail in solid direct contact.`
                 });
             } else {
                 parts.push({
@@ -272,11 +273,11 @@ export async function generateDesignWithNanoBanana(
 - Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
 - The square posts must connect to the round top rail using square-to-round reducer fittings / transition collars at the top of each post.`;
                 } else {
-                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (DIRECT COPED WELD - NO REDUCERS):**
+                    reducerInstructionStep = `**POST-TO-RAIL JUNCTION (DIRECT SEAMLESS WELD):**
 - Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
-- The round top rail connects DIRECTLY to the top of each square post with a continuous flush coped weld (zero gap).
-- On stairs, the top of each square post is cut/mitered at the matching rake slope angle so the square post body meets the round rail tube directly.
-- Replicate this seamless direct connection without adding any reducer fittings or transition collars.`;
+- The round top rail connects DIRECTLY to the top of each square post with a continuous flush weld (zero gap).
+- On both flat landings and stairs, each square post extends all the way up so the square post body directly meets the underside of the round rail tube.
+- Replicate this seamless direct contact precisely as shown in the reference imagery.`;
                 }
 
                 if (specs.description && specs.description.trim()) {
@@ -368,8 +369,8 @@ Renovate **IMAGE A**.
 
             // Prepend Critical Fabrication Mandate to promptText
             if (!isReducerRequired) {
-                promptText = `[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT COPED WELD - NO REDUCERS]\n- Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C.\n- Square posts must connect DIRECTLY into the round top rail with a continuous coped weld (zero gap).\n- Do not add reducer fittings or transition collars.\n***\n\n` + promptText;
-                promptText += `\n\n**FINAL VERIFICATION:** Confirm you examined the connection point in both IMAGE B and IMAGE C and rendered direct post-to-rail joints with zero reducers.`;
+                promptText = `[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT SEAMLESS WELD]\n- Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C.\n- Square posts connect DIRECTLY to the round top rail with a continuous flush weld (zero gap).\n- On stairs, each square post body extends all the way up to meet the underside of the round rail in solid direct contact.\n***\n\n` + promptText;
+                promptText += `\n\n**FINAL VERIFICATION:** Confirm you examined the connection point in both IMAGE B and IMAGE C and rendered direct seamless post-to-rail contact on all stairs and landings.`;
             } else {
                 promptText = `[CRITICAL POST-TO-RAIL DIRECTIVE: REDUCER FITTINGS REQUIRED]\n- Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C.\n- Square posts must connect to the round top rail using square-to-round reducer fittings.\n***\n\n` + promptText;
                 promptText += `\n\n**FINAL VERIFICATION:** Confirm you examined the connection point in both IMAGE B and IMAGE C and rendered reducer fittings at the top of each square post.`;

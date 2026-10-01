@@ -76,18 +76,18 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         // 1. Verify systemInstruction is present in request body
         expect(capturedRequestBody.systemInstruction).toBeDefined();
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('POST-TO-RAIL JUNCTION (DIRECT FLUSH COPED WELD - NO REDUCERS)');
+        expect(sysText).toContain('POST-TO-RAIL JUNCTION (DIRECT SEAMLESS WELD)');
         expect(sysText).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
-        expect(sysText).toContain('The square posts must connect directly into the round top rail with a continuous flush coped weld joint (zero gap)');
+        expect(sysText).toContain('The square posts connect directly to the round top rail with a continuous flush welded joint (zero gap)');
 
         // 2. Verify priority directive is at the start of parts
         const parts = capturedRequestBody.contents[0].parts;
         const priorityPart = parts[0];
-        expect(priorityPart.text).toContain('[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT FLUSH COPED WELD]');
+        expect(priorityPart.text).toContain('[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT SEAMLESS WELD]');
         expect(priorityPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
 
         // 3. Verify user prompt text contains directive, connection focus, and final check
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT COPED WELD'));
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('**FINAL VERIFICATION:**'));
         expect(promptPart).toBeDefined();
         expect(promptPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
         expect(promptPart.text).toContain('**FINAL VERIFICATION:** Confirm you examined the connection point in both IMAGE B and IMAGE C');
@@ -113,11 +113,11 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(capturedRequestBody).toBeDefined();
 
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('POST-TO-RAIL JUNCTION (DIRECT FLUSH COPED WELD - NO REDUCERS)');
+        expect(sysText).toContain('POST-TO-RAIL JUNCTION (DIRECT SEAMLESS WELD)');
         expect(sysText).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
 
         const parts = capturedRequestBody.contents[0].parts;
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT COPED WELD'));
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT SEAMLESS WELD'));
         expect(promptPart).toBeDefined();
         expect(promptPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
         expect(promptPart.text).not.toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): reducers, bell reducers');
