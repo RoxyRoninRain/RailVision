@@ -238,7 +238,7 @@ export async function generateDesignWithNanoBanana(
                         mountingInstructionStep = `2.  **Mounting (SHOE RAIL):** The user requires a **Shoe Rail**. You MUST draw a continuous horizontal bottom rail connecting all spindles. The spindles must terminate into this rail.`;
                     } else {
                         // CASE 2: DIRECT MOUNT REQUIRED
-                        mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each spindle must drill INDIVIDUALLY into the stair tread/floor.`;
+                        mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each post base or spindle mounts directly into the stair tread/floor.`;
                     }
                 }
 
