@@ -249,11 +249,11 @@ export async function generateDesignWithNanoBanana(
 - The style requires reducer fittings: Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
 - Posts must connect to the top rail using post-top stem reducers / transition collars at the top of each post.`;
                     } else {
-                        reducerInstructionStep = `2.  **POST-TO-RAIL JUNCTION (NO REDUCERS / DIRECT WELD):**
-- The style requires NO REDUCERS: Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
-- The top rail connects DIRECTLY to the top of every post with a continuous flush weld (zero gap).
-- On stairs and landings: Every post (including the bottom newel post, intermediate stair posts, and top landing posts) must extend all the way up to touch the handrail directly with an angle-mitered cut or direct flush weld.
-- ZERO stem reducers, ZERO mounting pins, ZERO standoff brackets, and ZERO gaps. No post should ever have a flat top with a standoff pin or bracket under the rail. Solid direct metal-to-metal welded contact throughout.`;
+                        reducerInstructionStep = `2.  **POST-TO-RAIL GEOMETRY (CONTINUOUS DIRECT FLUSH WELD):**
+- The round top handrail is the structural top cap of the railing, resting directly on the top edge of each square post with a flush welded joint (zero gap). Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
+- Every post (starting newel post at the bottom of the stairs, intermediate stair posts, and landing posts) extends all the way up until its top surface directly touches and fuses to the round handrail.
+- On stairs: The top end of every post is miter-cut at the stair angle matching the rail slope, with continuous flush metal-to-metal fusion.
+- STRICTLY FORBIDDEN: NO handrail saddle brackets, NO standoff stems, NO pivot pins, NO post caps, and NO gaps between the post tops and the round rail. The square post must physically touch the round pipe directly.`;
                     }
                 }
 

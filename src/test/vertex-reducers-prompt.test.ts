@@ -80,11 +80,11 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
 
         // 2. User prompt contains the toggle-controlled NO REDUCERS / DIRECT WELD logic
         const parts = capturedRequestBody.contents[0].parts;
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('POST-TO-RAIL JUNCTION'));
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('POST-TO-RAIL GEOMETRY'));
         expect(promptPart).toBeDefined();
-        expect(promptPart.text).toContain('The style requires NO REDUCERS');
-        expect(promptPart.text).toContain('On stairs and landings: Every post (including the bottom newel post');
-        expect(promptPart.text).toContain('ZERO stem reducers, ZERO mounting pins, ZERO standoff brackets');
+        expect(promptPart.text).toContain('The round top handrail is the structural top cap of the railing');
+        expect(promptPart.text).toContain('Every post (starting newel post at the bottom of the stairs');
+        expect(promptPart.text).toContain('NO handrail saddle brackets, NO standoff stems, NO pivot pins');
     });
 
     it('does not inject rigid reducer constraints when hasReducers is null or undefined', async () => {
