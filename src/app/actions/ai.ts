@@ -400,7 +400,9 @@ export async function generateDesign(formData: FormData) {
         } = style;
         const styleId = formData.get('styleId') as string;
         const styleDescription = formData.get('style_description') as string;
-        const customPromptNote = (formData.get('prompt') as string) || (formData.get('custom_prompt_note') as string);
+        const rawPrompt = formData.get('prompt') as string;
+        const customPromptNote = (formData.get('custom_prompt_note') as string) ||
+            (rawPrompt && rawPrompt !== "High quality architectural photorealistic render" ? rawPrompt : undefined);
 
         if (styleFile) {
             const styleBuffer = Buffer.from(await styleFile.arrayBuffer());

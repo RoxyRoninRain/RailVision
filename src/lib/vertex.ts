@@ -249,11 +249,9 @@ export async function generateDesignWithNanoBanana(
 - The style requires reducer fittings: Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
 - Posts must connect to the top rail using post-top stem reducers / transition collars at the top of each post.`;
                     } else {
-                        reducerInstructionStep = `2.  **POST-TO-RAIL GEOMETRY (CONTINUOUS DIRECT FLUSH WELD):**
-- The round top handrail is the structural top cap of the railing, resting directly on the top edge of each square post with a flush welded joint (zero gap). Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
-- Every post (starting newel post at the bottom of the stairs, intermediate stair posts, and landing posts) extends all the way up until its top surface directly touches and fuses to the round handrail.
-- On stairs: The top end of every post is miter-cut at the stair angle matching the rail slope, with continuous flush metal-to-metal fusion.
-- STRICTLY FORBIDDEN: NO handrail saddle brackets, NO standoff stems, NO pivot pins, NO post caps, and NO gaps between the post tops and the round rail. The square post must physically touch the round pipe directly.`;
+                        reducerInstructionStep = `2.  **POST-TO-RAIL JOINT (DIRECT SEAMLESS WELD):**
+- Exactly match the seamless joint shown in **IMAGE B** and **IMAGE C**.
+- The top edge of each square post (bottom newel post, intermediate stair posts, and landing posts) fuses directly into the round top handrail with a continuous flush mitered weld. Direct solid metal-to-metal fusion throughout.`;
                     }
                 }
 
