@@ -127,7 +127,6 @@ const DEFAULT_SYSTEM_INSTRUCTION = `**ROLE:** You are Railify-AI, an expert Arch
 **STRICT PROHIBITIONS (FATAL ERRORS):**
 *   **NO STYLE TRANSFER:** Do NOT output Image B. Your canvas is Image A.
 *   **NO GHOSTING:** Spindles must NEVER pass through a Shoe Rail.
-*   **NO UNWANTED FITTINGS:** Do NOT invent or add reducers, transition collars, or adapter cups between posts and handrails unless explicitly shown in the reference or instructed.
 *   **NO WARPING:** Do not change the angle or number of steps.
 *   **NO COLLAGES:** Single full-screen view only.
 *   **NO HALLUCINATIONS:** FAST FAIL if you create windows, doors, or furniture that do not exist.
@@ -235,19 +234,19 @@ export async function generateDesignWithNanoBanana(
                 if (specs.hasBottomRail !== undefined && specs.hasBottomRail !== null) {
                     if (specs.hasBottomRail) {
                         // CASE 1: SHOE RAIL REQUIRED
-                        mountingInstructionStep = `2.  **Mounting (SHOE RAIL):** The user requires a **Shoe Rail**. You MUST draw a continuous horizontal bottom rail connecting all spindles. The spindles must terminate into this rail.`;
+                        mountingInstructionStep = `2.  **Mounting (SHOE RAIL):** The user requires a **Shoe Rail**. Continuous horizontal bottom rail connecting all spindles. The spindles terminate into this rail.`;
                     } else {
                         // CASE 2: DIRECT MOUNT REQUIRED
-                        mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each post base or spindle mounts directly into the stair tread/floor.`;
+                        mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each post base mounts directly into the stair tread/floor with a base plate.`;
                     }
                 }
 
                 // POST-TO-RAIL REDUCER SPECIFICATION (Strictly toggle-controlled):
                 if (specs.hasReducers !== undefined && specs.hasReducers !== null) {
                     if (specs.hasReducers === true) {
-                        reducerInstructionStep = `2.  **POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):**
+                        reducerInstructionStep = `3.  **POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):**
 - The style requires reducer fittings: Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
-- Posts must connect to the top rail using post-top stem reducers / transition collars at the top of each post.`;
+- Posts connect to the top rail using post-top stem reducers / transition collars at the top of each post.`;
                     } else {
                         reducerInstructionStep = `2.  **POST-TO-RAIL JOINT (DIRECT SEAMLESS WELD):**
 - Exactly match the seamless joint shown in **IMAGE B** and **IMAGE C**.
@@ -300,7 +299,7 @@ Renovate **IMAGE A**.
 **FINAL CHECK:**
 - Is the old rail gone?
 - Is the new rail mounting (Shoe vs Direct) correct according to Image B and Image C?
-- Did you examine the post-to-rail junction in Image B and Image C and follow the connection specification (Direct vs Reducer)?
+- Did you examine the post-to-rail junction in Image B and Image C and follow the connection specification?
 - Is the background preserved?`;
 
             // If user has a custom template that includes placeholders, replace them.
