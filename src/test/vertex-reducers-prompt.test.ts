@@ -55,7 +55,7 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         });
     });
 
-    it('sends systemInstruction in the REST fetch payload and strictly prohibits reducers by default', async () => {
+    it('delivers toggle-controlled post-to-rail directives without polluting systemInstruction when hasReducers is false', async () => {
         const { generateDesignWithNanoBanana } = await import('@/lib/vertex');
 
         const result = await generateDesignWithNanoBanana(
@@ -73,29 +73,22 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(result.success).toBe(true);
         expect(capturedRequestBody).toBeDefined();
 
-        // 1. Verify systemInstruction is present in request body
+        // 1. systemInstruction should remain clean and architectural (not polluted with post-to-rail specific rules)
         expect(capturedRequestBody.systemInstruction).toBeDefined();
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('POST-TO-RAIL JUNCTION (DIRECT SEAMLESS WELD)');
-        expect(sysText).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
-        expect(sysText).toContain('The square posts connect directly to the round top rail with a continuous flush welded joint (zero gap)');
+        expect(sysText).not.toContain('POST-TO-RAIL JUNCTION');
 
-        // 2. Verify priority directive is at the start of parts
+        // 2. User prompt contains the toggle-controlled NO REDUCERS / DIRECT WELD logic
         const parts = capturedRequestBody.contents[0].parts;
-        const priorityPart = parts[0];
-        expect(priorityPart.text).toContain('[CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT SEAMLESS WELD]');
-        expect(priorityPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
-
-        // 3. Verify user prompt text contains directive, connection focus, and final check
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('**FINAL VERIFICATION:**'));
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('POST-TO-RAIL JUNCTION'));
         expect(promptPart).toBeDefined();
-        expect(promptPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
-        expect(promptPart.text).toContain('**FINAL VERIFICATION:** Confirm you examined the connection point in both IMAGE B and IMAGE C');
-        // Verify negative keyword dumping was eliminated
-        expect(promptPart.text).not.toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): reducers, bell reducers');
+        expect(promptPart.text).toContain('The style requires NO REDUCERS');
+        expect(promptPart.text).toContain('The top rail connects DIRECTLY to the top of every post with a continuous flush weld (zero gap)');
+        expect(promptPart.text).toContain('On stairs: Every post (including the bottom newel post and all stair posts) must extend all the way up');
+        expect(promptPart.text).toContain('ZERO stem reducers, ZERO mounting pins');
     });
 
-    it('defaults to ZERO REDUCERS even when hasReducers is null or undefined', async () => {
+    it('does not inject rigid reducer constraints when hasReducers is null or undefined', async () => {
         const { generateDesignWithNanoBanana } = await import('@/lib/vertex');
 
         const result = await generateDesignWithNanoBanana(
@@ -112,18 +105,16 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(result.success).toBe(true);
         expect(capturedRequestBody).toBeDefined();
 
+        // Neither systemInstruction nor user prompt should force reducers or no-reducers
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('POST-TO-RAIL JUNCTION (DIRECT SEAMLESS WELD)');
-        expect(sysText).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
+        expect(sysText).not.toContain('POST-TO-RAIL JUNCTION');
 
         const parts = capturedRequestBody.contents[0].parts;
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('CRITICAL POST-TO-RAIL DIRECTIVE: DIRECT SEAMLESS WELD'));
-        expect(promptPart).toBeDefined();
-        expect(promptPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
-        expect(promptPart.text).not.toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): reducers, bell reducers');
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('POST-TO-RAIL JUNCTION'));
+        expect(promptPart).toBeUndefined();
     });
 
-    it('instructs reducer fittings when hasReducers is explicitly true', async () => {
+    it('instructs reducer fittings via toggle when hasReducers is explicitly true', async () => {
         const { generateDesignWithNanoBanana } = await import('@/lib/vertex');
 
         const result = await generateDesignWithNanoBanana(
@@ -140,18 +131,15 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(result.success).toBe(true);
         expect(capturedRequestBody).toBeDefined();
 
+        // systemInstruction remains clean
         const sysText = capturedRequestBody.systemInstruction.parts[0].text;
-        expect(sysText).toContain('POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED)');
-        expect(sysText).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
-        expect(sysText).toContain('Square posts must connect to the round top rail using square-to-round reducer fittings');
+        expect(sysText).not.toContain('POST-TO-RAIL JUNCTION');
 
+        // User prompt contains REDUCER FITTINGS REQUIRED
         const parts = capturedRequestBody.contents[0].parts;
-        const priorityPart = parts[0];
-        expect(priorityPart.text).toContain('[CRITICAL POST-TO-RAIL DIRECTIVE: REDUCER FITTINGS REQUIRED]');
-
         const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('REDUCER FITTINGS REQUIRED'));
         expect(promptPart).toBeDefined();
-        expect(promptPart.text).toContain('Pay extra close attention to the post-to-rail connection point in both IMAGE B and IMAGE C');
-        expect(promptPart.text).not.toContain('NEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): reducers');
+        expect(promptPart.text).toContain('The style requires reducer fittings');
+        expect(promptPart.text).toContain('post-top stem reducers');
     });
 });
