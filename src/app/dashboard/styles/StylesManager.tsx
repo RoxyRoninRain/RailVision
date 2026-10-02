@@ -500,91 +500,6 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                         </div>
                     </div>
 
-                    {/* Second-Pass AI Refinement (Post-Processing) */}
-                    <div className="p-3.5 bg-gradient-to-b from-[#18122B]/40 to-[#0A0A0A] border border-purple-500/30 rounded-lg space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    id="new_enable_second_pass"
-                                    checked={enableSecondPass}
-                                    onChange={e => {
-                                        const checked = e.target.checked;
-                                        setEnableSecondPass(checked);
-                                        if (checked && secondPassTargets.length === 0) {
-                                            setSecondPassTargets(['reducers']);
-                                        }
-                                    }}
-                                    className="w-5 h-5 accent-purple-500 rounded cursor-pointer"
-                                />
-                                <label htmlFor="new_enable_second_pass" className="text-white text-sm font-bold uppercase tracking-wider cursor-pointer select-none flex items-center gap-1.5">
-                                    <Sparkles size={14} className="text-purple-400" />
-                                    Enable Second-Pass AI Refinement
-                                </label>
-                            </div>
-                            <span className="text-[10px] font-mono text-purple-400 bg-purple-900/30 px-2 py-0.5 rounded border border-purple-500/20">
-                                Auto-Fix Pass
-                            </span>
-                        </div>
-                        <p className="text-gray-400 text-xs pl-7 leading-relaxed">
-                            Executes a focused micro-refinement pass that preserves the stairs and background 100% while strictly fixing selected fabrication joints.
-                        </p>
-
-                        {enableSecondPass && (
-                            <div className="pl-7 pt-2 space-y-3 border-t border-purple-500/20">
-                                <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold">
-                                    Targeted Issue Refinements:
-                                </label>
-                                <div className="space-y-2">
-                                    {SECOND_PASS_ISSUES.map(issue => {
-                                        const isChecked = secondPassTargets.includes(issue.id);
-                                        return (
-                                            <div
-                                                key={issue.id}
-                                                onClick={() => {
-                                                    setSecondPassTargets(prev =>
-                                                        prev.includes(issue.id)
-                                                            ? prev.filter(id => id !== issue.id)
-                                                            : [...prev, issue.id]
-                                                    );
-                                                }}
-                                                className={`p-2.5 rounded border cursor-pointer transition-all ${
-                                                    isChecked
-                                                        ? 'bg-purple-950/40 border-purple-500 text-white'
-                                                        : 'bg-black/40 border-white/10 text-gray-400 hover:border-white/20'
-                                                }`}
-                                            >
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
-                                                        isChecked ? 'bg-purple-600 border-purple-400 text-white' : 'border-gray-600 bg-transparent'
-                                                    }`}>
-                                                        {isChecked && '✓'}
-                                                    </div>
-                                                    <span className="text-xs font-bold uppercase">{issue.label}</span>
-                                                </div>
-                                                <p className="text-[11px] text-gray-400 mt-1 pl-6">
-                                                    {issue.description}
-                                                </p>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-
-                                <div>
-                                    <label className="block text-[11px] font-mono uppercase tracking-wider text-gray-400 mb-1">
-                                        Custom Refinement Prompt (Optional):
-                                    </label>
-                                    <textarea
-                                        value={secondPassCustomPrompt}
-                                        onChange={e => setSecondPassCustomPrompt(e.target.value)}
-                                        placeholder="e.g. Ensure all post tops sit flush beneath the rail without any intermediate hardware."
-                                        className="w-full bg-[#050505] border border-white/10 focus:border-purple-500 p-2.5 rounded text-white text-xs h-16 resize-none"
-                                    />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
                     {/* Main Image */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
@@ -678,6 +593,91 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                             />
                         )}
                     </AnimatePresence>
+
+                    {/* Second-Pass AI Refinement (Post-Processing) */}
+                    <div className="p-3.5 bg-gradient-to-b from-[#18122B]/40 to-[#0A0A0A] border border-purple-500/30 rounded-lg space-y-3 mt-4">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="new_enable_second_pass"
+                                    checked={enableSecondPass}
+                                    onChange={e => {
+                                        const checked = e.target.checked;
+                                        setEnableSecondPass(checked);
+                                        if (checked && secondPassTargets.length === 0) {
+                                            setSecondPassTargets(['reducers']);
+                                        }
+                                    }}
+                                    className="w-5 h-5 accent-purple-500 rounded cursor-pointer"
+                                />
+                                <label htmlFor="new_enable_second_pass" className="text-white text-sm font-bold uppercase tracking-wider cursor-pointer select-none flex items-center gap-1.5">
+                                    <Sparkles size={14} className="text-purple-400" />
+                                    Enable Second-Pass AI Refinement
+                                </label>
+                            </div>
+                            <span className="text-[10px] font-mono text-purple-400 bg-purple-900/30 px-2 py-0.5 rounded border border-purple-500/20">
+                                Auto-Fix Pass
+                            </span>
+                        </div>
+                        <p className="text-gray-400 text-xs pl-7 leading-relaxed">
+                            Executes a focused micro-refinement pass that preserves the stairs and background 100% while strictly fixing selected fabrication joints.
+                        </p>
+
+                        {enableSecondPass && (
+                            <div className="pl-7 pt-2 space-y-3 border-t border-purple-500/20">
+                                <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold">
+                                    Targeted Issue Refinements:
+                                </label>
+                                <div className="space-y-2">
+                                    {SECOND_PASS_ISSUES.map(issue => {
+                                        const isChecked = secondPassTargets.includes(issue.id);
+                                        return (
+                                            <div
+                                                key={issue.id}
+                                                onClick={() => {
+                                                    setSecondPassTargets(prev =>
+                                                        prev.includes(issue.id)
+                                                            ? prev.filter(id => id !== issue.id)
+                                                            : [...prev, issue.id]
+                                                    );
+                                                }}
+                                                className={`p-2.5 rounded border cursor-pointer transition-all ${
+                                                    isChecked
+                                                        ? 'bg-purple-950/40 border-purple-500 text-white'
+                                                        : 'bg-black/40 border-white/10 text-gray-400 hover:border-white/20'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
+                                                        isChecked ? 'bg-purple-600 border-purple-400 text-white' : 'border-gray-600 bg-transparent'
+                                                    }`}>
+                                                        {isChecked && '✓'}
+                                                    </div>
+                                                    <span className="text-xs font-bold uppercase">{issue.label}</span>
+                                                </div>
+                                                <p className="text-[11px] text-gray-400 mt-1 pl-6">
+                                                    {issue.description}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-mono uppercase tracking-wider text-gray-400 mb-1">
+                                        Custom Refinement Prompt (Optional):
+                                    </label>
+                                    <textarea
+                                        value={secondPassCustomPrompt}
+                                        onChange={e => setSecondPassCustomPrompt(e.target.value)}
+                                        placeholder="e.g. Ensure all post tops sit flush beneath the rail without any intermediate hardware."
+                                        className="w-full bg-[#050505] border border-white/10 focus:border-purple-500 p-2.5 rounded text-white text-xs h-16 resize-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     <button disabled={isSubmitting} className="w-full py-4 bg-[var(--primary)] text-black font-bold uppercase rounded mt-4 relative overflow-hidden">
                         {isSubmitting ? (
@@ -1243,6 +1243,22 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                         </div>
                     </div>
 
+                    <div>
+                        <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Description</label>
+                        <textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white h-32 resize-none" />
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Min Price ($/ft)</label>
+                            <input type="number" value={priceMin} onChange={e => setPriceMin(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
+                        </div>
+                        <div className="flex-1">
+                            <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Max Price ($/ft)</label>
+                            <input type="number" value={priceMax} onChange={e => setPriceMax(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
+                        </div>
+                    </div>
+
                     {/* Second-Pass AI Refinement (Post-Processing) */}
                     <div className="p-3.5 bg-gradient-to-b from-[#18122B]/40 to-[#0A0A0A] border border-purple-500/30 rounded-lg space-y-3">
                         <div className="flex items-start justify-between gap-3">
@@ -1326,22 +1342,6 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                                 </div>
                             </div>
                         )}
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Description</label>
-                        <textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white h-32 resize-none" />
-                    </div>
-
-                    <div className="flex gap-4">
-                        <div className="flex-1">
-                            <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Min Price ($/ft)</label>
-                            <input type="number" value={priceMin} onChange={e => setPriceMin(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
-                        </div>
-                        <div className="flex-1">
-                            <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Max Price ($/ft)</label>
-                            <input type="number" value={priceMax} onChange={e => setPriceMax(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white" placeholder="0.00" />
-                        </div>
                     </div>
 
                     <div className="flex-1"></div>
