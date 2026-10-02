@@ -404,6 +404,8 @@ export async function generateDesign(formData: FormData) {
         const customPromptNote = (formData.get('custom_prompt_note') as string) ||
             (rawPrompt && rawPrompt !== "High quality architectural photorealistic render" ? rawPrompt : undefined);
 
+        let secondPassConfig: { enabled: boolean; targets: string[]; custom_prompt?: string } | null = null;
+
         if (styleFile) {
             const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
             const styleBase64 = styleBuffer.toString('base64');
@@ -425,11 +427,19 @@ export async function generateDesign(formData: FormData) {
                 const styleLookupClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
                 const { data: styleData } = await styleLookupClient
                     .from('portfolio')
-                    .select('reference_images, image_url, has_bottom_rail, has_reducers, description')
+                    .select('reference_images, image_url, has_bottom_rail, has_reducers, description, style_metadata')
                     .eq('id', styleId)
                     .single();
 
                 if (styleData) {
+                    if (styleData.style_metadata?.second_pass) {
+                        secondPassConfig = {
+                            enabled: styleData.style_metadata.second_pass.enabled === true,
+                            targets: Array.isArray(styleData.style_metadata.second_pass.targets) ? styleData.style_metadata.second_pass.targets : [],
+                            custom_prompt: styleData.style_metadata.second_pass.custom_prompt || undefined
+                        };
+                    }
+
                     // Combine Main + Hidden Refs
                     // Note: 'reference_images' (formerly gallery) might contain the main image in legacy data.
                     // New uploads separate them. Duplicates are harmless for AI vision.
@@ -564,6 +574,38 @@ export async function generateDesign(formData: FormData) {
             }
         }
 
+        // Check for explicit formData overrides for second pass
+        const formSkipSecondPass = formData.get('skip_second_pass');
+        if (formSkipSecondPass === 'true') {
+            if (secondPassConfig) secondPassConfig.enabled = false;
+        }
+        const formEnableSecondPass = formData.get('enable_second_pass');
+        if (formEnableSecondPass === 'true') {
+            if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
+            secondPassConfig.enabled = true;
+        } else if (formEnableSecondPass === 'false') {
+            if (secondPassConfig) secondPassConfig.enabled = false;
+        }
+        const formSecondPassTargets = formData.get('second_pass_targets') as string;
+        if (formSecondPassTargets) {
+            try {
+                const parsed = JSON.parse(formSecondPassTargets);
+                if (Array.isArray(parsed)) {
+                    if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
+                    secondPassConfig.targets = parsed;
+                }
+            } catch {
+                const parsed = formSecondPassTargets.split(',').map(s => s.trim()).filter(Boolean);
+                if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
+                secondPassConfig.targets = parsed;
+            }
+        }
+        const formSecondPassCustomPrompt = formData.get('second_pass_custom_prompt') as string;
+        if (formSecondPassCustomPrompt !== null && formSecondPassCustomPrompt !== undefined) {
+            if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
+            secondPassConfig.custom_prompt = formSecondPassCustomPrompt.trim();
+        }
+
         // 1. Fetch dynamic prompt configuration
         // Dynamic import to avoid circular dependency loop if admin actions import this file? 
         // Or simply separation of concerns.
@@ -588,6 +630,32 @@ export async function generateDesign(formData: FormData) {
         if (result.success && result.image) {
             console.log('[DEBUG] Image generated successfully with Nano Banana');
 
+            // --- SECOND-PASS AI REFINEMENT ---
+            let secondPassApplied = false;
+            if (secondPassConfig?.enabled && (secondPassConfig.targets?.length > 0 || secondPassConfig.custom_prompt)) {
+                console.log('[DEBUG] Executing Second-Pass AI Refinement with targets:', secondPassConfig.targets);
+                try {
+                    const { assembleRefinementPrompt, refineDesignWithNanoBanana } = await import('@/lib/vertex');
+                    const refinementPrompt = assembleRefinementPrompt(secondPassConfig);
+                    if (refinementPrompt) {
+                        const pass2Result = await refineDesignWithNanoBanana(result.image, refinementPrompt);
+                        if (pass2Result.success && pass2Result.image) {
+                            console.log('[DEBUG] Second-Pass Refinement completed successfully!');
+                            result.image = pass2Result.image;
+                            secondPassApplied = true;
+                            if (pass2Result.usage && result.usage) {
+                                result.usage.inputTokens += pass2Result.usage.inputTokens;
+                                result.usage.outputTokens += pass2Result.usage.outputTokens;
+                            }
+                        } else {
+                            console.warn('[DEBUG] Second-Pass Refinement returned no image or failed, keeping Pass 1 image:', pass2Result.error);
+                        }
+                    }
+                } catch (pass2Err) {
+                    console.error('[DEBUG] Error executing Second-Pass Refinement, keeping Pass 1 image:', pass2Err);
+                }
+            }
+
             // --- TRACKING START (Added for Admin Stats) ---
             try {
                 const trackingClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
@@ -598,8 +666,8 @@ export async function generateDesign(formData: FormData) {
                 const userAgent = headersList.get('user-agent') || 'unknown';
 
                 const promptTag = isAdminTest
-                    ? `[ADMIN_TEST] ${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}`
-                    : (promptConfig ? 'Dynamic Prompt' : 'Default Prompt');
+                    ? `[ADMIN_TEST] ${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}${secondPassApplied ? ' + Second-Pass' : ''}`
+                    : `${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}${secondPassApplied ? ' + Second-Pass' : ''}`;
 
                 await trackingClient.from('generations').insert([{
                     organization_id: profileIdToBill, // Use the tenant ID being tested
@@ -624,7 +692,8 @@ export async function generateDesign(formData: FormData) {
                 success: true, 
                 image: result.image,
                 isAdminTest: !!isAdminTest,
-                usage: result.usage
+                usage: result.usage,
+                secondPassApplied
             };
         } else {
             throw new Error(result.error || 'Unknown Nano Banana error');

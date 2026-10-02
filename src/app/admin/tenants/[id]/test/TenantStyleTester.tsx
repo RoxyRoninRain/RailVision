@@ -125,6 +125,7 @@ export default function TenantStyleTester({
     // Troubleshooting / Technical Specs overrides
     const [bottomRailOverride, setBottomRailOverride] = useState<'default' | 'with_rail' | 'without_rail'>('default');
     const [reducerOverride, setReducerOverride] = useState<'default' | 'without_reducers' | 'with_reducers'>('default');
+    const [secondPassMode, setSecondPassMode] = useState<'default' | 'force_enabled' | 'force_disabled'>('default');
     const [customPromptNote, setCustomPromptNote] = useState<string>('');
     const [showAdvanced, setShowAdvanced] = useState(false);
 
@@ -136,6 +137,7 @@ export default function TenantStyleTester({
         durationMs?: number;
         usage?: any;
         styleUsed?: any;
+        secondPassApplied?: boolean;
     } | null>(null);
     const [viewMode, setViewMode] = useState<'side-by-side' | 'result-only' | 'scene-only'>('side-by-side');
 
@@ -330,6 +332,13 @@ export default function TenantStyleTester({
                 formData.append('has_reducers', 'false');
             }
 
+            // Second-pass refinement override
+            if (secondPassMode === 'force_disabled') {
+                formData.append('skip_second_pass', 'true');
+            } else if (secondPassMode === 'force_enabled') {
+                formData.append('enable_second_pass', 'true');
+            }
+
             if (customPromptNote.trim()) {
                 formData.append('prompt', customPromptNote.trim());
             }
@@ -341,7 +350,8 @@ export default function TenantStyleTester({
                 setDiagnostics({
                     durationMs: res.durationMs,
                     usage: res.usage,
-                    styleUsed: selectedStyleId === 'custom' ? { name: 'Custom Reference Image' } : initialStyles.find(s => s.id === selectedStyleId)
+                    styleUsed: selectedStyleId === 'custom' ? { name: 'Custom Reference Image' } : initialStyles.find(s => s.id === selectedStyleId),
+                    secondPassApplied: (res as any).secondPassApplied
                 });
             } else {
                 setError(res.error || 'Generation failed. Please verify the image inputs.');
@@ -737,6 +747,14 @@ export default function TenantStyleTester({
                                                     <span>{style.has_bottom_rail ? 'Shoe Rail' : 'Direct Mount'}</span>
                                                     <span>•</span>
                                                     <span>{style.has_reducers === true ? 'With Reducers' : style.has_reducers === false ? 'No Reducers' : 'Reducers: Default'}</span>
+                                                    {style.style_metadata?.second_pass?.enabled && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span className="text-purple-400 font-bold flex items-center gap-0.5">
+                                                                <Sparkles size={10} /> Pass 2
+                                                            </span>
+                                                        </>
+                                                    )}
                                                     {style.price_per_ft_min && (
                                                         <>
                                                             <span>•</span>
@@ -857,6 +875,31 @@ export default function TenantStyleTester({
                                             </button>
                                         ))}
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-gray-400 block mb-1">Second-Pass AI Refinement Mode:</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[
+                                            { id: 'default', label: 'Use Style Default' },
+                                            { id: 'force_enabled', label: 'Force Pass 2' },
+                                            { id: 'force_disabled', label: 'Pass 1 Only (Skip)' }
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => setSecondPassMode(opt.id as any)}
+                                                className={`p-2 rounded border text-center transition-all ${
+                                                    secondPassMode === opt.id
+                                                        ? 'bg-purple-950/60 border-purple-500 text-purple-200 font-bold'
+                                                        : 'bg-black/50 border-white/10 text-gray-400 hover:text-white'
+                                                }`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1">Compare Pass 1 alone vs Pass 1 + Pass 2 targeted micro-refinement.</p>
                                 </div>
 
                                 <div>
@@ -1050,6 +1093,11 @@ export default function TenantStyleTester({
                                         <span>Style: <strong className="text-white">{diagnostics?.styleUsed?.name || 'Custom'}</strong></span>
                                         {diagnostics?.durationMs && (
                                             <span>Duration: <strong className="text-emerald-400">{(diagnostics.durationMs / 1000).toFixed(1)}s</strong></span>
+                                        )}
+                                        {diagnostics?.secondPassApplied && (
+                                            <span className="text-purple-400 font-bold flex items-center gap-1 bg-purple-950/60 px-1.5 py-0.5 rounded border border-purple-500/30">
+                                                <Sparkles size={11} /> Pass 2 Applied
+                                            </span>
                                         )}
                                         <span className="text-emerald-400 font-bold">• Tenant Charge: $0.00</span>
                                     </div>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles } from '@/app/actions'; // Ensure these are exported from actions.ts
+import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles, SECOND_PASS_ISSUES } from '@/app/actions'; // Ensure these are exported from actions.ts
 import { listBucketFiles } from '@/app/admin/actions';
-import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical, Check, FolderOpen, Search } from 'lucide-react';
+import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical, Check, FolderOpen, Search, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { compressImage } from '@/utils/imageUtils';
 import { createClient } from '@/lib/supabase/client';
@@ -202,7 +202,15 @@ function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete }: StyleList
 
             {/* Info */}
             <div className="flex-grow min-w-0">
-                <h4 className="text-white font-bold uppercase truncate">{style.name}</h4>
+                <div className="flex items-center gap-2">
+                    <h4 className="text-white font-bold uppercase truncate">{style.name}</h4>
+                    {style.style_metadata?.second_pass?.enabled && (
+                        <span className="text-[10px] bg-purple-950/80 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-1 flex-shrink-0">
+                            <Sparkles size={10} className="text-purple-400" />
+                            Pass 2 Active
+                        </span>
+                    )}
+                </div>
                 <p className="text-gray-500 text-xs truncate max-w-md">{style.description}</p>
             </div>
 
@@ -257,6 +265,9 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const [priceMax, setPriceMax] = useState('');
     const [hasBottomRail, setHasBottomRail] = useState(true); // Default to True (Safe Default)
     const [hasReducers, setHasReducers] = useState(false); // Default to False (Direct / No Reducers)
+    const [enableSecondPass, setEnableSecondPass] = useState(false);
+    const [secondPassTargets, setSecondPassTargets] = useState<string[]>([]);
+    const [secondPassCustomPrompt, setSecondPassCustomPrompt] = useState('');
     const [showMainAssetPicker, setShowMainAssetPicker] = useState(false);
     const [showRefAssetPicker, setShowRefAssetPicker] = useState(false);
     const [isLoadingRefAssets, setIsLoadingRefAssets] = useState(false);
@@ -357,6 +368,9 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
             if (priceMax) formData.append('price_max', priceMax);
             formData.append('has_bottom_rail', hasBottomRail.toString());
             formData.append('has_reducers', hasReducers.toString());
+            formData.append('enable_second_pass', enableSecondPass.toString());
+            formData.append('second_pass_targets', JSON.stringify(secondPassTargets));
+            formData.append('second_pass_custom_prompt', secondPassCustomPrompt);
             if (isAdmin && adminTenantId) formData.append('admin_tenant_id', adminTenantId);
 
             // Client-Side Upload for Scalability vs Admin Server Upload
@@ -486,6 +500,91 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                         </div>
                     </div>
 
+                    {/* Second-Pass AI Refinement (Post-Processing) */}
+                    <div className="p-3.5 bg-gradient-to-b from-[#18122B]/40 to-[#0A0A0A] border border-purple-500/30 rounded-lg space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="new_enable_second_pass"
+                                    checked={enableSecondPass}
+                                    onChange={e => {
+                                        const checked = e.target.checked;
+                                        setEnableSecondPass(checked);
+                                        if (checked && secondPassTargets.length === 0) {
+                                            setSecondPassTargets(['reducers']);
+                                        }
+                                    }}
+                                    className="w-5 h-5 accent-purple-500 rounded cursor-pointer"
+                                />
+                                <label htmlFor="new_enable_second_pass" className="text-white text-sm font-bold uppercase tracking-wider cursor-pointer select-none flex items-center gap-1.5">
+                                    <Sparkles size={14} className="text-purple-400" />
+                                    Enable Second-Pass AI Refinement
+                                </label>
+                            </div>
+                            <span className="text-[10px] font-mono text-purple-400 bg-purple-900/30 px-2 py-0.5 rounded border border-purple-500/20">
+                                Auto-Fix Pass
+                            </span>
+                        </div>
+                        <p className="text-gray-400 text-xs pl-7 leading-relaxed">
+                            Executes a focused micro-refinement pass that preserves the stairs and background 100% while strictly fixing selected fabrication joints.
+                        </p>
+
+                        {enableSecondPass && (
+                            <div className="pl-7 pt-2 space-y-3 border-t border-purple-500/20">
+                                <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold">
+                                    Targeted Issue Refinements:
+                                </label>
+                                <div className="space-y-2">
+                                    {SECOND_PASS_ISSUES.map(issue => {
+                                        const isChecked = secondPassTargets.includes(issue.id);
+                                        return (
+                                            <div
+                                                key={issue.id}
+                                                onClick={() => {
+                                                    setSecondPassTargets(prev =>
+                                                        prev.includes(issue.id)
+                                                            ? prev.filter(id => id !== issue.id)
+                                                            : [...prev, issue.id]
+                                                    );
+                                                }}
+                                                className={`p-2.5 rounded border cursor-pointer transition-all ${
+                                                    isChecked
+                                                        ? 'bg-purple-950/40 border-purple-500 text-white'
+                                                        : 'bg-black/40 border-white/10 text-gray-400 hover:border-white/20'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
+                                                        isChecked ? 'bg-purple-600 border-purple-400 text-white' : 'border-gray-600 bg-transparent'
+                                                    }`}>
+                                                        {isChecked && '✓'}
+                                                    </div>
+                                                    <span className="text-xs font-bold uppercase">{issue.label}</span>
+                                                </div>
+                                                <p className="text-[11px] text-gray-400 mt-1 pl-6">
+                                                    {issue.description}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-mono uppercase tracking-wider text-gray-400 mb-1">
+                                        Custom Refinement Prompt (Optional):
+                                    </label>
+                                    <textarea
+                                        value={secondPassCustomPrompt}
+                                        onChange={e => setSecondPassCustomPrompt(e.target.value)}
+                                        placeholder="e.g. Ensure all post tops sit flush beneath the rail without any intermediate hardware."
+                                        className="w-full bg-[#050505] border border-white/10 focus:border-purple-500 p-2.5 rounded text-white text-xs h-16 resize-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Main Image */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
@@ -608,6 +707,15 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     const [priceMax, setPriceMax] = useState(style.price_per_ft_max?.toString() || '');
     const [hasBottomRail, setHasBottomRail] = useState(style.has_bottom_rail !== false); // Default true unless explicitly false
     const [hasReducers, setHasReducers] = useState(style.has_reducers === true);
+    const [enableSecondPass, setEnableSecondPass] = useState(
+        style.style_metadata?.second_pass?.enabled === true
+    );
+    const [secondPassTargets, setSecondPassTargets] = useState<string[]>(
+        style.style_metadata?.second_pass?.targets || []
+    );
+    const [secondPassCustomPrompt, setSecondPassCustomPrompt] = useState<string>(
+        style.style_metadata?.second_pass?.custom_prompt || ''
+    );
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0); // Progress
 
@@ -796,6 +904,9 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             formData.append('price_max', priceMax);
             formData.append('has_bottom_rail', hasBottomRail.toString());
             formData.append('has_reducers', hasReducers.toString());
+            formData.append('enable_second_pass', enableSecondPass.toString());
+            formData.append('second_pass_targets', JSON.stringify(secondPassTargets));
+            formData.append('second_pass_custom_prompt', secondPassCustomPrompt);
             if (isAdmin && adminTenantId) formData.append('admin_tenant_id', adminTenantId);
 
             // Main Image Handling
@@ -1131,6 +1242,92 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                             </button>
                         </div>
                     </div>
+
+                    {/* Second-Pass AI Refinement (Post-Processing) */}
+                    <div className="p-3.5 bg-gradient-to-b from-[#18122B]/40 to-[#0A0A0A] border border-purple-500/30 rounded-lg space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="edit_enable_second_pass"
+                                    checked={enableSecondPass}
+                                    onChange={e => {
+                                        const checked = e.target.checked;
+                                        setEnableSecondPass(checked);
+                                        if (checked && secondPassTargets.length === 0) {
+                                            setSecondPassTargets(['reducers']);
+                                        }
+                                    }}
+                                    className="w-5 h-5 accent-purple-500 rounded cursor-pointer"
+                                />
+                                <label htmlFor="edit_enable_second_pass" className="text-white text-sm font-bold uppercase tracking-wider cursor-pointer select-none flex items-center gap-1.5">
+                                    <Sparkles size={14} className="text-purple-400" />
+                                    Enable Second-Pass AI Refinement
+                                </label>
+                            </div>
+                            <span className="text-[10px] font-mono text-purple-400 bg-purple-900/30 px-2 py-0.5 rounded border border-purple-500/20">
+                                Auto-Fix Pass
+                            </span>
+                        </div>
+                        <p className="text-gray-400 text-xs pl-7 leading-relaxed">
+                            Executes a focused micro-refinement pass that preserves the stairs and background 100% while strictly fixing selected fabrication joints.
+                        </p>
+
+                        {enableSecondPass && (
+                            <div className="pl-7 pt-2 space-y-3 border-t border-purple-500/20">
+                                <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold">
+                                    Targeted Issue Refinements:
+                                </label>
+                                <div className="space-y-2">
+                                    {SECOND_PASS_ISSUES.map(issue => {
+                                        const isChecked = secondPassTargets.includes(issue.id);
+                                        return (
+                                            <div
+                                                key={issue.id}
+                                                onClick={() => {
+                                                    setSecondPassTargets(prev =>
+                                                        prev.includes(issue.id)
+                                                            ? prev.filter(id => id !== issue.id)
+                                                            : [...prev, issue.id]
+                                                    );
+                                                }}
+                                                className={`p-2.5 rounded border cursor-pointer transition-all ${
+                                                    isChecked
+                                                        ? 'bg-purple-950/40 border-purple-500 text-white'
+                                                        : 'bg-black/40 border-white/10 text-gray-400 hover:border-white/20'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
+                                                        isChecked ? 'bg-purple-600 border-purple-400 text-white' : 'border-gray-600 bg-transparent'
+                                                    }`}>
+                                                        {isChecked && '✓'}
+                                                    </div>
+                                                    <span className="text-xs font-bold uppercase">{issue.label}</span>
+                                                </div>
+                                                <p className="text-[11px] text-gray-400 mt-1 pl-6">
+                                                    {issue.description}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-mono uppercase tracking-wider text-gray-400 mb-1">
+                                        Custom Refinement Prompt (Optional):
+                                    </label>
+                                    <textarea
+                                        value={secondPassCustomPrompt}
+                                        onChange={e => setSecondPassCustomPrompt(e.target.value)}
+                                        placeholder="e.g. Ensure all post tops sit flush beneath the rail without any intermediate hardware."
+                                        className="w-full bg-[#050505] border border-white/10 focus:border-purple-500 p-2.5 rounded text-white text-xs h-16 resize-none"
+                                    />
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Description</label>
                         <textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white h-32 resize-none" />

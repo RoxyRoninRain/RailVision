@@ -51,3 +51,36 @@ export interface PortfolioItem {
     has_bottom_rail?: boolean;
     has_reducers?: boolean | null;
 }
+
+export interface SecondPassConfig {
+    enabled: boolean;
+    targets: string[];
+    custom_prompt?: string;
+}
+
+export interface StyleMetadata {
+    second_pass?: SecondPassConfig;
+    [key: string]: any;
+}
+
+export const SECOND_PASS_ISSUES = [
+    {
+        id: 'reducers',
+        label: 'Clean Post Welds (No Reducers/Stems)',
+        description: 'Eliminate standoff pins, stems, and reducers; weld posts flush to handrail.',
+        prompt: 'POST-TO-RAIL FLUSH WELDS: Remove any standoff pins, stems, or adapter collars between the top of each post and the underside of the handrail. Extend each post upward so it fuses directly and seamlessly into the handrail with a solid flush weld.'
+    },
+    {
+        id: 'shoe_rail',
+        label: 'Bottom Shoe Rail Integrity',
+        description: 'Ensure spindles terminate into shoe rail without ghosting into steps.',
+        prompt: 'BOTTOM SHOE RAIL INTEGRITY: Ensure all vertical spindles/infill terminate cleanly and solidly into the continuous bottom shoe rail. Spindles must NEVER pass through or ghost beneath the shoe rail.'
+    },
+    {
+        id: 'side_mount',
+        label: 'Side / Fascia Mount Brackets',
+        description: 'Ensure posts mount to the outer stair fascia with side-mount brackets.',
+        prompt: 'FASCIA / SIDE MOUNT BRACKETS: Ensure every post is anchored securely to the outer stair stringer/fascia face with heavy-duty side-mount brackets.'
+    }
+] as const;
+

@@ -1492,6 +1492,7 @@ export async function testTenantStyle(formData: FormData) {
             image: result.image,
             durationMs,
             usage: (result as any).usage,
+            secondPassApplied: (result as any).secondPassApplied,
             zeroChargeConfirmed: true
         };
     }

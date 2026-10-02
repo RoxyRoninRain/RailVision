@@ -1,102 +1,43 @@
-# Findings & Decisions
-<!-- 
-  WHAT: Your knowledge base for the task. Stores everything you discover and decide.
-  WHY: Context windows are limited. This file is your "external memory" - persistent and unlimited.
-  WHEN: Update after ANY discovery, especially after 2 view/browser/search operations (2-Action Rule).
--->
+# Findings: Second-Pass Refinement Pipeline
 
-## Requirements
-<!-- 
-  WHAT: What the user asked for, broken down into specific requirements.
-  WHY: Keeps requirements visible so you don't forget what you're building.
-  WHEN: Fill this in during Phase 1 (Requirements & Discovery).
-  EXAMPLE:
-    - Command-line interface
-    - Add tasks
-    - List all tasks
-    - Delete tasks
-    - Python implementation
--->
-<!-- Captured from user request -->
-- Fix "DECODER routines::unsupported" error in `vertex.ts`
-- Enable HEIC image support
-- Update planning files and project documentation
-- Analyze current project state
+## 1. Problem Statement & Root Cause
+- Gemini 3.1 Flash Image struggles to juggle full-scene demolition, stair geometry, room lighting, and cable tensioning while simultaneously handling micro-architectural connections (e.g. square post welded flush to round handrail).
+- The model's training prior defaults to modular cable railing posts with 1" standoff pins / saddle reducers.
+- Negative prompts ("NO pins", "NO stems") prime attention heads and worsen the issue.
+- **Breakthrough:** A 2-pass image-to-image edit where the model is fed the rendered Pass 1 image with a dedicated joint-refinement prompt achieves 100% elimination of standoff pins while preserving 100% of the room and stairs.
 
-## Research Findings
-<!-- 
-  WHAT: Key discoveries from web searches, documentation reading, or exploration.
-  WHY: Multimodal content (images, browser results) doesn't persist. Write it down immediately.
-  WHEN: After EVERY 2 view/browser/search operations, update this section (2-Action Rule).
-  EXAMPLE:
-    - Python's argparse module supports subcommands for clean CLI design
-    - JSON module handles file persistence easily
-    - Standard pattern: python script.py <command> [args]
--->
-<!-- Key discoveries during exploration -->
-- **Issue Identified:** "DECODER routines::unsupported" suggests a private key format mismatch (likely PKCS#1 vs PKCS#8).
-- **Core Feature:** Project uses Google Vertex AI for image generation/rendering.
-- **Recent History:** Extensive work on prompt engineering ("Logic-Gated Inference", "Solution J") to prevent hallucinations.
-- **Tech Stack:** Next.js 14, Supabase (Auth/DB), Stripe, Google Cloud Vertex AI.
+## 2. Standard Prompt Design for Pass 2
+- **Standard Base Prompt:**
+  ```text
+  **ROLE:** Architectural Image Refiner.
+  **TASK:** Perform a targeted micro-refinement on this railing installation image.
+  **CRITICAL PRESERVATION RULES:**
+  * Do NOT regenerate or alter the room, stairs, walls, flooring, lighting, or camera POV.
+  * Preserve all cable runs and general scene geometry exactly as rendered.
+  * Apply ONLY the specific fabrication enhancements listed below:
+  ```
+- **Issue: `reducers` (Post-to-Rail Direct Welds):**
+  ```text
+  * POST-TO-RAIL FLUSH WELDS: Remove any standoff pins, stems, or adapter collars between the top of each post and the handrail. Extend each post upward so it fuses directly and seamlessly into the handrail with a solid flush weld.
+  ```
+- **Issue: `shoe_rail` (Shoe Rail / Bottom Rail Integrity):**
+  ```text
+  * BOTTOM SHOE RAIL INTEGRITY: Ensure all vertical spindles/infill terminate cleanly and solidly into the continuous bottom shoe rail. No spindles may pass through or ghost beneath the shoe rail.
+  ```
+- **Issue: `side_mount` (Fascia / Side Mounting):**
+  ```text
+  * FASCIA / SIDE MOUNT BRACKETS: Ensure every post is anchored securely to the outer stringer face with robust side-mount bracket hardware.
+  ```
+- **Custom Prompt:** Appended directly if provided by the user.
 
-## Technical Decisions
-<!-- 
-  WHAT: Architecture and implementation choices you've made, with reasoning.
-  WHY: You'll forget why you chose a technology or approach. This table preserves that knowledge.
-  WHEN: Update whenever you make a significant technical choice.
-  EXAMPLE:
-    | Use JSON for storage | Simple, human-readable, built-in Python support |
-    | argparse with subcommands | Clean CLI: python todo.py add "task" |
--->
-<!-- Decisions made with rationale -->
-| Decision | Rationale |
-|----------|-----------|
-|          |           |
-
-## Issues Encountered
-<!-- 
-  WHAT: Problems you ran into and how you solved them.
-  WHY: Similar to errors in task_plan.md, but focused on broader issues (not just code errors).
-  WHEN: Document when you encounter blockers or unexpected challenges.
-  EXAMPLE:
-    | Empty file causes JSONDecodeError | Added explicit empty file check before json.load() |
--->
-<!-- Errors and how they were resolved -->
-| Issue | Resolution |
-|-------|------------|
-|       |            |
-
-## Resources
-<!-- 
-  WHAT: URLs, file paths, API references, documentation links you've found useful.
-  WHY: Easy reference for later. Don't lose important links in context.
-  WHEN: Add as you discover useful resources.
-  EXAMPLE:
-    - Python argparse docs: https://docs.python.org/3/library/argparse.html
-    - Project structure: src/main.py, src/utils.py
--->
-<!-- URLs, file paths, API references -->
-- Conversation History (Context source)
-- `src/lib/vertex.ts` (Likely location of error)
-
-## Visual/Browser Findings
-<!-- 
-  WHAT: Information you learned from viewing images, PDFs, or browser results.
-  WHY: CRITICAL - Visual/multimodal content doesn't persist in context. Must be captured as text.
-  WHEN: IMMEDIATELY after viewing images or browser results. Don't wait!
-  EXAMPLE:
-    - Screenshot shows login form has email and password fields
-    - Browser shows API returns JSON with "status" and "data" keys
--->
-<!-- CRITICAL: Update after every 2 view/browser operations -->
-<!-- Multimodal content must be captured as text immediately -->
--
-
----
-<!-- 
-  REMINDER: The 2-Action Rule
-  After every 2 view/browser/search operations, you MUST update this file.
-  This prevents visual information from being lost when context resets.
--->
-*Update this file after every 2 view/browser/search operations*
-*This prevents visual information from being lost*
+## 3. Schema & Storage
+- `portfolio.style_metadata` is JSONB, which allows storing:
+  ```json
+  {
+    "second_pass": {
+      "enabled": true,
+      "targets": ["reducers"],
+      "custom_prompt": ""
+    }
+  }
+  ```

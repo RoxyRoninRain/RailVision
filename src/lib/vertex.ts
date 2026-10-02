@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { SECOND_PASS_ISSUES } from '@/app/actions/types';
 
 // STRICT LAZY LOAD: Do NOT import types from @google-cloud/vertexai at top level
 // This prevents the build system from trying to resolve the module during static analysis.
@@ -467,6 +468,129 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage = 'Operati
         promise,
         new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMessage)), ms))
     ]);
+}
+
+export function assembleRefinementPrompt(config: { targets?: string[]; custom_prompt?: string }): string {
+    const issues: string[] = [];
+
+    for (const targetId of config.targets || []) {
+        const issue = SECOND_PASS_ISSUES.find(i => i.id === targetId);
+        if (issue) {
+            issues.push(`* ${issue.prompt}`);
+        }
+    }
+
+    if (config.custom_prompt && config.custom_prompt.trim()) {
+        issues.push(`* CUSTOM REFINEMENT: ${config.custom_prompt.trim()}`);
+    }
+
+    if (issues.length === 0) {
+        return "";
+    }
+
+    return `Perform a targeted micro-refinement on this railing photograph.
+Preserve the room, walls, stair treads, background, lighting, and general scene perspective exactly as shown.
+Apply the following specific fabrication enhancements:
+${issues.join('\n')}
+Output a single unified high-resolution photograph.`;
+}
+
+export async function refineDesignWithNanoBanana(
+    base64Image: string,
+    refinementPrompt: string
+): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
+    const maxAttempts = 3;
+    let attempts = 0;
+
+    const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+
+    const systemInstruction = `**ROLE:** Architectural Image Refiner.
+**TASK:** Perform a targeted micro-refinement on the provided handrail photograph according to the user instructions.
+**STRICT PRESERVATION RULES:**
+* Do NOT alter the room, stairs, walls, flooring, lighting, or camera POV.
+* Keep all materials, stair treads, and overall composition intact.
+* Modify ONLY the specific joints, connections, or details requested.
+* RETURN ONLY THE REFINED PHOTOGRAPH.`;
+
+    const parts = [
+        { text: "Input railing photograph to refine:" },
+        {
+            inlineData: {
+                mimeType: 'image/jpeg',
+                data: cleanBase64
+            }
+        },
+        { text: refinementPrompt }
+    ];
+
+    while (attempts < maxAttempts) {
+        try {
+            const authOptions = getGoogleAuthOptions();
+            const token = await getAccessToken(authOptions.credentials?.client_email, authOptions.credentials?.private_key);
+            const projectId = authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'railvision-480923';
+
+            const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3.1-flash-image:generateContent`;
+
+            console.log(`[VERTEX REFINEMENT RAW] Calling URL: ${url}`);
+
+            const rawResponse = await withTimeout(fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    systemInstruction: {
+                        parts: [{ text: systemInstruction }]
+                    },
+                    contents: [{ role: 'user', parts }],
+                    generationConfig: {
+                        temperature: 0.2,
+                        maxOutputTokens: 2048
+                    }
+                })
+            }), 120000, 'Vertex AI Refinement Timed Out (120s)');
+
+            if (!rawResponse.ok) {
+                const text = await rawResponse.text();
+                throw new Error(`Vertex Refinement API Error ${rawResponse.status}: ${text}`);
+            }
+
+            const responseJson = await rawResponse.json();
+
+            const usage = {
+                inputTokens: responseJson.usageMetadata?.promptTokenCount || 0,
+                outputTokens: responseJson.usageMetadata?.candidatesTokenCount || 0
+            };
+
+            const candidate = responseJson.candidates?.[0];
+            if (!candidate) throw new Error("No candidates returned from refinement");
+
+            for (const part of candidate.content.parts) {
+                if (part.thought) continue;
+                if (part.inlineData && part.inlineData.mimeType?.startsWith('image/')) {
+                    return {
+                        success: true,
+                        image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+                        usage
+                    };
+                }
+            }
+
+            return { success: false, error: "Model returned no image during refinement." };
+
+        } catch (error: any) {
+            console.error(`[REFINEMENT ERROR] Attempt ${attempts + 1} failed:`, error);
+            attempts++;
+            if (attempts < maxAttempts) {
+                await sleep(2000 * attempts);
+                continue;
+            }
+            return { success: false, error: error.message || "Failed during second-pass refinement" };
+        }
+    }
+
+    return { success: false, error: "Refinement server busy." };
 }
 
 export { getRouterModel, getImagenModel };

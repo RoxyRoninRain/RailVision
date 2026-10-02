@@ -101,6 +101,27 @@ export async function createStyle(formData: FormData) {
         ? hasReducersRaw === 'true'
         : null;
 
+    const enableSecondPass = formData.get('enable_second_pass') === 'true';
+    const secondPassTargetsRaw = formData.get('second_pass_targets') as string;
+    let secondPassTargets: string[] = [];
+    if (secondPassTargetsRaw) {
+        try {
+            secondPassTargets = JSON.parse(secondPassTargetsRaw);
+        } catch {
+            secondPassTargets = secondPassTargetsRaw.split(',').map(s => s.trim()).filter(Boolean);
+        }
+    }
+    const secondPassCustomPrompt = (formData.get('second_pass_custom_prompt') as string) || '';
+
+    const styleMetadata: any = {};
+    if (enableSecondPass || secondPassTargets.length > 0 || secondPassCustomPrompt) {
+        styleMetadata.second_pass = {
+            enabled: enableSecondPass,
+            targets: secondPassTargets,
+            custom_prompt: secondPassCustomPrompt.trim() || undefined
+        };
+    }
+
     // 3. Insert into DB
     // First image is "image_url" (Thumbnail/Main), Rest are "reference_images" (Hidden Context)
     const mainImage = galleryUrls[0];
@@ -130,7 +151,8 @@ export async function createStyle(formData: FormData) {
             price_per_ft_max: priceMax,
             has_bottom_rail: hasBottomRail,
             has_reducers: hasReducers,
-            display_order: nextOrder
+            display_order: nextOrder,
+            style_metadata: Object.keys(styleMetadata).length > 0 ? styleMetadata : null
         })
         .select()
         .single();
@@ -271,6 +293,48 @@ export async function updateStyle(formData: FormData) {
     if (hasReducers !== undefined) updates.has_reducers = hasReducers;
     if (mainImage) updates.image_url = mainImage;
     if (finalRefList !== undefined) updates.reference_images = finalRefList;
+
+    // Handle second-pass refinement metadata
+    const enableSecondPassRaw = formData.get('enable_second_pass');
+    const secondPassTargetsRaw = formData.get('second_pass_targets') as string;
+    const secondPassCustomPromptRaw = formData.get('second_pass_custom_prompt');
+
+    if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null) {
+        const { data: currentStyle } = await actingSupabase
+            .from('portfolio')
+            .select('style_metadata')
+            .eq('id', styleId)
+            .single();
+
+        const currentMeta = (currentStyle?.style_metadata && typeof currentStyle.style_metadata === 'object')
+            ? { ...currentStyle.style_metadata }
+            : {};
+
+        let targets = currentMeta.second_pass?.targets || [];
+        if (secondPassTargetsRaw !== null && secondPassTargetsRaw !== undefined) {
+            try {
+                targets = JSON.parse(secondPassTargetsRaw);
+            } catch {
+                targets = secondPassTargetsRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
+            }
+        }
+
+        const enabled = enableSecondPassRaw !== null
+            ? enableSecondPassRaw === 'true'
+            : !!currentMeta.second_pass?.enabled;
+
+        const customPrompt = secondPassCustomPromptRaw !== null
+            ? (secondPassCustomPromptRaw as string)
+            : currentMeta.second_pass?.custom_prompt;
+
+        currentMeta.second_pass = {
+            enabled,
+            targets,
+            custom_prompt: customPrompt ? customPrompt.trim() : undefined
+        };
+
+        updates.style_metadata = currentMeta;
+    }
 
     const { error: dbError } = await actingSupabase
         .from('portfolio')
