@@ -41,8 +41,8 @@ vi.mock('@/app/admin/actions', () => ({
     })),
 }));
 
-const mockProfileUpdate = vi.fn(async () => ({ error: null }));
-const mockGenerationsInsert = vi.fn(async () => ({ error: null }));
+const mockProfileUpdate = vi.fn(async (_payload?: any) => ({ error: null }));
+const mockGenerationsInsert = vi.fn(async (_payload?: any) => ({ error: null }));
 
 const mockFrom = vi.fn((table: string) => {
     if (table === 'profiles') {
@@ -186,7 +186,7 @@ describe('Second-Pass Billing Verification', () => {
 
         // 4. CRITICAL PROFILE CHECK: Profile current_usage must be incremented by EXACTLY 1 (from 10 to 11)
         expect(mockProfileUpdate).toHaveBeenCalledTimes(1);
-        const updateArgs = mockProfileUpdate.mock.calls[0][0];
+        const updateArgs = (mockProfileUpdate.mock.calls as any)[0][0];
         expect(updateArgs.current_usage).toBe(11); // 10 + 1, NOT 10 + 2
 
         // 5. CRITICAL AUDIT CHECK: Exactly one generation record must be inserted

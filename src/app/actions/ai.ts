@@ -394,6 +394,7 @@ export async function generateDesign(formData: FormData) {
             technicalSpecs?: { 
                 hasBottomRail?: boolean; 
                 hasReducers?: boolean | null;
+                postMount?: 'top' | 'side' | string;
                 description?: string; 
                 customNote?: string;
             } 
@@ -411,11 +412,13 @@ export async function generateDesign(formData: FormData) {
             const styleBase64 = styleBuffer.toString('base64');
             const formBottomRail = formData.get('has_bottom_rail');
             const formReducers = formData.get('has_reducers');
+            const formPostMount = formData.get('post_mount') as string;
             styleInput = { 
                 base64StyleImages: [styleBase64],
                 technicalSpecs: {
                     hasBottomRail: (formBottomRail !== null && formBottomRail !== undefined && formBottomRail !== '') ? formBottomRail === 'true' : undefined,
                     hasReducers: (formReducers !== null && formReducers !== undefined && formReducers !== '') ? formReducers === 'true' : undefined,
+                    postMount: (formPostMount === 'side' || formPostMount === 'top') ? formPostMount : undefined,
                     description: styleDescription || undefined,
                     customNote: customPromptNote?.trim() || undefined
                 }
@@ -427,7 +430,7 @@ export async function generateDesign(formData: FormData) {
                 const styleLookupClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
                 const { data: styleData } = await styleLookupClient
                     .from('portfolio')
-                    .select('reference_images, image_url, has_bottom_rail, has_reducers, description, style_metadata')
+                    .select('reference_images, image_url, has_bottom_rail, has_reducers, post_mount, description, style_metadata')
                     .eq('id', styleId)
                     .single();
 
@@ -493,11 +496,17 @@ export async function generateDesign(formData: FormData) {
                                 ? formReducers === 'true'
                                 : styleData.has_reducers;
 
+                            const formPostMount = formData.get('post_mount') as string;
+                            const postMountFinal = (formPostMount === 'side' || formPostMount === 'top')
+                                ? formPostMount
+                                : (styleData.post_mount || styleData.style_metadata?.post_mount || 'top');
+
                             styleInput = {
                                 base64StyleImages: validBase64s,
                                 technicalSpecs: {
                                     hasBottomRail: hasBottomRailFinal,
                                     hasReducers: hasReducersFinal,
+                                    postMount: postMountFinal,
                                     description: styleDescription || styleData.description,
                                     customNote: customPromptNote?.trim() || undefined
                                 }
@@ -543,11 +552,13 @@ export async function generateDesign(formData: FormData) {
                         const styleBase64 = styleBuffer.toString('base64');
                         const formBottomRail = formData.get('has_bottom_rail');
                         const formReducers = formData.get('has_reducers');
+                        const formPostMount = formData.get('post_mount') as string;
                         styleInput = { 
                             base64StyleImages: [styleBase64],
                             technicalSpecs: {
                                 hasBottomRail: (formBottomRail !== null && formBottomRail !== undefined && formBottomRail !== '') ? formBottomRail === 'true' : undefined,
                                 hasReducers: (formReducers !== null && formReducers !== undefined && formReducers !== '') ? formReducers === 'true' : undefined,
+                                postMount: (formPostMount === 'side' || formPostMount === 'top') ? formPostMount : undefined,
                                 description: styleDescription || undefined,
                                 customNote: customPromptNote?.trim() || undefined
                             }
@@ -562,10 +573,12 @@ export async function generateDesign(formData: FormData) {
                 }
             } else {
                 console.log('[DEBUG] No style visuals found. Using Style Text only:', style);
-                if (customPromptNote || styleDescription) {
+                const formPostMount = formData.get('post_mount') as string;
+                if (customPromptNote || styleDescription || formPostMount) {
                     styleInput = {
                         base64StyleImages: [],
                         technicalSpecs: {
+                            postMount: (formPostMount === 'side' || formPostMount === 'top') ? formPostMount : undefined,
                             description: styleDescription || style,
                             customNote: customPromptNote?.trim() || undefined
                         }
@@ -632,7 +645,12 @@ export async function generateDesign(formData: FormData) {
 
             // --- SECOND-PASS AI REFINEMENT ---
             let secondPassApplied = false;
-            if (secondPassConfig?.enabled && (secondPassConfig.targets?.length > 0 || secondPassConfig.custom_prompt)) {
+            if (secondPassConfig?.enabled) {
+                if (typeof styleInput !== 'string' && styleInput.technicalSpecs?.postMount) {
+                    (secondPassConfig as any).post_mount = styleInput.technicalSpecs.postMount;
+                }
+            }
+            if (secondPassConfig?.enabled && (secondPassConfig.targets?.length > 0 || secondPassConfig.custom_prompt || (secondPassConfig as any).post_mount)) {
                 console.log('[DEBUG] Executing Second-Pass AI Refinement with targets:', secondPassConfig.targets);
                 try {
                     const { assembleRefinementPrompt, refineDesignWithNanoBanana } = await import('@/lib/vertex');

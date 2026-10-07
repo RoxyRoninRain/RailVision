@@ -141,4 +141,54 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(promptPart.text).toContain('The style requires reducer fittings');
         expect(promptPart.text).toContain('post-top stem reducers');
     });
+
+    it('injects side-mount fascia directives when postMount is side', async () => {
+        const { generateDesignWithNanoBanana } = await import('@/lib/vertex');
+
+        const result = await generateDesignWithNanoBanana(
+            'fakeBase64Target',
+            {
+                base64StyleImages: ['fakeBase64Style'],
+                technicalSpecs: {
+                    postMount: 'side',
+                    hasBottomRail: false
+                }
+            }
+        );
+
+        expect(result.success).toBe(true);
+        expect(capturedRequestBody).toBeDefined();
+
+        const parts = capturedRequestBody.contents[0].parts;
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('SIDE / FASCIA MOUNT REQUIRED'));
+        expect(promptPart).toBeDefined();
+        expect(promptPart.text).toContain('Side Mount (Fascia Mount)');
+        expect(promptPart.text).toContain('outer side face / exterior stringer / side fascia');
+        expect(promptPart.text).toContain('side-mount fascia brackets');
+    });
+
+    it('injects top-mount surface directives when postMount is top', async () => {
+        const { generateDesignWithNanoBanana } = await import('@/lib/vertex');
+
+        const result = await generateDesignWithNanoBanana(
+            'fakeBase64Target',
+            {
+                base64StyleImages: ['fakeBase64Style'],
+                technicalSpecs: {
+                    postMount: 'top',
+                    hasBottomRail: false
+                }
+            }
+        );
+
+        expect(result.success).toBe(true);
+        expect(capturedRequestBody).toBeDefined();
+
+        const parts = capturedRequestBody.contents[0].parts;
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('TOP / SURFACE MOUNT REQUIRED'));
+        expect(promptPart).toBeDefined();
+        expect(promptPart.text).toContain('Top Mount (Surface Mount)');
+        expect(promptPart.text).toContain('top horizontal surface of the stair treads or landing floor');
+        expect(promptPart.text).toContain('surface-mounted base plates / flange shoes');
+    });
 });

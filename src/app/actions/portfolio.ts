@@ -100,6 +100,8 @@ export async function createStyle(formData: FormData) {
     const hasReducers = (hasReducersRaw !== null && hasReducersRaw !== undefined && hasReducersRaw !== '')
         ? hasReducersRaw === 'true'
         : null;
+    const postMountRaw = formData.get('post_mount') as string;
+    const postMount = (postMountRaw === 'side' || postMountRaw === 'top') ? postMountRaw : 'top';
 
     const enableSecondPass = formData.get('enable_second_pass') === 'true';
     const secondPassTargetsRaw = formData.get('second_pass_targets') as string;
@@ -120,6 +122,9 @@ export async function createStyle(formData: FormData) {
             targets: secondPassTargets,
             custom_prompt: secondPassCustomPrompt.trim() || undefined
         };
+    }
+    if (postMount) {
+        styleMetadata.post_mount = postMount;
     }
 
     // 3. Insert into DB
@@ -151,6 +156,7 @@ export async function createStyle(formData: FormData) {
             price_per_ft_max: priceMax,
             has_bottom_rail: hasBottomRail,
             has_reducers: hasReducers,
+            post_mount: postMount,
             display_order: nextOrder,
             style_metadata: Object.keys(styleMetadata).length > 0 ? styleMetadata : null
         })
@@ -282,6 +288,8 @@ export async function updateStyle(formData: FormData) {
     const hasBottomRail = hasBottomRailRaw !== null ? hasBottomRailRaw === 'true' : undefined;
     const hasReducersRaw = formData.get('has_reducers');
     const hasReducers = hasReducersRaw !== null && hasReducersRaw !== '' ? hasReducersRaw === 'true' : undefined;
+    const postMountRaw = formData.get('post_mount') as string;
+    const postMount = (postMountRaw === 'side' || postMountRaw === 'top') ? postMountRaw : undefined;
 
     // 4. Prepare Update Object
     const updates: any = {};
@@ -291,15 +299,16 @@ export async function updateStyle(formData: FormData) {
     if (priceMax !== undefined) updates.price_per_ft_max = priceMax;
     if (hasBottomRail !== undefined) updates.has_bottom_rail = hasBottomRail;
     if (hasReducers !== undefined) updates.has_reducers = hasReducers;
+    if (postMount !== undefined) updates.post_mount = postMount;
     if (mainImage) updates.image_url = mainImage;
     if (finalRefList !== undefined) updates.reference_images = finalRefList;
 
-    // Handle second-pass refinement metadata
+    // Handle second-pass refinement metadata and post_mount metadata
     const enableSecondPassRaw = formData.get('enable_second_pass');
     const secondPassTargetsRaw = formData.get('second_pass_targets') as string;
     const secondPassCustomPromptRaw = formData.get('second_pass_custom_prompt');
 
-    if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null) {
+    if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null || postMount !== undefined) {
         const { data: currentStyle } = await actingSupabase
             .from('portfolio')
             .select('style_metadata')
@@ -310,28 +319,34 @@ export async function updateStyle(formData: FormData) {
             ? { ...currentStyle.style_metadata }
             : {};
 
-        let targets = currentMeta.second_pass?.targets || [];
-        if (secondPassTargetsRaw !== null && secondPassTargetsRaw !== undefined) {
-            try {
-                targets = JSON.parse(secondPassTargetsRaw);
-            } catch {
-                targets = secondPassTargetsRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
-            }
+        if (postMount !== undefined) {
+            currentMeta.post_mount = postMount;
         }
 
-        const enabled = enableSecondPassRaw !== null
-            ? enableSecondPassRaw === 'true'
-            : !!currentMeta.second_pass?.enabled;
+        if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null) {
+            let targets = currentMeta.second_pass?.targets || [];
+            if (secondPassTargetsRaw !== null && secondPassTargetsRaw !== undefined) {
+                try {
+                    targets = JSON.parse(secondPassTargetsRaw);
+                } catch {
+                    targets = secondPassTargetsRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
+                }
+            }
 
-        const customPrompt = secondPassCustomPromptRaw !== null
-            ? (secondPassCustomPromptRaw as string)
-            : currentMeta.second_pass?.custom_prompt;
+            const enabled = enableSecondPassRaw !== null
+                ? enableSecondPassRaw === 'true'
+                : !!currentMeta.second_pass?.enabled;
 
-        currentMeta.second_pass = {
-            enabled,
-            targets,
-            custom_prompt: customPrompt ? customPrompt.trim() : undefined
-        };
+            const customPrompt = secondPassCustomPromptRaw !== null
+                ? (secondPassCustomPromptRaw as string)
+                : currentMeta.second_pass?.custom_prompt;
+
+            currentMeta.second_pass = {
+                enabled,
+                targets,
+                custom_prompt: customPrompt ? customPrompt.trim() : undefined
+            };
+        }
 
         updates.style_metadata = currentMeta;
     }

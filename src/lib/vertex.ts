@@ -143,6 +143,7 @@ export async function generateDesignWithNanoBanana(
         technicalSpecs?: { 
             hasBottomRail?: boolean; 
             hasReducers?: boolean | null; 
+            postMount?: 'top' | 'side' | string;
             description?: string; 
             customNote?: string; 
         } 
@@ -226,6 +227,7 @@ export async function generateDesignWithNanoBanana(
 
             // DYNAMIC FABRICATION & MOUNTING INSTRUCTIONS
             let mountingInstructionStep = "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2."; // Default generic fallback
+            let postMountInstructionStep = "";
             let reducerInstructionStep = "";
             let styleSpecsStep = "";
             let customNoteStep = "";
@@ -239,6 +241,21 @@ export async function generateDesignWithNanoBanana(
                     } else {
                         // CASE 2: DIRECT MOUNT REQUIRED
                         mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each post base mounts directly into the stair tread/floor with a base plate.`;
+                    }
+                }
+
+                // POST MOUNTING SPECIFICATION (Side mount vs Top mount):
+                if (specs.postMount) {
+                    if (specs.postMount === 'side') {
+                        postMountInstructionStep = `2.  **POST MOUNTING (SIDE / FASCIA MOUNT REQUIRED):**
+- The user requires **Side Mount (Fascia Mount)** posts.
+- Every post (bottom newel, intermediate stair posts, and landing posts) must mount to the outer side face / exterior stringer / side fascia of the staircase using heavy-duty side-mount fascia brackets or standoff hardware.
+- Posts must extend downward along the outside edge of the stairs; do NOT mount post bases onto the top horizontal surface of the stair treads. Keep the tread walking surface completely open and clear of post bases.`;
+                    } else if (specs.postMount === 'top') {
+                        postMountInstructionStep = `2.  **POST MOUNTING (TOP / SURFACE MOUNT REQUIRED):**
+- The user requires **Top Mount (Surface Mount)** posts.
+- Every post base must mount directly onto the top horizontal surface of the stair treads or landing floor using surface-mounted base plates / flange shoes anchored vertically down into the tread/deck floor.
+- Posts must stand upright directly on top of the steps or landing flooring, NOT attached to the exterior side fascia or outer stringer edge.`;
                     }
                 }
 
@@ -289,6 +306,7 @@ Analyze the User's Staircase.
 Apply **IMAGE B (Primary Style)**, **IMAGE C (Detailed Context References)**, and **TECHNICAL SPECS**.
 1.  **Mounting & Junction Logic:**
     ${mountingInstructionStep}
+    ${postMountInstructionStep ? `\n    ${postMountInstructionStep}` : ''}
     ${reducerInstructionStep ? `\n    ${reducerInstructionStep}` : ''}
 2.  **Materials & Fabrication:** Extract the exact materials, finishes, and fabrication methods from **IMAGE B** and **IMAGE C**. Apply this texture and detail to your new model.${styleSpecsStep}
 3.  **Preservation:** DO NOT CHANGE THE STAIRS, WALLS, OR FLOORING of Image A (except for the healed areas from Phase 1).
@@ -302,12 +320,16 @@ Renovate **IMAGE A**.
 **FINAL CHECK:**
 - Is the old rail gone?
 - Is the new rail mounting (Shoe vs Direct) correct according to Image B and Image C?
+- Is the post mounting style (Side Mount to outer fascia vs Top Mount on treads) strictly honored?
 - Did you examine the post-to-rail junction in Image B and Image C and follow the connection specification?
 - Is the background preserved?`;
 
             // If user has a custom template that includes placeholders, replace them.
             if (promptText.includes('{{mounting_logic}}')) {
                 promptText = promptText.replace('{{mounting_logic}}', mountingInstructionStep);
+            }
+            if (promptText.includes('{{post_mount_logic}}') || promptText.includes('{{post_mount}}')) {
+                promptText = promptText.replace(/\{\{(post_mount_logic|post_mount)\}\}/g, postMountInstructionStep);
             }
             if (promptText.includes('{{reducers_logic}}') || promptText.includes('{{reducer_logic}}')) {
                 promptText = promptText.replace(/\{\{reducers?_logic\}\}/g, reducerInstructionStep);
@@ -327,6 +349,9 @@ Renovate **IMAGE A**.
             const overrides: string[] = [];
             if (!promptText.includes(mountingInstructionStep) && mountingInstructionStep !== "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2.") {
                 overrides.push(mountingInstructionStep);
+            }
+            if (postMountInstructionStep && !promptText.includes(postMountInstructionStep)) {
+                overrides.push(postMountInstructionStep);
             }
             if (reducerInstructionStep && !promptText.includes(reducerInstructionStep)) {
                 overrides.push(reducerInstructionStep);
@@ -470,10 +495,18 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage = 'Operati
     ]);
 }
 
-export function assembleRefinementPrompt(config: { targets?: string[]; custom_prompt?: string }): string {
+export function assembleRefinementPrompt(config: { targets?: string[]; custom_prompt?: string; post_mount?: 'top' | 'side' }): string {
     const issues: string[] = [];
+    const targets = [...(config.targets || [])];
 
-    for (const targetId of config.targets || []) {
+    // Auto-reinforce post mount target if specified in config and not already present
+    if (config.post_mount === 'side' && !targets.includes('side_mount')) {
+        targets.push('side_mount');
+    } else if (config.post_mount === 'top' && !targets.includes('top_mount') && !targets.includes('side_mount')) {
+        targets.push('top_mount');
+    }
+
+    for (const targetId of targets) {
         const issue = SECOND_PASS_ISSUES.find(i => i.id === targetId);
         if (issue) {
             issues.push(`* ${issue.prompt}`);

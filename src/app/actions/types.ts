@@ -50,6 +50,7 @@ export interface PortfolioItem {
     price_per_ft_max?: number;
     has_bottom_rail?: boolean;
     has_reducers?: boolean | null;
+    post_mount?: 'top' | 'side' | null;
 }
 
 export interface SecondPassConfig {
@@ -60,6 +61,7 @@ export interface SecondPassConfig {
 
 export interface StyleMetadata {
     second_pass?: SecondPassConfig;
+    post_mount?: 'top' | 'side';
     [key: string]: any;
 }
 
@@ -80,7 +82,13 @@ export const SECOND_PASS_ISSUES = [
         id: 'side_mount',
         label: 'Side / Fascia Mount Brackets',
         description: 'Ensure posts mount to the outer stair fascia with side-mount brackets.',
-        prompt: 'FASCIA / SIDE MOUNT BRACKETS: Ensure every post is anchored securely to the outer stair stringer/fascia face with heavy-duty side-mount brackets.'
+        prompt: 'FASCIA / SIDE MOUNT BRACKETS: Ensure every post is anchored securely to the outer stair stringer/fascia face with heavy-duty side-mount brackets. Posts must run along the outside edge of the stairs, keeping the top of the stair treads completely clear.'
+    },
+    {
+        id: 'top_mount',
+        label: 'Top / Surface Mount Base Plates',
+        description: 'Ensure posts mount to the top surface of stair treads/floor with base plates.',
+        prompt: 'TOP / SURFACE MOUNT BASE PLATES: Ensure every post base is anchored solidly onto the top horizontal surface of the stair treads or landing floor using surface-mounted base plates or flange shoes. Posts must stand upright directly on the steps, not on the side fascia.'
     }
 ] as const;
 

@@ -204,6 +204,11 @@ function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete }: StyleList
             <div className="flex-grow min-w-0">
                 <div className="flex items-center gap-2">
                     <h4 className="text-white font-bold uppercase truncate">{style.name}</h4>
+                    {((style as any).post_mount === 'side' || style.style_metadata?.post_mount === 'side') && (
+                        <span className="text-[10px] bg-sky-950/80 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-1 flex-shrink-0">
+                            Side Mount
+                        </span>
+                    )}
                     {style.style_metadata?.second_pass?.enabled && (
                         <span className="text-[10px] bg-purple-950/80 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-1 flex-shrink-0">
                             <Sparkles size={10} className="text-purple-400" />
@@ -265,6 +270,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const [priceMax, setPriceMax] = useState('');
     const [hasBottomRail, setHasBottomRail] = useState(true); // Default to True (Safe Default)
     const [hasReducers, setHasReducers] = useState(false); // Default to False (Direct / No Reducers)
+    const [postMount, setPostMount] = useState<'top' | 'side'>('top');
     const [enableSecondPass, setEnableSecondPass] = useState(false);
     const [secondPassTargets, setSecondPassTargets] = useState<string[]>([]);
     const [secondPassCustomPrompt, setSecondPassCustomPrompt] = useState('');
@@ -368,6 +374,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
             if (priceMax) formData.append('price_max', priceMax);
             formData.append('has_bottom_rail', hasBottomRail.toString());
             formData.append('has_reducers', hasReducers.toString());
+            formData.append('post_mount', postMount);
             formData.append('enable_second_pass', enableSecondPass.toString());
             formData.append('second_pass_targets', JSON.stringify(secondPassTargets));
             formData.append('second_pass_custom_prompt', secondPassCustomPrompt);
@@ -500,6 +507,54 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                         </div>
                     </div>
 
+                    <div>
+                        <label className="block text-xs font-mono text-gray-400 uppercase mb-1.5">
+                            Post Mounting Type
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPostMount('top');
+                                    if (enableSecondPass) {
+                                        setSecondPassTargets(prev => prev.includes('side_mount') ? [...prev.filter(id => id !== 'side_mount'), 'top_mount'] : prev);
+                                    }
+                                }}
+                                className={`p-2.5 rounded border text-left transition-all ${
+                                    postMount === 'top'
+                                        ? 'bg-[var(--primary)]/15 border-[var(--primary)] text-white shadow-sm'
+                                        : 'bg-[#050505] border-[#333] text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${postMount === 'top' ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
+                                    Top Mount Posts
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Surface mount onto treads/landing floor (Default)</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPostMount('side');
+                                    if (enableSecondPass) {
+                                        setSecondPassTargets(prev => prev.includes('top_mount') ? [...prev.filter(id => id !== 'top_mount'), 'side_mount'] : (!prev.includes('side_mount') ? [...prev, 'side_mount'] : prev));
+                                    }
+                                }}
+                                className={`p-2.5 rounded border text-left transition-all ${
+                                    postMount === 'side'
+                                        ? 'bg-[var(--primary)]/15 border-[var(--primary)] text-white shadow-sm'
+                                        : 'bg-[#050505] border-[#333] text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${postMount === 'side' ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
+                                    Side Mount Posts
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Fascia mounted to outer stair stringer face</div>
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Main Image */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
@@ -606,7 +661,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                                         const checked = e.target.checked;
                                         setEnableSecondPass(checked);
                                         if (checked && secondPassTargets.length === 0) {
-                                            setSecondPassTargets(['reducers']);
+                                            setSecondPassTargets(['reducers', postMount === 'side' ? 'side_mount' : 'top_mount']);
                                         }
                                     }}
                                     className="w-5 h-5 accent-purple-500 rounded cursor-pointer"
@@ -707,6 +762,9 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     const [priceMax, setPriceMax] = useState(style.price_per_ft_max?.toString() || '');
     const [hasBottomRail, setHasBottomRail] = useState(style.has_bottom_rail !== false); // Default true unless explicitly false
     const [hasReducers, setHasReducers] = useState(style.has_reducers === true);
+    const [postMount, setPostMount] = useState<'top' | 'side'>(
+        (style as any).post_mount === 'side' || style.style_metadata?.post_mount === 'side' ? 'side' : 'top'
+    );
     const [enableSecondPass, setEnableSecondPass] = useState(
         style.style_metadata?.second_pass?.enabled === true
     );
@@ -904,6 +962,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             formData.append('price_max', priceMax);
             formData.append('has_bottom_rail', hasBottomRail.toString());
             formData.append('has_reducers', hasReducers.toString());
+            formData.append('post_mount', postMount);
             formData.append('enable_second_pass', enableSecondPass.toString());
             formData.append('second_pass_targets', JSON.stringify(secondPassTargets));
             formData.append('second_pass_custom_prompt', secondPassCustomPrompt);
@@ -1244,6 +1303,54 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                     </div>
 
                     <div>
+                        <label className="block text-xs font-mono text-gray-400 uppercase mb-1.5">
+                            Post Mounting Type
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPostMount('top');
+                                    if (enableSecondPass) {
+                                        setSecondPassTargets(prev => prev.includes('side_mount') ? [...prev.filter(id => id !== 'side_mount'), 'top_mount'] : prev);
+                                    }
+                                }}
+                                className={`p-2.5 rounded border text-left transition-all ${
+                                    postMount === 'top'
+                                        ? 'bg-[var(--primary)]/15 border-[var(--primary)] text-white shadow-sm'
+                                        : 'bg-[#050505] border-[#333] text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${postMount === 'top' ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
+                                    Top Mount Posts
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Surface mount onto treads/landing floor (Default)</div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setPostMount('side');
+                                    if (enableSecondPass) {
+                                        setSecondPassTargets(prev => prev.includes('top_mount') ? [...prev.filter(id => id !== 'top_mount'), 'side_mount'] : (!prev.includes('side_mount') ? [...prev, 'side_mount'] : prev));
+                                    }
+                                }}
+                                className={`p-2.5 rounded border text-left transition-all ${
+                                    postMount === 'side'
+                                        ? 'bg-[var(--primary)]/15 border-[var(--primary)] text-white shadow-sm'
+                                        : 'bg-[#050505] border-[#333] text-gray-400 hover:border-gray-500'
+                                }`}
+                            >
+                                <div className="text-xs font-bold uppercase flex items-center gap-1.5">
+                                    <span className={`w-2 h-2 rounded-full ${postMount === 'side' ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
+                                    Side Mount Posts
+                                </div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Fascia mounted to outer stair stringer face</div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
                         <label className="block text-xs font-mono text-gray-500 uppercase mb-1">Description</label>
                         <textarea value={desc} onChange={e => setDesc(e.target.value)} className="w-full bg-[#050505] border border-[#333] p-3 rounded text-white h-32 resize-none" />
                     </div>
@@ -1271,7 +1378,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                                         const checked = e.target.checked;
                                         setEnableSecondPass(checked);
                                         if (checked && secondPassTargets.length === 0) {
-                                            setSecondPassTargets(['reducers']);
+                                            setSecondPassTargets(['reducers', postMount === 'side' ? 'side_mount' : 'top_mount']);
                                         }
                                     }}
                                     className="w-5 h-5 accent-purple-500 rounded cursor-pointer"

@@ -184,4 +184,67 @@ describe('Reducer Toggle and Prompt Specification Delivery', () => {
         const [, styleInputPassed] = mockGenerateDesignWithNanoBanana.mock.calls[0];
         expect(styleInputPassed.technicalSpecs.hasReducers).toBe(true);
     });
+
+    it('passes post_mount from database to NanoBanana technicalSpecs', async () => {
+        mockSingle.mockResolvedValue({
+            data: {
+                id: '550e8400-e29b-41d4-a716-446655440001',
+                image_url: 'https://example.com/style.jpg',
+                reference_images: [],
+                has_bottom_rail: false,
+                has_reducers: false,
+                post_mount: 'side',
+                description: 'Side mount cable railing',
+            },
+            error: null,
+        });
+
+        const { generateDesign } = await import('@/app/actions/ai');
+
+        const formData = new FormData();
+        const fakeImage = new File(['fake-canvas-bytes'], 'staircase.jpg', { type: 'image/jpeg' });
+        fakeImage.arrayBuffer = async () => new Uint8Array([1, 2, 3, 4]).buffer;
+        formData.append('image', fakeImage);
+        formData.append('styleId', '550e8400-e29b-41d4-a716-446655440001');
+        formData.append('style', 'Side Mount Rail');
+        formData.append('is_admin_test', 'true');
+        formData.append('organization_id', '550e8400-e29b-41d4-a716-446655440002');
+
+        const result = await generateDesign(formData);
+        expect(result.success).toBe(true);
+        const [, styleInputPassed] = mockGenerateDesignWithNanoBanana.mock.calls[0];
+        expect(styleInputPassed.technicalSpecs.postMount).toBe('side');
+    });
+
+    it('allows overriding post_mount via FormData', async () => {
+        mockSingle.mockResolvedValue({
+            data: {
+                id: '550e8400-e29b-41d4-a716-446655440001',
+                image_url: 'https://example.com/style.jpg',
+                reference_images: [],
+                has_bottom_rail: false,
+                has_reducers: false,
+                post_mount: 'top',
+                description: 'Top mount style',
+            },
+            error: null,
+        });
+
+        const { generateDesign } = await import('@/app/actions/ai');
+
+        const formData = new FormData();
+        const fakeImage = new File(['fake-canvas-bytes'], 'staircase.jpg', { type: 'image/jpeg' });
+        fakeImage.arrayBuffer = async () => new Uint8Array([1, 2, 3, 4]).buffer;
+        formData.append('image', fakeImage);
+        formData.append('styleId', '550e8400-e29b-41d4-a716-446655440001');
+        formData.append('style', 'Top Mount Style');
+        formData.append('is_admin_test', 'true');
+        formData.append('organization_id', '550e8400-e29b-41d4-a716-446655440002');
+        formData.append('post_mount', 'side'); // Override to side mount
+
+        const result = await generateDesign(formData);
+        expect(result.success).toBe(true);
+        const [, styleInputPassed] = mockGenerateDesignWithNanoBanana.mock.calls[0];
+        expect(styleInputPassed.technicalSpecs.postMount).toBe('side');
+    });
 });
