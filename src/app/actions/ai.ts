@@ -430,7 +430,7 @@ export async function generateDesign(formData: FormData) {
                 const styleLookupClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
                 const { data: styleData } = await styleLookupClient
                     .from('portfolio')
-                    .select('reference_images, image_url, has_bottom_rail, has_reducers, post_mount, description, style_metadata')
+                    .select('*')
                     .eq('id', styleId)
                     .single();
 

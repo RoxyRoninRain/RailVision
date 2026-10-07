@@ -143,25 +143,43 @@ export async function createStyle(formData: FormData) {
 
     const nextOrder = (maxOrderData?.display_order ?? 0) + 1;
 
-    const { data, error: dbError } = await actingSupabase
+    const insertPayload: any = {
+        name,
+        description: desc,
+        image_url: mainImage,
+        reference_images: hiddenRefs,
+        tenant_id: targetTenantId,
+        is_active: true,
+        price_per_ft_min: priceMin,
+        price_per_ft_max: priceMax,
+        has_bottom_rail: hasBottomRail,
+        has_reducers: hasReducers,
+        post_mount: postMount,
+        display_order: nextOrder,
+        style_metadata: Object.keys(styleMetadata).length > 0 ? styleMetadata : null
+    };
+
+    let { data, error: dbError } = await actingSupabase
         .from('portfolio')
-        .insert({
-            name,
-            description: desc,
-            image_url: mainImage,
-            reference_images: hiddenRefs,
-            tenant_id: targetTenantId,
-            is_active: true,
-            price_per_ft_min: priceMin,
-            price_per_ft_max: priceMax,
-            has_bottom_rail: hasBottomRail,
-            has_reducers: hasReducers,
-            post_mount: postMount,
-            display_order: nextOrder,
-            style_metadata: Object.keys(styleMetadata).length > 0 ? styleMetadata : null
-        })
+        .insert({ ...insertPayload })
         .select()
         .single();
+
+    // Graceful fallback if the post_mount column hasn't been added to Postgres yet or schema cache is stale
+    if (dbError && (dbError.message?.includes('post_mount') || dbError.code === 'PGRST204')) {
+        console.warn('post_mount column not in schema cache; falling back to style_metadata:', dbError.message);
+        delete insertPayload.post_mount;
+        styleMetadata.post_mount = postMount;
+        insertPayload.style_metadata = styleMetadata;
+
+        const retry = await actingSupabase
+            .from('portfolio')
+            .insert({ ...insertPayload })
+            .select()
+            .single();
+        dbError = retry.error;
+        data = retry.data;
+    }
 
     if (dbError) {
         console.error('DB Insert Error:', dbError);
@@ -351,11 +369,23 @@ export async function updateStyle(formData: FormData) {
         updates.style_metadata = currentMeta;
     }
 
-    const { error: dbError } = await actingSupabase
+    let { error: dbError } = await actingSupabase
         .from('portfolio')
-        .update(updates)
+        .update({ ...updates })
         .eq('id', styleId)
         .eq('tenant_id', targetTenantId);
+
+    // Graceful fallback if the post_mount column hasn't been added to Postgres yet or schema cache is stale
+    if (dbError && (dbError.message?.includes('post_mount') || dbError.code === 'PGRST204')) {
+        console.warn('post_mount column not in schema cache during update; falling back to style_metadata:', dbError.message);
+        delete updates.post_mount;
+        const retry = await actingSupabase
+            .from('portfolio')
+            .update({ ...updates })
+            .eq('id', styleId)
+            .eq('tenant_id', targetTenantId);
+        dbError = retry.error;
+    }
 
     if (dbError) {
         console.error('DB Update Error:', dbError);
