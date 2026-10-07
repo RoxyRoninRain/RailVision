@@ -16,6 +16,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSavingOrder, setIsSavingOrder] = useState(false);
     const [detectedTenantId, setDetectedTenantId] = useState<string | undefined>(adminTenantId);
+    const [lightboxImage, setLightboxImage] = useState<{ url: string; label: string } | null>(null);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
@@ -132,6 +133,7 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
                             onEdit={() => setEditingStyle(style)}
                             onToggle={(current) => handleToggleStatus(style.id, current)}
                             onDelete={() => handleDelete(style.id)}
+                            onViewDetailImage={(url, label) => setLightboxImage({ url, label })}
                         />
                     ))}
                 </AnimatePresence>
@@ -150,6 +152,17 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
                     <EditStyleModal style={editingStyle} onClose={() => setEditingStyle(null)} onSuccess={() => window.location.reload()} isAdmin={isAdmin} adminTenantId={effectiveTenantId} />
                 )}
             </AnimatePresence>
+
+            {/* Detail Image Lightbox */}
+            <AnimatePresence>
+                {lightboxImage && (
+                    <DetailImageLightboxModal
+                        imageUrl={lightboxImage.url}
+                        title={lightboxImage.label}
+                        onClose={() => setLightboxImage(null)}
+                    />
+                )}
+            </AnimatePresence>
         </div>
     );
 }
@@ -162,10 +175,16 @@ interface StyleListItemProps {
     onEdit: () => void;
     onToggle: (current: boolean) => void;
     onDelete: () => void;
+    onViewDetailImage?: (url: string, label: string) => void;
 }
 
-function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete }: StyleListItemProps) {
+function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete, onViewDetailImage }: StyleListItemProps) {
     const controls = useDragControls();
+
+    const secondPassEnabled = style.style_metadata?.second_pass?.enabled === true;
+    const secondPassTargets: string[] = style.style_metadata?.second_pass?.targets || [];
+    const secondPassDetailImages: Record<string, string> = style.style_metadata?.second_pass?.detail_images || {};
+    const hasAnySavedDetailImage = Object.keys(secondPassDetailImages).length > 0;
 
     return (
         <Reorder.Item
@@ -173,7 +192,7 @@ function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete }: StyleList
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className={`group relative bg-[#111] rounded-lg border transition-all flex items-center p-2 gap-4 select-none ${style.is_active === false ? 'border-red-900/30 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
+            className={`group relative bg-[#111] rounded-lg border transition-all flex items-center p-2.5 gap-4 select-none ${style.is_active === false ? 'border-red-900/30 opacity-60' : 'border-[#222] hover:border-[var(--primary)]'}`}
             dragListener={false}
             dragControls={controls}
         >
@@ -201,22 +220,92 @@ function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete }: StyleList
             </div>
 
             {/* Info */}
-            <div className="flex-grow min-w-0">
-                <div className="flex items-center gap-2">
+            <div className="flex-grow min-w-0 py-0.5">
+                <div className="flex items-center gap-2 flex-wrap">
                     <h4 className="text-white font-bold uppercase truncate">{style.name}</h4>
                     {((style as any).post_mount === 'side' || style.style_metadata?.post_mount === 'side') && (
                         <span className="text-[10px] bg-sky-950/80 text-sky-300 border border-sky-500/30 px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-1 flex-shrink-0">
                             Side Mount
                         </span>
                     )}
-                    {style.style_metadata?.second_pass?.enabled && (
+                    {secondPassEnabled ? (
                         <span className="text-[10px] bg-purple-950/80 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-1 flex-shrink-0">
                             <Sparkles size={10} className="text-purple-400" />
                             Pass 2 Active
                         </span>
+                    ) : (
+                        hasAnySavedDetailImage && (
+                            <span className="text-[10px] bg-zinc-900 text-zinc-400 border border-white/10 px-1.5 py-0.5 rounded font-mono flex items-center gap-1 flex-shrink-0">
+                                Pass 2 Off ({Object.keys(secondPassDetailImages).length} detail photos saved)
+                            </span>
+                        )
                     )}
                 </div>
-                <p className="text-gray-500 text-xs truncate max-w-md">{style.description}</p>
+                <p className="text-gray-500 text-xs truncate max-w-md mt-0.5">{style.description}</p>
+
+                {/* Second-Pass Close-Up Detail Images Indicator & Previews */}
+                {(secondPassEnabled || hasAnySavedDetailImage) && (
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-white/5">
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300 font-semibold flex items-center gap-1">
+                            <Sparkles size={10} className="text-purple-400" />
+                            Pass 2 Details:
+                        </span>
+                        {SECOND_PASS_ISSUES.filter(issue => {
+                            if (!secondPassEnabled) {
+                                return !!secondPassDetailImages[issue.id];
+                            }
+                            return secondPassTargets.includes(issue.id) || !!secondPassDetailImages[issue.id];
+                        }).map(issue => {
+                            const isTarget = secondPassTargets.includes(issue.id);
+                            const detailUrl = secondPassDetailImages[issue.id];
+                            return (
+                                <div
+                                    key={issue.id}
+                                    className={`flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full border text-[10px] font-mono transition-all ${
+                                        detailUrl
+                                            ? 'bg-purple-950/70 border-purple-500/60 text-white shadow-sm'
+                                            : isTarget
+                                                ? 'bg-[#18122B]/70 border-purple-500/30 text-purple-300/80'
+                                                : 'bg-black/40 border-white/10 text-gray-500'
+                                    }`}
+                                >
+                                    {detailUrl ? (
+                                        <>
+                                            <div
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onViewDetailImage?.(detailUrl, `${style.name} - ${issue.uploadLabel}`);
+                                                }}
+                                                className="cursor-pointer group relative flex items-center"
+                                                title={`Click to view close-up ${issue.uploadLabel} image`}
+                                            >
+                                                <img
+                                                    src={detailUrl}
+                                                    alt={issue.uploadLabel}
+                                                    className="w-5 h-5 rounded-full object-cover border border-purple-400 group-hover:scale-125 transition-transform shadow-sm"
+                                                />
+                                            </div>
+                                            <span className="font-semibold text-white">{issue.uploadLabel}</span>
+                                            <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/80 px-1 rounded border border-emerald-500/40 flex items-center gap-0.5">
+                                                <Check size={8} /> Photo Loaded
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="font-medium text-gray-300 pl-1">{issue.uploadLabel}</span>
+                                            <span className="text-[9px] font-mono text-amber-400/90 bg-amber-950/50 px-1 rounded border border-amber-500/30">
+                                                No Photo
+                                            </span>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        {secondPassEnabled && secondPassTargets.length === 0 && (
+                            <span className="text-[10px] text-gray-500 italic font-mono">No details active (N/A)</span>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Actions */}
@@ -281,6 +370,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const [secondPassDetailPreviews, setSecondPassDetailPreviews] = useState<{ [targetId: string]: string | null }>({});
     const [secondPassDetailUrls, setSecondPassDetailUrls] = useState<{ [targetId: string]: string | null }>({});
     const [activeDetailAssetTarget, setActiveDetailAssetTarget] = useState<string | null>(null);
+    const [viewingModalImage, setViewingModalImage] = useState<{ url: string; label: string } | null>(null);
 
     const handleDetailFileChange = (targetId: string, e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -762,12 +852,35 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                                                     }`}>
                                                         {isChecked && '✓'}
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-bold uppercase tracking-wide">{issue.label}</span>
-                                                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-black/50 border border-white/10 text-gray-400">
-                                                                {isChecked ? 'Active Target' : 'N/A (Ignored)'}
-                                                            </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                {previewUrl && (
+                                                                    <img 
+                                                                        src={previewUrl} 
+                                                                        alt={issue.uploadLabel} 
+                                                                        className="w-5 h-5 rounded-full object-cover border border-purple-400 shrink-0 shadow-sm" 
+                                                                    />
+                                                                )}
+                                                                <span className="text-xs font-bold uppercase tracking-wide truncate">{issue.label}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                {previewUrl ? (
+                                                                    <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 flex items-center gap-1 font-semibold">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                                        Photo Loaded
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-full bg-amber-950/40 border border-amber-500/30 text-amber-300/80 flex items-center gap-1">
+                                                                        No Photo
+                                                                    </span>
+                                                                )}
+                                                                <span className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border ${
+                                                                    isChecked ? 'bg-purple-900/40 border-purple-500/30 text-purple-200' : 'bg-black/50 border-white/10 text-gray-500'
+                                                                }`}>
+                                                                    {isChecked ? 'Active Target' : 'N/A (Ignored)'}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                         <p className="text-[11px] text-gray-400 mt-0.5">
                                                             {issue.description}
@@ -775,62 +888,138 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                                                     </div>
                                                 </div>
 
-                                                {/* Close-Up Detail Image Upload for this Target */}
+                                                {/* Saved Photo notification when target is currently unchecked */}
+                                                {!isChecked && previewUrl && (
+                                                    <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-400 pl-6.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <img 
+                                                                src={previewUrl} 
+                                                                alt={issue.uploadLabel} 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setViewingModalImage({ url: previewUrl, label: `${issue.uploadLabel} Close-Up` });
+                                                                }}
+                                                                className="w-8 h-8 rounded object-cover border border-purple-500/50 opacity-80 cursor-pointer hover:opacity-100 transition shadow-sm" 
+                                                                title="Click to view full size"
+                                                            />
+                                                            <div>
+                                                                <span className="text-[11px] font-mono text-purple-300 font-semibold block">Close-up photo saved on file</span>
+                                                                <span className="text-[10px] text-gray-400">Check box above to activate this detail for Second Pass</span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); removeDetailImage(issue.id); }}
+                                                            className="text-[10px] text-red-400 hover:text-red-300 font-mono uppercase flex items-center gap-1 px-2 py-1 rounded hover:bg-red-950/30 transition"
+                                                        >
+                                                            <X size={11} /> Remove
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Close-Up Detail Image Upload / Management when target is checked */}
                                                 {isChecked && (
                                                     <div className="mt-2.5 pt-2 border-t border-purple-500/20 pl-6.5 space-y-2">
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300 font-semibold flex items-center gap-1">
-                                                                <ImageIcon size={11} className="text-purple-400" />
-                                                                {issue.uploadLabel} (Close-Up Photo)
+                                                            <span className="text-[11px] font-mono uppercase tracking-wider text-purple-300 font-bold flex items-center gap-1.5">
+                                                                <ImageIcon size={13} className="text-purple-400" />
+                                                                {issue.uploadLabel} Close-Up Reference
                                                             </span>
-                                                            {previewUrl && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeDetailImage(issue.id)}
-                                                                    className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 font-mono uppercase"
-                                                                >
-                                                                    <X size={11} /> Remove Photo
-                                                                </button>
+                                                            {previewUrl ? (
+                                                                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded flex items-center gap-1">
+                                                                    <Check size={11} /> Photo Attached to Pass 2
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded">
+                                                                    Prompt Only (No Photo)
+                                                                </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-[10px] text-gray-400 leading-snug">
+                                                        <p className="text-[11px] text-gray-400 leading-snug">
                                                             {issue.uploadHint}
                                                         </p>
 
                                                         {previewUrl ? (
-                                                            <div className="relative w-20 h-20 rounded border border-purple-500/50 overflow-hidden group">
-                                                                <img src={previewUrl} alt={issue.uploadLabel} className="w-full h-full object-cover" />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeDetailImage(issue.id)}
-                                                                    className="absolute top-1 right-1 bg-red-600/90 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow"
-                                                                    title="Remove Photo"
+                                                            <div className="flex items-start gap-3 p-2.5 rounded-lg bg-black/60 border border-purple-500/40">
+                                                                <div 
+                                                                    onClick={() => setViewingModalImage({ url: previewUrl, label: `${issue.uploadLabel} Close-Up` })}
+                                                                    className="relative w-20 h-20 rounded-lg border-2 border-purple-500 overflow-hidden group cursor-pointer shrink-0 shadow-md"
+                                                                    title="Click to view full size"
                                                                 >
-                                                                    <X size={10} />
-                                                                </button>
+                                                                    <img src={previewUrl} alt={issue.uploadLabel} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-mono font-bold uppercase gap-1">
+                                                                        <Search size={12} /> View
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex-1 min-w-0 space-y-1.5 py-0.5">
+                                                                    <div>
+                                                                        <div className="text-xs font-bold text-white flex items-center gap-1">
+                                                                            <Check size={12} className="text-emerald-400" /> Close-Up Photo Attached
+                                                                        </div>
+                                                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                                                            Pass 2 will replicate this exact physical hardware and construction onto the railing.
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 pt-1">
+                                                                        <label className="cursor-pointer px-2 py-1 bg-[#1e1e1e] hover:bg-[#282828] border border-white/10 hover:border-purple-500/50 rounded text-[10px] text-gray-300 hover:text-white flex items-center gap-1 font-mono transition">
+                                                                            <Upload size={10} className="text-purple-400" />
+                                                                            <span>Change</span>
+                                                                            <input
+                                                                                type="file"
+                                                                                accept="image/*"
+                                                                                className="hidden"
+                                                                                onChange={e => handleDetailFileChange(issue.id, e)}
+                                                                            />
+                                                                        </label>
+                                                                        {adminTenantId && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setActiveDetailAssetTarget(issue.id)}
+                                                                                className="px-2 py-1 bg-[#1e1e1e] hover:bg-[#282828] border border-white/10 hover:border-purple-500/50 rounded text-[10px] text-gray-300 hover:text-white font-mono flex items-center gap-1 transition"
+                                                                            >
+                                                                                <FolderOpen size={10} className="text-purple-400" />
+                                                                                <span>Library</span>
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => removeDetailImage(issue.id)}
+                                                                            className="px-2 py-1 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 hover:text-red-200 rounded text-[10px] font-mono flex items-center gap-1 transition"
+                                                                        >
+                                                                            <Trash2 size={10} />
+                                                                            <span>Remove</span>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         ) : (
-                                                            <div className="flex items-center gap-2 pt-1">
-                                                                <label className="cursor-pointer px-2.5 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[11px] text-gray-300 hover:text-white flex items-center gap-1.5 transition">
-                                                                    <Upload size={12} className="text-purple-400" />
-                                                                    <span>Upload Close-Up</span>
-                                                                    <input
-                                                                        type="file"
-                                                                        accept="image/*"
-                                                                        className="hidden"
-                                                                        onChange={e => handleDetailFileChange(issue.id, e)}
-                                                                    />
-                                                                </label>
-                                                                {adminTenantId && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setActiveDetailAssetTarget(issue.id)}
-                                                                        className="px-2 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[10px] text-gray-400 hover:text-white font-mono flex items-center gap-1 transition"
-                                                                    >
-                                                                        <FolderOpen size={11} className="text-purple-400" />
-                                                                        <span>Asset Library</span>
-                                                                    </button>
-                                                                )}
+                                                            <div className="p-2.5 rounded-lg bg-black/40 border border-dashed border-purple-500/30 space-y-2">
+                                                                <div className="text-[11px] text-amber-300/90 flex items-center gap-1.5 font-mono">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                                                    No close-up photo loaded. Pass 2 will follow text instructions only.
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <label className="cursor-pointer px-3 py-1.5 bg-[#141414] hover:bg-[#202020] border border-purple-500/40 hover:border-purple-400 rounded text-[11px] text-purple-200 hover:text-white flex items-center gap-1.5 transition font-medium">
+                                                                        <Upload size={12} className="text-purple-400" />
+                                                                        <span>Upload Close-Up Photo</span>
+                                                                        <input
+                                                                            type="file"
+                                                                            accept="image/*"
+                                                                            className="hidden"
+                                                                            onChange={e => handleDetailFileChange(issue.id, e)}
+                                                                        />
+                                                                    </label>
+                                                                    {adminTenantId && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setActiveDetailAssetTarget(issue.id)}
+                                                                            className="px-2.5 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[11px] text-gray-300 hover:text-white font-mono flex items-center gap-1 transition"
+                                                                        >
+                                                                            <FolderOpen size={12} className="text-purple-400" />
+                                                                            <span>From Asset Library</span>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>
@@ -881,6 +1070,17 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                                 setActiveDetailAssetTarget(null);
                             }}
                             onClose={() => setActiveDetailAssetTarget(null)}
+                        />
+                    )}
+                </AnimatePresence>
+
+                {/* Detail Image Lightbox */}
+                <AnimatePresence>
+                    {viewingModalImage && (
+                        <DetailImageLightboxModal
+                            imageUrl={viewingModalImage.url}
+                            title={viewingModalImage.label}
+                            onClose={() => setViewingModalImage(null)}
                         />
                     )}
                 </AnimatePresence>
@@ -938,6 +1138,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     const [secondPassDetailPreviews, setSecondPassDetailPreviews] = useState<{ [targetId: string]: string | null }>({});
     const [secondPassDetailUrls, setSecondPassDetailUrls] = useState<{ [targetId: string]: string | null }>(initialDetailImages);
     const [activeDetailAssetTarget, setActiveDetailAssetTarget] = useState<string | null>(null);
+    const [viewingModalImage, setViewingModalImage] = useState<{ url: string; label: string } | null>(null);
 
     const handleDetailFileChange = (targetId: string, e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -1616,12 +1817,35 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                                                     }`}>
                                                         {isChecked && '✓'}
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-bold uppercase tracking-wide">{issue.label}</span>
-                                                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-black/50 border border-white/10 text-gray-400">
-                                                                {isChecked ? 'Active Target' : 'N/A (Ignored)'}
-                                                            </span>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                {previewUrl && (
+                                                                    <img 
+                                                                        src={previewUrl} 
+                                                                        alt={issue.uploadLabel} 
+                                                                        className="w-5 h-5 rounded-full object-cover border border-purple-400 shrink-0 shadow-sm" 
+                                                                    />
+                                                                )}
+                                                                <span className="text-xs font-bold uppercase tracking-wide truncate">{issue.label}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                                {previewUrl ? (
+                                                                    <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 flex items-center gap-1 font-semibold">
+                                                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                                        Photo Loaded
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-full bg-amber-950/40 border border-amber-500/30 text-amber-300/80 flex items-center gap-1">
+                                                                        No Photo
+                                                                    </span>
+                                                                )}
+                                                                <span className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border ${
+                                                                    isChecked ? 'bg-purple-900/40 border-purple-500/30 text-purple-200' : 'bg-black/50 border-white/10 text-gray-500'
+                                                                }`}>
+                                                                    {isChecked ? 'Active Target' : 'N/A (Ignored)'}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                         <p className="text-[11px] text-gray-400 mt-0.5">
                                                             {issue.description}
@@ -1629,62 +1853,138 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                                                     </div>
                                                 </div>
 
-                                                {/* Close-Up Detail Image Upload for this Target */}
+                                                {/* Saved Photo notification when target is currently unchecked */}
+                                                {!isChecked && previewUrl && (
+                                                    <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-400 pl-6.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <img 
+                                                                src={previewUrl} 
+                                                                alt={issue.uploadLabel} 
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setViewingModalImage({ url: previewUrl, label: `${issue.uploadLabel} Close-Up` });
+                                                                }}
+                                                                className="w-8 h-8 rounded object-cover border border-purple-500/50 opacity-80 cursor-pointer hover:opacity-100 transition shadow-sm" 
+                                                                title="Click to view full size"
+                                                            />
+                                                            <div>
+                                                                <span className="text-[11px] font-mono text-purple-300 font-semibold block">Close-up photo saved on file</span>
+                                                                <span className="text-[10px] text-gray-400">Check box above to activate this detail for Second Pass</span>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => { e.stopPropagation(); removeDetailImage(issue.id); }}
+                                                            className="text-[10px] text-red-400 hover:text-red-300 font-mono uppercase flex items-center gap-1 px-2 py-1 rounded hover:bg-red-950/30 transition"
+                                                        >
+                                                            <X size={11} /> Remove
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Close-Up Detail Image Upload / Management when target is checked */}
                                                 {isChecked && (
                                                     <div className="mt-2.5 pt-2 border-t border-purple-500/20 pl-6.5 space-y-2">
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300 font-semibold flex items-center gap-1">
-                                                                <ImageIcon size={11} className="text-purple-400" />
-                                                                {issue.uploadLabel} (Close-Up Photo)
+                                                            <span className="text-[11px] font-mono uppercase tracking-wider text-purple-300 font-bold flex items-center gap-1.5">
+                                                                <ImageIcon size={13} className="text-purple-400" />
+                                                                {issue.uploadLabel} Close-Up Reference
                                                             </span>
-                                                            {previewUrl && (
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeDetailImage(issue.id)}
-                                                                    className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 font-mono uppercase"
-                                                                >
-                                                                    <X size={11} /> Remove Photo
-                                                                </button>
+                                                            {previewUrl ? (
+                                                                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded flex items-center gap-1">
+                                                                    <Check size={11} /> Photo Attached to Pass 2
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-[10px] font-mono text-amber-400 bg-amber-950/60 border border-amber-500/30 px-2 py-0.5 rounded">
+                                                                    Prompt Only (No Photo)
+                                                                </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-[10px] text-gray-400 leading-snug">
+                                                        <p className="text-[11px] text-gray-400 leading-snug">
                                                             {issue.uploadHint}
                                                         </p>
 
                                                         {previewUrl ? (
-                                                            <div className="relative w-20 h-20 rounded border border-purple-500/50 overflow-hidden group">
-                                                                <img src={previewUrl} alt={issue.uploadLabel} className="w-full h-full object-cover" />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeDetailImage(issue.id)}
-                                                                    className="absolute top-1 right-1 bg-red-600/90 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow"
-                                                                    title="Remove Photo"
+                                                            <div className="flex items-start gap-3 p-2.5 rounded-lg bg-black/60 border border-purple-500/40">
+                                                                <div 
+                                                                    onClick={() => setViewingModalImage({ url: previewUrl, label: `${issue.uploadLabel} Close-Up` })}
+                                                                    className="relative w-20 h-20 rounded-lg border-2 border-purple-500 overflow-hidden group cursor-pointer shrink-0 shadow-md"
+                                                                    title="Click to view full size"
                                                                 >
-                                                                    <X size={10} />
-                                                                </button>
+                                                                    <img src={previewUrl} alt={issue.uploadLabel} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                                                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-mono font-bold uppercase gap-1">
+                                                                        <Search size={12} /> View
+                                                                    </div>
+                                                                </div>
+                                                                <div className="flex-1 min-w-0 space-y-1.5 py-0.5">
+                                                                    <div>
+                                                                        <div className="text-xs font-bold text-white flex items-center gap-1">
+                                                                            <Check size={12} className="text-emerald-400" /> Close-Up Photo Attached
+                                                                        </div>
+                                                                        <p className="text-[10px] text-gray-400 mt-0.5">
+                                                                            Pass 2 will replicate this exact physical hardware and construction onto the railing.
+                                                                        </p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 pt-1">
+                                                                        <label className="cursor-pointer px-2 py-1 bg-[#1e1e1e] hover:bg-[#282828] border border-white/10 hover:border-purple-500/50 rounded text-[10px] text-gray-300 hover:text-white flex items-center gap-1 font-mono transition">
+                                                                            <Upload size={10} className="text-purple-400" />
+                                                                            <span>Change</span>
+                                                                            <input
+                                                                                type="file"
+                                                                                accept="image/*"
+                                                                                className="hidden"
+                                                                                onChange={e => handleDetailFileChange(issue.id, e)}
+                                                                            />
+                                                                        </label>
+                                                                        {adminTenantId && (
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => setActiveDetailAssetTarget(issue.id)}
+                                                                                className="px-2 py-1 bg-[#1e1e1e] hover:bg-[#282828] border border-white/10 hover:border-purple-500/50 rounded text-[10px] text-gray-300 hover:text-white font-mono flex items-center gap-1 transition"
+                                                                            >
+                                                                                <FolderOpen size={10} className="text-purple-400" />
+                                                                                <span>Library</span>
+                                                                            </button>
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => removeDetailImage(issue.id)}
+                                                                            className="px-2 py-1 bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 hover:text-red-200 rounded text-[10px] font-mono flex items-center gap-1 transition"
+                                                                        >
+                                                                            <Trash2 size={10} />
+                                                                            <span>Remove</span>
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         ) : (
-                                                            <div className="flex items-center gap-2 pt-1">
-                                                                <label className="cursor-pointer px-2.5 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[11px] text-gray-300 hover:text-white flex items-center gap-1.5 transition">
-                                                                    <Upload size={12} className="text-purple-400" />
-                                                                    <span>Upload Close-Up</span>
-                                                                    <input
-                                                                        type="file"
-                                                                        accept="image/*"
-                                                                        className="hidden"
-                                                                        onChange={e => handleDetailFileChange(issue.id, e)}
-                                                                    />
-                                                                </label>
-                                                                {adminTenantId && (
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => setActiveDetailAssetTarget(issue.id)}
-                                                                        className="px-2 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[10px] text-gray-400 hover:text-white font-mono flex items-center gap-1 transition"
-                                                                    >
-                                                                        <FolderOpen size={11} className="text-purple-400" />
-                                                                        <span>Asset Library</span>
-                                                                    </button>
-                                                                )}
+                                                            <div className="p-2.5 rounded-lg bg-black/40 border border-dashed border-purple-500/30 space-y-2">
+                                                                <div className="text-[11px] text-amber-300/90 flex items-center gap-1.5 font-mono">
+                                                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+                                                                    No close-up photo loaded. Pass 2 will follow text instructions only.
+                                                                </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <label className="cursor-pointer px-3 py-1.5 bg-[#141414] hover:bg-[#202020] border border-purple-500/40 hover:border-purple-400 rounded text-[11px] text-purple-200 hover:text-white flex items-center gap-1.5 transition font-medium">
+                                                                        <Upload size={12} className="text-purple-400" />
+                                                                        <span>Upload Close-Up Photo</span>
+                                                                        <input
+                                                                            type="file"
+                                                                            accept="image/*"
+                                                                            className="hidden"
+                                                                            onChange={e => handleDetailFileChange(issue.id, e)}
+                                                                        />
+                                                                    </label>
+                                                                    {adminTenantId && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => setActiveDetailAssetTarget(issue.id)}
+                                                                            className="px-2.5 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[11px] text-gray-300 hover:text-white font-mono flex items-center gap-1 transition"
+                                                                        >
+                                                                            <FolderOpen size={12} className="text-purple-400" />
+                                                                            <span>From Asset Library</span>
+                                                                        </button>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         )}
                                                     </div>
@@ -1742,6 +2042,17 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                                 setActiveDetailAssetTarget(null);
                             }}
                             onClose={() => setActiveDetailAssetTarget(null)}
+                        />
+                    )}
+                </AnimatePresence>
+
+                {/* Detail Image Lightbox */}
+                <AnimatePresence>
+                    {viewingModalImage && (
+                        <DetailImageLightboxModal
+                            imageUrl={viewingModalImage.url}
+                            title={viewingModalImage.label}
+                            onClose={() => setViewingModalImage(null)}
                         />
                     )}
                 </AnimatePresence>
@@ -2045,6 +2356,57 @@ function AssetPickerModal({
                     </div>
                 )}
             </motion.div>
+        </div>
+    );
+}
+
+function DetailImageLightboxModal({ 
+    imageUrl, 
+    title, 
+    onClose 
+}: { 
+    imageUrl: string; 
+    title: string; 
+    onClose: () => void; 
+}) {
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
+    return (
+        <div 
+            className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
+            onClick={onClose}
+        >
+            <div 
+                className="relative max-w-4xl max-h-[90vh] bg-[#0c0c0c] border border-white/15 rounded-xl overflow-hidden shadow-2xl flex flex-col"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#141414]">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <ImageIcon size={16} className="text-purple-400 shrink-0" />
+                        <h4 className="text-white text-sm font-bold uppercase tracking-wider truncate">{title}</h4>
+                    </div>
+                    <button 
+                        onClick={onClose}
+                        className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition ml-2"
+                        title="Close (Esc)"
+                    >
+                        <X size={18} />
+                    </button>
+                </div>
+                <div className="p-4 flex items-center justify-center overflow-auto max-h-[calc(90vh-60px)] bg-black/60">
+                    <img 
+                        src={imageUrl} 
+                        alt={title} 
+                        className="max-h-[75vh] max-w-full object-contain rounded-lg border border-white/10 shadow-lg" 
+                    />
+                </div>
+            </div>
         </div>
     );
 }
