@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles, SECOND_PASS_ISSUES } from '@/app/actions'; // Ensure these are exported from actions.ts
 import { listBucketFiles } from '@/app/admin/actions';
-import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical, Check, FolderOpen, Search, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical, Check, FolderOpen, Search, Sparkles, Upload } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { compressImage } from '@/utils/imageUtils';
 import { createClient } from '@/lib/supabase/client';
@@ -277,6 +277,24 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
     const [showMainAssetPicker, setShowMainAssetPicker] = useState(false);
     const [showRefAssetPicker, setShowRefAssetPicker] = useState(false);
     const [isLoadingRefAssets, setIsLoadingRefAssets] = useState(false);
+    const [secondPassDetailFiles, setSecondPassDetailFiles] = useState<{ [targetId: string]: File | null }>({});
+    const [secondPassDetailPreviews, setSecondPassDetailPreviews] = useState<{ [targetId: string]: string | null }>({});
+    const [secondPassDetailUrls, setSecondPassDetailUrls] = useState<{ [targetId: string]: string | null }>({});
+    const [activeDetailAssetTarget, setActiveDetailAssetTarget] = useState<string | null>(null);
+
+    const handleDetailFileChange = (targetId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setSecondPassDetailFiles(prev => ({ ...prev, [targetId]: file }));
+            setSecondPassDetailPreviews(prev => ({ ...prev, [targetId]: URL.createObjectURL(file) }));
+        }
+    };
+
+    const removeDetailImage = (targetId: string) => {
+        setSecondPassDetailFiles(prev => ({ ...prev, [targetId]: null }));
+        setSecondPassDetailPreviews(prev => ({ ...prev, [targetId]: null }));
+        setSecondPassDetailUrls(prev => ({ ...prev, [targetId]: null }));
+    };
 
     const handleMainAssetSelect = async (url: string) => {
         try {
@@ -417,6 +435,29 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                 if (refUrls.length > 0) {
                     formData.append('reference_urls', JSON.stringify(refUrls));
                 }
+            }
+
+            // 3. Second-Pass Detail Images
+            const finalDetailImages: Record<string, string> = {};
+            if (enableSecondPass) {
+                for (const targetId of secondPassTargets) {
+                    const file = secondPassDetailFiles[targetId];
+                    const existingUrl = secondPassDetailUrls[targetId];
+                    if (file) {
+                        const compressed = await compressImage(file, 1280);
+                        if (isAdmin) {
+                            formData.append(`second_pass_detail_file_${targetId}`, compressed);
+                        } else {
+                            const uploadedUrl = await handleClientUpload(compressed);
+                            finalDetailImages[targetId] = uploadedUrl;
+                        }
+                    } else if (existingUrl) {
+                        finalDetailImages[targetId] = existingUrl;
+                    }
+                }
+            }
+            if (Object.keys(finalDetailImages).length > 0) {
+                formData.append('second_pass_detail_images', JSON.stringify(finalDetailImages));
             }
 
             setUploadProgress(90);
@@ -681,39 +722,119 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
 
                         {enableSecondPass && (
                             <div className="pl-7 pt-2 space-y-3 border-t border-purple-500/20">
-                                <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold">
-                                    Targeted Issue Refinements:
-                                </label>
-                                <div className="space-y-2">
-                                    {SECOND_PASS_ISSUES.map(issue => {
+                                <div>
+                                    <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold">
+                                        Targeted Issue Refinements:
+                                    </label>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">
+                                        Select only the specific details you want Second Pass to correct (unselected details are left untouched / N/A).
+                                    </p>
+                                </div>
+                                <div className="space-y-2.5">
+                                    {SECOND_PASS_ISSUES.filter(issue => {
+                                        if (postMount === 'side' && issue.id === 'top_mount') return false;
+                                        if (postMount === 'top' && issue.id === 'side_mount') return false;
+                                        return true;
+                                    }).map(issue => {
                                         const isChecked = secondPassTargets.includes(issue.id);
+                                        const previewUrl = secondPassDetailPreviews[issue.id] || secondPassDetailUrls[issue.id];
                                         return (
                                             <div
                                                 key={issue.id}
-                                                onClick={() => {
-                                                    setSecondPassTargets(prev =>
-                                                        prev.includes(issue.id)
-                                                            ? prev.filter(id => id !== issue.id)
-                                                            : [...prev, issue.id]
-                                                    );
-                                                }}
-                                                className={`p-2.5 rounded border cursor-pointer transition-all ${
+                                                className={`p-3 rounded-lg border transition-all ${
                                                     isChecked
-                                                        ? 'bg-purple-950/40 border-purple-500 text-white'
+                                                        ? 'bg-purple-950/40 border-purple-500/80 text-white'
                                                         : 'bg-black/40 border-white/10 text-gray-400 hover:border-white/20'
                                                 }`}
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
+                                                <div 
+                                                    onClick={() => {
+                                                        setSecondPassTargets(prev =>
+                                                            prev.includes(issue.id)
+                                                                ? prev.filter(id => id !== issue.id)
+                                                                : [...prev, issue.id]
+                                                        );
+                                                    }}
+                                                    className="flex items-start gap-2.5 cursor-pointer select-none"
+                                                >
+                                                    <div className={`w-4 h-4 mt-0.5 rounded flex items-center justify-center border text-[10px] shrink-0 ${
                                                         isChecked ? 'bg-purple-600 border-purple-400 text-white' : 'border-gray-600 bg-transparent'
                                                     }`}>
                                                         {isChecked && '✓'}
                                                     </div>
-                                                    <span className="text-xs font-bold uppercase">{issue.label}</span>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold uppercase tracking-wide">{issue.label}</span>
+                                                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-black/50 border border-white/10 text-gray-400">
+                                                                {isChecked ? 'Active Target' : 'N/A (Ignored)'}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[11px] text-gray-400 mt-0.5">
+                                                            {issue.description}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <p className="text-[11px] text-gray-400 mt-1 pl-6">
-                                                    {issue.description}
-                                                </p>
+
+                                                {/* Close-Up Detail Image Upload for this Target */}
+                                                {isChecked && (
+                                                    <div className="mt-2.5 pt-2 border-t border-purple-500/20 pl-6.5 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300 font-semibold flex items-center gap-1">
+                                                                <ImageIcon size={11} className="text-purple-400" />
+                                                                {issue.uploadLabel} (Close-Up Photo)
+                                                            </span>
+                                                            {previewUrl && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeDetailImage(issue.id)}
+                                                                    className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 font-mono uppercase"
+                                                                >
+                                                                    <X size={11} /> Remove Photo
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-400 leading-snug">
+                                                            {issue.uploadHint}
+                                                        </p>
+
+                                                        {previewUrl ? (
+                                                            <div className="relative w-20 h-20 rounded border border-purple-500/50 overflow-hidden group">
+                                                                <img src={previewUrl} alt={issue.uploadLabel} className="w-full h-full object-cover" />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeDetailImage(issue.id)}
+                                                                    className="absolute top-1 right-1 bg-red-600/90 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow"
+                                                                    title="Remove Photo"
+                                                                >
+                                                                    <X size={10} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 pt-1">
+                                                                <label className="cursor-pointer px-2.5 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[11px] text-gray-300 hover:text-white flex items-center gap-1.5 transition">
+                                                                    <Upload size={12} className="text-purple-400" />
+                                                                    <span>Upload Close-Up</span>
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        className="hidden"
+                                                                        onChange={e => handleDetailFileChange(issue.id, e)}
+                                                                    />
+                                                                </label>
+                                                                {adminTenantId && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setActiveDetailAssetTarget(issue.id)}
+                                                                        className="px-2 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[10px] text-gray-400 hover:text-white font-mono flex items-center gap-1 transition"
+                                                                    >
+                                                                        <FolderOpen size={11} className="text-purple-400" />
+                                                                        <span>Asset Library</span>
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -746,6 +867,23 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                         )}
                     </button>
                 </form>
+
+                <AnimatePresence>
+                    {activeDetailAssetTarget && adminTenantId && (
+                        <AssetPickerModal
+                            tenantId={adminTenantId}
+                            multiple={false}
+                            title={`Select Close-Up Image for ${SECOND_PASS_ISSUES.find(i => i.id === activeDetailAssetTarget)?.uploadLabel || 'Detail'}`}
+                            onSelect={(url) => {
+                                setSecondPassDetailUrls(prev => ({ ...prev, [activeDetailAssetTarget]: url }));
+                                setSecondPassDetailPreviews(prev => ({ ...prev, [activeDetailAssetTarget]: url }));
+                                setSecondPassDetailFiles(prev => ({ ...prev, [activeDetailAssetTarget]: null }));
+                                setActiveDetailAssetTarget(null);
+                            }}
+                            onClose={() => setActiveDetailAssetTarget(null)}
+                        />
+                    )}
+                </AnimatePresence>
             </motion.div>
         </div>
     )
@@ -795,6 +933,25 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
     const [showMainAssetPicker, setShowMainAssetPicker] = useState(false);
     const [showRefAssetPicker, setShowRefAssetPicker] = useState(false);
     const [isLoadingRefAssets, setIsLoadingRefAssets] = useState(false);
+    const initialDetailImages = (style.style_metadata?.second_pass?.detail_images || {}) as Record<string, string>;
+    const [secondPassDetailFiles, setSecondPassDetailFiles] = useState<{ [targetId: string]: File | null }>({});
+    const [secondPassDetailPreviews, setSecondPassDetailPreviews] = useState<{ [targetId: string]: string | null }>({});
+    const [secondPassDetailUrls, setSecondPassDetailUrls] = useState<{ [targetId: string]: string | null }>(initialDetailImages);
+    const [activeDetailAssetTarget, setActiveDetailAssetTarget] = useState<string | null>(null);
+
+    const handleDetailFileChange = (targetId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setSecondPassDetailFiles(prev => ({ ...prev, [targetId]: file }));
+            setSecondPassDetailPreviews(prev => ({ ...prev, [targetId]: URL.createObjectURL(file) }));
+        }
+    };
+
+    const removeDetailImage = (targetId: string) => {
+        setSecondPassDetailFiles(prev => ({ ...prev, [targetId]: null }));
+        setSecondPassDetailPreviews(prev => ({ ...prev, [targetId]: null }));
+        setSecondPassDetailUrls(prev => ({ ...prev, [targetId]: null }));
+    };
 
     const handleMainAssetSelect = async (url: string) => {
         try {
@@ -1028,6 +1185,27 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             }
 
             formData.append('kept_reference_urls', JSON.stringify(keptRefs));
+
+            // Second-Pass Detail Images
+            const finalDetailImages: Record<string, string> = {};
+            if (enableSecondPass) {
+                for (const targetId of secondPassTargets) {
+                    const file = secondPassDetailFiles[targetId];
+                    const existingUrl = secondPassDetailUrls[targetId];
+                    if (file) {
+                        const compressed = await compressImage(file, 1280);
+                        if (isAdmin) {
+                            formData.append(`second_pass_detail_file_${targetId}`, compressed);
+                        } else {
+                            const uploadedUrl = await handleClientUpload(compressed);
+                            finalDetailImages[targetId] = uploadedUrl;
+                        }
+                    } else if (existingUrl) {
+                        finalDetailImages[targetId] = existingUrl;
+                    }
+                }
+            }
+            formData.append('second_pass_detail_images', JSON.stringify(finalDetailImages));
 
             setUploadProgress(90);
 
@@ -1398,39 +1576,119 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
 
                         {enableSecondPass && (
                             <div className="pl-7 pt-2 space-y-3 border-t border-purple-500/20">
-                                <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold">
-                                    Targeted Issue Refinements:
-                                </label>
-                                <div className="space-y-2">
-                                    {SECOND_PASS_ISSUES.map(issue => {
+                                <div>
+                                    <label className="block text-[11px] font-mono uppercase tracking-wider text-purple-300 font-semibold">
+                                        Targeted Issue Refinements:
+                                    </label>
+                                    <p className="text-[10px] text-gray-500 mt-0.5">
+                                        Select only the specific details you want Second Pass to correct (unselected details are left untouched / N/A).
+                                    </p>
+                                </div>
+                                <div className="space-y-2.5">
+                                    {SECOND_PASS_ISSUES.filter(issue => {
+                                        if (postMount === 'side' && issue.id === 'top_mount') return false;
+                                        if (postMount === 'top' && issue.id === 'side_mount') return false;
+                                        return true;
+                                    }).map(issue => {
                                         const isChecked = secondPassTargets.includes(issue.id);
+                                        const previewUrl = secondPassDetailPreviews[issue.id] || secondPassDetailUrls[issue.id];
                                         return (
                                             <div
                                                 key={issue.id}
-                                                onClick={() => {
-                                                    setSecondPassTargets(prev =>
-                                                        prev.includes(issue.id)
-                                                            ? prev.filter(id => id !== issue.id)
-                                                            : [...prev, issue.id]
-                                                    );
-                                                }}
-                                                className={`p-2.5 rounded border cursor-pointer transition-all ${
+                                                className={`p-3 rounded-lg border transition-all ${
                                                     isChecked
-                                                        ? 'bg-purple-950/40 border-purple-500 text-white'
+                                                        ? 'bg-purple-950/40 border-purple-500/80 text-white'
                                                         : 'bg-black/40 border-white/10 text-gray-400 hover:border-white/20'
                                                 }`}
                                             >
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-4 h-4 rounded flex items-center justify-center border text-[10px] ${
+                                                <div 
+                                                    onClick={() => {
+                                                        setSecondPassTargets(prev =>
+                                                            prev.includes(issue.id)
+                                                                ? prev.filter(id => id !== issue.id)
+                                                                : [...prev, issue.id]
+                                                        );
+                                                    }}
+                                                    className="flex items-start gap-2.5 cursor-pointer select-none"
+                                                >
+                                                    <div className={`w-4 h-4 mt-0.5 rounded flex items-center justify-center border text-[10px] shrink-0 ${
                                                         isChecked ? 'bg-purple-600 border-purple-400 text-white' : 'border-gray-600 bg-transparent'
                                                     }`}>
                                                         {isChecked && '✓'}
                                                     </div>
-                                                    <span className="text-xs font-bold uppercase">{issue.label}</span>
+                                                    <div className="flex-1">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-xs font-bold uppercase tracking-wide">{issue.label}</span>
+                                                            <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-black/50 border border-white/10 text-gray-400">
+                                                                {isChecked ? 'Active Target' : 'N/A (Ignored)'}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-[11px] text-gray-400 mt-0.5">
+                                                            {issue.description}
+                                                        </p>
+                                                    </div>
                                                 </div>
-                                                <p className="text-[11px] text-gray-400 mt-1 pl-6">
-                                                    {issue.description}
-                                                </p>
+
+                                                {/* Close-Up Detail Image Upload for this Target */}
+                                                {isChecked && (
+                                                    <div className="mt-2.5 pt-2 border-t border-purple-500/20 pl-6.5 space-y-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300 font-semibold flex items-center gap-1">
+                                                                <ImageIcon size={11} className="text-purple-400" />
+                                                                {issue.uploadLabel} (Close-Up Photo)
+                                                            </span>
+                                                            {previewUrl && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeDetailImage(issue.id)}
+                                                                    className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 font-mono uppercase"
+                                                                >
+                                                                    <X size={11} /> Remove Photo
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-400 leading-snug">
+                                                            {issue.uploadHint}
+                                                        </p>
+
+                                                        {previewUrl ? (
+                                                            <div className="relative w-20 h-20 rounded border border-purple-500/50 overflow-hidden group">
+                                                                <img src={previewUrl} alt={issue.uploadLabel} className="w-full h-full object-cover" />
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => removeDetailImage(issue.id)}
+                                                                    className="absolute top-1 right-1 bg-red-600/90 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow"
+                                                                    title="Remove Photo"
+                                                                >
+                                                                    <X size={10} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 pt-1">
+                                                                <label className="cursor-pointer px-2.5 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[11px] text-gray-300 hover:text-white flex items-center gap-1.5 transition">
+                                                                    <Upload size={12} className="text-purple-400" />
+                                                                    <span>Upload Close-Up</span>
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        className="hidden"
+                                                                        onChange={e => handleDetailFileChange(issue.id, e)}
+                                                                    />
+                                                                </label>
+                                                                {adminTenantId && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => setActiveDetailAssetTarget(issue.id)}
+                                                                        className="px-2 py-1.5 bg-[#141414] hover:bg-[#202020] border border-white/10 hover:border-purple-500/50 rounded text-[10px] text-gray-400 hover:text-white font-mono flex items-center gap-1 transition"
+                                                                    >
+                                                                        <FolderOpen size={11} className="text-purple-400" />
+                                                                        <span>Asset Library</span>
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
@@ -1471,6 +1729,22 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                     <p className="text-[10px] text-gray-600 text-center">Image will be cropped to visible area (Square).</p>
                 </div>
 
+                <AnimatePresence>
+                    {activeDetailAssetTarget && adminTenantId && (
+                        <AssetPickerModal
+                            tenantId={adminTenantId}
+                            multiple={false}
+                            title={`Select Close-Up Image for ${SECOND_PASS_ISSUES.find(i => i.id === activeDetailAssetTarget)?.uploadLabel || 'Detail'}`}
+                            onSelect={(url) => {
+                                setSecondPassDetailUrls(prev => ({ ...prev, [activeDetailAssetTarget]: url }));
+                                setSecondPassDetailPreviews(prev => ({ ...prev, [activeDetailAssetTarget]: url }));
+                                setSecondPassDetailFiles(prev => ({ ...prev, [activeDetailAssetTarget]: null }));
+                                setActiveDetailAssetTarget(null);
+                            }}
+                            onClose={() => setActiveDetailAssetTarget(null)}
+                        />
+                    )}
+                </AnimatePresence>
             </motion.div>
         </div>
     )

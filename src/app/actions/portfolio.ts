@@ -115,12 +115,40 @@ export async function createStyle(formData: FormData) {
     }
     const secondPassCustomPrompt = (formData.get('second_pass_custom_prompt') as string) || '';
 
+    // Parse second-pass detail images
+    const secondPassDetailImagesRaw = formData.get('second_pass_detail_images') as string;
+    let detailImages: Record<string, string> = {};
+    if (secondPassDetailImagesRaw) {
+        try {
+            detailImages = JSON.parse(secondPassDetailImagesRaw);
+        } catch (e) {
+            console.warn('Failed to parse second_pass_detail_images in createStyle:', e);
+        }
+    }
+
+    // Also handle files uploaded on server side (e.g. Admin mode)
+    for (const key of ['reducers', 'side_mount', 'top_mount', 'shoe_rail']) {
+        const detailFile = formData.get(`second_pass_detail_file_${key}`) as File;
+        if (detailFile && detailFile.size > 0 && detailFile.size <= 5 * 1024 * 1024) {
+            const fileExt = detailFile.name.split('.').pop();
+            const fileName = `${targetTenantId}/${Date.now()}_detail_${key}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const { error: upErr } = await actingSupabase.storage
+                .from('portfolio')
+                .upload(fileName, detailFile, { contentType: detailFile.type, upsert: false });
+            if (!upErr) {
+                const { data: pubData } = actingSupabase.storage.from('portfolio').getPublicUrl(fileName);
+                detailImages[key] = pubData.publicUrl;
+            }
+        }
+    }
+
     const styleMetadata: any = {};
-    if (enableSecondPass || secondPassTargets.length > 0 || secondPassCustomPrompt) {
+    if (enableSecondPass || secondPassTargets.length > 0 || secondPassCustomPrompt || Object.keys(detailImages).length > 0) {
         styleMetadata.second_pass = {
             enabled: enableSecondPass,
             targets: secondPassTargets,
-            custom_prompt: secondPassCustomPrompt.trim() || undefined
+            custom_prompt: secondPassCustomPrompt.trim() || undefined,
+            detail_images: Object.keys(detailImages).length > 0 ? detailImages : undefined
         };
     }
     if (postMount) {
@@ -324,9 +352,18 @@ export async function updateStyle(formData: FormData) {
     // Handle second-pass refinement metadata and post_mount metadata
     const enableSecondPassRaw = formData.get('enable_second_pass');
     const secondPassTargetsRaw = formData.get('second_pass_targets') as string;
-    const secondPassCustomPromptRaw = formData.get('second_pass_custom_prompt');
+    const secondPassCustomPromptRaw = formData.get('second_pass_custom_prompt') as string;
+    const secondPassDetailImagesRaw = formData.get('second_pass_detail_images') as string;
+    let updatedDetailImages: Record<string, string> | null = null;
+    if (secondPassDetailImagesRaw) {
+        try {
+            updatedDetailImages = JSON.parse(secondPassDetailImagesRaw);
+        } catch (e) {
+            console.warn('Failed to parse second_pass_detail_images in updateStyle:', e);
+        }
+    }
 
-    if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null || postMount !== undefined) {
+    if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null || postMount !== undefined || updatedDetailImages !== null) {
         const { data: currentStyle } = await actingSupabase
             .from('portfolio')
             .select('style_metadata')
@@ -341,7 +378,28 @@ export async function updateStyle(formData: FormData) {
             currentMeta.post_mount = postMount;
         }
 
-        if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null) {
+        // Check for direct server file uploads in updateStyle (e.g. Admin mode)
+        for (const key of ['reducers', 'side_mount', 'top_mount', 'shoe_rail']) {
+            const detailFile = formData.get(`second_pass_detail_file_${key}`) as File;
+            if (detailFile && detailFile.size > 0 && detailFile.size <= 5 * 1024 * 1024) {
+                const fileExt = detailFile.name.split('.').pop();
+                const fileName = `${targetTenantId}/${Date.now()}_detail_${key}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const { error: upErr } = await actingSupabase.storage
+                    .from('portfolio')
+                    .upload(fileName, detailFile, { contentType: detailFile.type, upsert: false });
+                if (!upErr) {
+                    const { data: pubData } = actingSupabase.storage.from('portfolio').getPublicUrl(fileName);
+                    if (!updatedDetailImages) {
+                        updatedDetailImages = { ...(currentMeta.second_pass?.detail_images || {}) };
+                    }
+                    if (updatedDetailImages) {
+                        updatedDetailImages[key] = pubData.publicUrl;
+                    }
+                }
+            }
+        }
+
+        if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null || updatedDetailImages !== null) {
             let targets = currentMeta.second_pass?.targets || [];
             if (secondPassTargetsRaw !== null && secondPassTargetsRaw !== undefined) {
                 try {
@@ -359,10 +417,15 @@ export async function updateStyle(formData: FormData) {
                 ? (secondPassCustomPromptRaw as string)
                 : currentMeta.second_pass?.custom_prompt;
 
+            const detailImages = updatedDetailImages !== null
+                ? (Object.keys(updatedDetailImages).length > 0 ? updatedDetailImages : undefined)
+                : currentMeta.second_pass?.detail_images;
+
             currentMeta.second_pass = {
                 enabled,
                 targets,
-                custom_prompt: customPrompt ? customPrompt.trim() : undefined
+                custom_prompt: customPrompt ? customPrompt.trim() : undefined,
+                detail_images: detailImages
             };
         }
 

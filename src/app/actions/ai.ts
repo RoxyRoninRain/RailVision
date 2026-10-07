@@ -405,7 +405,7 @@ export async function generateDesign(formData: FormData) {
         const customPromptNote = (formData.get('custom_prompt_note') as string) ||
             (rawPrompt && rawPrompt !== "High quality architectural photorealistic render" ? rawPrompt : undefined);
 
-        let secondPassConfig: { enabled: boolean; targets: string[]; custom_prompt?: string } | null = null;
+        let secondPassConfig: { enabled: boolean; targets: string[]; custom_prompt?: string; detail_images?: Record<string, string> } | null = null;
 
         if (styleFile) {
             const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
@@ -439,7 +439,8 @@ export async function generateDesign(formData: FormData) {
                         secondPassConfig = {
                             enabled: styleData.style_metadata.second_pass.enabled === true,
                             targets: Array.isArray(styleData.style_metadata.second_pass.targets) ? styleData.style_metadata.second_pass.targets : [],
-                            custom_prompt: styleData.style_metadata.second_pass.custom_prompt || undefined
+                            custom_prompt: styleData.style_metadata.second_pass.custom_prompt || undefined,
+                            detail_images: styleData.style_metadata.second_pass.detail_images || undefined
                         };
                     }
 
@@ -645,22 +646,47 @@ export async function generateDesign(formData: FormData) {
 
             // --- SECOND-PASS AI REFINEMENT ---
             let secondPassApplied = false;
-            if (secondPassConfig?.enabled) {
-                if (typeof styleInput !== 'string' && styleInput.technicalSpecs?.postMount) {
-                    (secondPassConfig as any).post_mount = styleInput.technicalSpecs.postMount;
-                }
-            }
-            if (secondPassConfig?.enabled && (secondPassConfig.targets?.length > 0 || secondPassConfig.custom_prompt || (secondPassConfig as any).post_mount)) {
+            if (secondPassConfig?.enabled && (secondPassConfig.targets?.length > 0 || secondPassConfig.custom_prompt)) {
                 console.log('[DEBUG] Executing Second-Pass AI Refinement with targets:', secondPassConfig.targets);
                 try {
                     const { assembleRefinementPrompt, refineDesignWithNanoBanana } = await import('@/lib/vertex');
+                    const { SECOND_PASS_ISSUES } = await import('@/app/actions/types');
                     const refinementPrompt = assembleRefinementPrompt(secondPassConfig);
                     if (refinementPrompt) {
+                        // Gather close-up detail images for active targets
+                        const detailImagesForPass2: { targetId: string; label: string; base64Data: string }[] = [];
+                        if (secondPassConfig.detail_images) {
+                            for (const targetId of secondPassConfig.targets) {
+                                const imgUrl = secondPassConfig.detail_images[targetId];
+                                if (imgUrl) {
+                                    try {
+                                        const res = await fetch(imgUrl);
+                                        if (res.ok) {
+                                            const buf = Buffer.from(await res.arrayBuffer());
+                                            const issueMeta = SECOND_PASS_ISSUES.find(i => i.id === targetId);
+                                            detailImagesForPass2.push({
+                                                targetId,
+                                                label: issueMeta?.uploadLabel || targetId,
+                                                base64Data: buf.toString('base64')
+                                            });
+                                        }
+                                    } catch (fetchErr) {
+                                        console.warn(`Failed to fetch second pass detail image for ${targetId}:`, fetchErr);
+                                    }
+                                }
+                            }
+                        }
+
                         const refImagesForPass2 = (typeof styleInput !== 'string' && styleInput.base64StyleImages && styleInput.base64StyleImages.length > 1)
                             ? styleInput.base64StyleImages.slice(1)
                             : undefined;
 
-                        const pass2Result = await refineDesignWithNanoBanana(result.image, refinementPrompt, refImagesForPass2);
+                        const pass2Result = await refineDesignWithNanoBanana(
+                            result.image, 
+                            refinementPrompt, 
+                            refImagesForPass2,
+                            detailImagesForPass2.length > 0 ? detailImagesForPass2 : undefined
+                        );
                         if (pass2Result.success && pass2Result.image) {
                             console.log('[DEBUG] Second-Pass Refinement completed successfully!');
                             result.image = pass2Result.image;

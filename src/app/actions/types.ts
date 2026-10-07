@@ -57,6 +57,7 @@ export interface SecondPassConfig {
     enabled: boolean;
     targets: string[];
     custom_prompt?: string;
+    detail_images?: Record<string, string>;
 }
 
 export interface StyleMetadata {
@@ -68,27 +69,35 @@ export interface StyleMetadata {
 export const SECOND_PASS_ISSUES = [
     {
         id: 'reducers',
-        label: 'Clean Post Welds (No Reducers/Stems)',
+        label: 'Rail Connection / Flush Welds',
         description: 'Eliminate standoff pins, stems, and reducers; weld posts flush to handrail.',
-        prompt: 'POST-TO-RAIL FLUSH WELDS: Remove any standoff pins, stems, or adapter collars between the top of each post and the underside of the handrail. Extend each post upward so it fuses directly and seamlessly into the handrail with a solid flush weld.'
-    },
-    {
-        id: 'shoe_rail',
-        label: 'Bottom Shoe Rail Integrity',
-        description: 'Ensure spindles terminate into shoe rail without ghosting into steps.',
-        prompt: 'BOTTOM SHOE RAIL INTEGRITY: Ensure all vertical spindles/infill terminate cleanly and solidly into the continuous bottom shoe rail. Spindles must NEVER pass through or ghost beneath the shoe rail.'
+        prompt: 'POST-TO-RAIL FLUSH WELDS: Remove any standoff pins, stems, or adapter collars between the top of each post and the underside of the handrail. Extend each post upward so it fuses directly and seamlessly into the handrail with a solid flush weld.',
+        uploadLabel: 'Rail Connection',
+        uploadHint: 'Upload a close-up photo showing how the post meets the top handrail.'
     },
     {
         id: 'side_mount',
         label: 'Direct 2-Bolt Side Mount (No Plates)',
-        description: 'Ensure posts mount directly to outer fascia with 2 through-bolts, strictly no mounting plates.',
-        prompt: 'DIRECT 2-BOLT SIDE MOUNT (STRICTLY NO PLATES): Ensure every side-mount post attaches directly flat against the outer stair stringer or deck fascia face using 2 through-bolts (vertically stacked) passing straight through the post body. Eliminate and remove all mounting plates, bracket flanges, standoff collars, and external saddles. Posts must sit flush against the wood face with only the 2 bolt heads visible.'
+        description: 'Mount posts directly to outer fascia with 2 through-bolts, strictly no mounting plates.',
+        prompt: 'DIRECT 2-BOLT SIDE MOUNT (STRICTLY NO PLATES): Ensure every side-mount post attaches directly flat against the outer stair stringer or deck fascia face using 2 through-bolts (vertically stacked) passing straight through the post body. Eliminate and remove all mounting plates, bracket flanges, standoff collars, and external saddles. Posts must sit flush against the wood face with only the 2 bolt heads visible.',
+        uploadLabel: 'Side Mount Detail',
+        uploadHint: 'Upload a close-up photo showing the 2 bolts through the post into the stringer/fascia.'
     },
     {
         id: 'top_mount',
         label: 'Top / Surface Mount Base Plates',
         description: 'Ensure posts mount to the top surface of stair treads/floor with base plates.',
-        prompt: 'TOP / SURFACE MOUNT BASE PLATES: Ensure every post base is anchored solidly onto the top horizontal surface of the stair treads or landing floor using surface-mounted base plates or flange shoes. Posts must stand upright directly on the steps, not on the side fascia.'
+        prompt: 'TOP / SURFACE MOUNT BASE PLATES: Ensure every post base is anchored solidly onto the top horizontal surface of the stair treads or landing floor using surface-mounted base plates or flange shoes. Posts must stand upright directly on the steps, not on the side fascia.',
+        uploadLabel: 'Top Mount Detail',
+        uploadHint: 'Upload a close-up photo showing the surface base plate mounted to the tread/floor.'
+    },
+    {
+        id: 'shoe_rail',
+        label: 'Bottom Shoe Rail Integrity',
+        description: 'Ensure spindles terminate into shoe rail without ghosting into steps.',
+        prompt: 'BOTTOM SHOE RAIL INTEGRITY: Ensure all vertical spindles/infill terminate cleanly and solidly into the continuous bottom shoe rail. Spindles must NEVER pass through or ghost beneath the shoe rail.',
+        uploadLabel: 'Shoe Rail Detail',
+        uploadHint: 'Upload a close-up photo showing the bottom shoe rail and spindle terminations.'
     }
 ] as const;
 

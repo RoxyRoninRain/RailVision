@@ -497,21 +497,30 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMessage = 'Operati
     ]);
 }
 
-export function assembleRefinementPrompt(config: { targets?: string[]; custom_prompt?: string; post_mount?: 'top' | 'side' }): string {
+export interface SecondPassDetailImage {
+    targetId: string;
+    label: string;
+    base64Data: string;
+}
+
+export function assembleRefinementPrompt(config: { 
+    targets?: string[]; 
+    custom_prompt?: string; 
+    post_mount?: 'top' | 'side';
+    detail_images?: Record<string, string>;
+}): string {
     const issues: string[] = [];
     const targets = [...(config.targets || [])];
-
-    // Auto-reinforce post mount target if specified in config and not already present
-    if (config.post_mount === 'side' && !targets.includes('side_mount')) {
-        targets.push('side_mount');
-    } else if (config.post_mount === 'top' && !targets.includes('top_mount') && !targets.includes('side_mount')) {
-        targets.push('top_mount');
-    }
 
     for (const targetId of targets) {
         const issue = SECOND_PASS_ISSUES.find(i => i.id === targetId);
         if (issue) {
-            issues.push(`* ${issue.prompt}`);
+            const hasDetailImg = !!config.detail_images?.[targetId];
+            if (hasDetailImg) {
+                issues.push(`* ${issue.prompt} (Refer to the attached CLOSE-UP REFERENCE for ${issue.uploadLabel} to replicate this exact physical appearance and fabrication detail)`);
+            } else {
+                issues.push(`* ${issue.prompt}`);
+            }
         }
     }
 
@@ -533,7 +542,8 @@ Output a single unified high-resolution photograph.`;
 export async function refineDesignWithNanoBanana(
     base64Image: string,
     refinementPrompt: string,
-    referenceImages?: string[]
+    referenceImages?: string[],
+    detailImages?: SecondPassDetailImage[]
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     const maxAttempts = 3;
     let attempts = 0;
@@ -546,7 +556,7 @@ export async function refineDesignWithNanoBanana(
 * Do NOT alter the room, stairs, walls, flooring, lighting, or camera POV.
 * Keep all materials, stair treads, and overall composition intact.
 * Modify ONLY the specific joints, connections, or details requested.
-* If hardware/context reference images are provided, replicate their specific fabrication details precisely.
+* If close-up hardware or fabrication reference photos are provided, replicate their physical appearance and construction methods precisely onto the canvas railing.
 * RETURN ONLY THE REFINED PHOTOGRAPH.`;
 
     const parts: any[] = [
@@ -559,7 +569,20 @@ export async function refineDesignWithNanoBanana(
         }
     ];
 
-    if (referenceImages && referenceImages.length > 0) {
+    if (detailImages && detailImages.length > 0) {
+        for (const detail of detailImages) {
+            parts.push({
+                text: `**CLOSE-UP REFERENCE (${detail.label.toUpperCase()}):** Inspect this close-up photo showing the exact required fabrication and hardware detail. Replicate this exact physical appearance onto the canvas railing.`
+            });
+            const cleanDetail = detail.base64Data.includes(',') ? detail.base64Data.split(',')[1] : detail.base64Data;
+            parts.push({
+                inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: cleanDetail
+                }
+            });
+        }
+    } else if (referenceImages && referenceImages.length > 0) {
         parts.push({ text: "Hardware & Context Reference Imagery (Inspect closely for connection hardware, joints, and mounting details):" });
         for (const refImg of referenceImages) {
             const cleanRef = refImg.includes(',') ? refImg.split(',')[1] : refImg;

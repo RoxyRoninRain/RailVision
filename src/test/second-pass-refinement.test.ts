@@ -46,12 +46,24 @@ describe('Second-Pass Refinement Prompt Assembly', () => {
         expect(prompt).toContain('anchored solidly onto the top horizontal surface of the stair treads');
     });
 
-    it('auto-reinforces post_mount in refinement prompt when passed in config', () => {
-        const sidePrompt = assembleRefinementPrompt({ post_mount: 'side' });
-        expect(sidePrompt).toContain('DIRECT 2-BOLT SIDE MOUNT (STRICTLY NO PLATES)');
+    it('treats unselected targets as elective / N/A without auto-forcing post_mount', () => {
+        const sideWithoutTarget = assembleRefinementPrompt({ post_mount: 'side', targets: [] });
+        expect(sideWithoutTarget).toBe('');
 
-        const topPrompt = assembleRefinementPrompt({ post_mount: 'top' });
-        expect(topPrompt).toContain('TOP / SURFACE MOUNT BASE PLATES');
+        const sideWithOnlySideTarget = assembleRefinementPrompt({ post_mount: 'side', targets: ['side_mount'] });
+        expect(sideWithOnlySideTarget).toContain('DIRECT 2-BOLT SIDE MOUNT (STRICTLY NO PLATES)');
+        expect(sideWithOnlySideTarget).not.toContain('POST-TO-RAIL FLUSH WELDS');
+    });
+
+    it('references attached close-up detail photos in prompt when present', () => {
+        const prompt = assembleRefinementPrompt({
+            targets: ['side_mount'],
+            detail_images: {
+                side_mount: 'https://example.com/side-mount.jpg'
+            }
+        });
+        expect(prompt).toContain('DIRECT 2-BOLT SIDE MOUNT (STRICTLY NO PLATES)');
+        expect(prompt).toContain('Refer to the attached CLOSE-UP REFERENCE for Side Mount Detail');
     });
 });
 
