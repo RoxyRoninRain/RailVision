@@ -35,8 +35,9 @@ describe('Second-Pass Refinement Prompt Assembly', () => {
 
     it('assembles side_mount issue target correctly', () => {
         const prompt = assembleRefinementPrompt({ targets: ['side_mount'] });
-        expect(prompt).toContain('FASCIA / SIDE MOUNT BRACKETS');
-        expect(prompt).toContain('Ensure every post is anchored securely to the outer stair stringer/fascia face');
+        expect(prompt).toContain('DIRECT 2-BOLT SIDE MOUNT (STRICTLY NO PLATES)');
+        expect(prompt).toContain('Ensure every side-mount post attaches directly flat against the outer stair stringer');
+        expect(prompt).toContain('2 through-bolts (vertically stacked)');
     });
 
     it('assembles top_mount issue target correctly', () => {
@@ -47,7 +48,7 @@ describe('Second-Pass Refinement Prompt Assembly', () => {
 
     it('auto-reinforces post_mount in refinement prompt when passed in config', () => {
         const sidePrompt = assembleRefinementPrompt({ post_mount: 'side' });
-        expect(sidePrompt).toContain('FASCIA / SIDE MOUNT BRACKETS');
+        expect(sidePrompt).toContain('DIRECT 2-BOLT SIDE MOUNT (STRICTLY NO PLATES)');
 
         const topPrompt = assembleRefinementPrompt({ post_mount: 'top' });
         expect(topPrompt).toContain('TOP / SURFACE MOUNT BASE PLATES');

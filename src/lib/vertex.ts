@@ -247,9 +247,11 @@ export async function generateDesignWithNanoBanana(
                 // POST MOUNTING SPECIFICATION (Side mount vs Top mount):
                 if (specs.postMount) {
                     if (specs.postMount === 'side') {
-                        postMountInstructionStep = `2.  **POST MOUNTING (SIDE / FASCIA MOUNT REQUIRED):**
+                        postMountInstructionStep = `2.  **POST MOUNTING (SIDE / FASCIA MOUNT - DIRECT 2-BOLT ATTACHMENT, NO PLATES):**
 - The user requires **Side Mount (Fascia Mount)** posts.
-- Every post (bottom newel, intermediate stair posts, and landing posts) must mount to the outer side face / exterior stringer / side fascia of the staircase using heavy-duty side-mount fascia brackets or standoff hardware.
+- Inspect **IMAGE C** closely for the exact post-to-stringer mounting detail.
+- **DIRECT 2-BOLT FASTENING:** Every post (bottom newel, intermediate stair posts, and landing posts) must mount directly flat against the outer side face / exterior stringer / side fascia of the staircase using **2 through-bolts (vertically stacked)** passing directly through the post body into the wood stringer or deck rim joist.
+- **STRICTLY NO MOUNTING PLATES OR BRACKETS:** Do NOT generate mounting plates, bracket collars, standoff saddles, or external mounting tabs. The post tube/bar must sit directly flat against the stringer face with only the 2 bolt heads visible, exactly as shown in **IMAGE C**.
 - Posts must extend downward along the outside edge of the stairs; do NOT mount post bases onto the top horizontal surface of the stair treads. Keep the tread walking surface completely open and clear of post bases.`;
                     } else if (specs.postMount === 'top') {
                         postMountInstructionStep = `2.  **POST MOUNTING (TOP / SURFACE MOUNT REQUIRED):**
@@ -320,7 +322,7 @@ Renovate **IMAGE A**.
 **FINAL CHECK:**
 - Is the old rail gone?
 - Is the new rail mounting (Shoe vs Direct) correct according to Image B and Image C?
-- Is the post mounting style (Side Mount to outer fascia vs Top Mount on treads) strictly honored?
+- Is the post mounting style (Side Mount to outer fascia vs Top Mount on treads) strictly honored? If Side Mount, confirm direct 2-bolt through-post attachment with zero mounting plates or brackets as shown in Image C.
 - Did you examine the post-to-rail junction in Image B and Image C and follow the connection specification?
 - Is the background preserved?`;
 
@@ -530,7 +532,8 @@ Output a single unified high-resolution photograph.`;
 
 export async function refineDesignWithNanoBanana(
     base64Image: string,
-    refinementPrompt: string
+    refinementPrompt: string,
+    referenceImages?: string[]
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     const maxAttempts = 3;
     let attempts = 0;
@@ -543,18 +546,33 @@ export async function refineDesignWithNanoBanana(
 * Do NOT alter the room, stairs, walls, flooring, lighting, or camera POV.
 * Keep all materials, stair treads, and overall composition intact.
 * Modify ONLY the specific joints, connections, or details requested.
+* If hardware/context reference images are provided, replicate their specific fabrication details precisely.
 * RETURN ONLY THE REFINED PHOTOGRAPH.`;
 
-    const parts = [
+    const parts: any[] = [
         { text: "Input railing photograph to refine:" },
         {
             inlineData: {
                 mimeType: 'image/jpeg',
                 data: cleanBase64
             }
-        },
-        { text: refinementPrompt }
+        }
     ];
+
+    if (referenceImages && referenceImages.length > 0) {
+        parts.push({ text: "Hardware & Context Reference Imagery (Inspect closely for connection hardware, joints, and mounting details):" });
+        for (const refImg of referenceImages) {
+            const cleanRef = refImg.includes(',') ? refImg.split(',')[1] : refImg;
+            parts.push({
+                inlineData: {
+                    mimeType: 'image/jpeg',
+                    data: cleanRef
+                }
+            });
+        }
+    }
+
+    parts.push({ text: refinementPrompt });
 
     while (attempts < maxAttempts) {
         try {

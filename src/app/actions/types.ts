@@ -80,9 +80,9 @@ export const SECOND_PASS_ISSUES = [
     },
     {
         id: 'side_mount',
-        label: 'Side / Fascia Mount Brackets',
-        description: 'Ensure posts mount to the outer stair fascia with side-mount brackets.',
-        prompt: 'FASCIA / SIDE MOUNT BRACKETS: Ensure every post is anchored securely to the outer stair stringer/fascia face with heavy-duty side-mount brackets. Posts must run along the outside edge of the stairs, keeping the top of the stair treads completely clear.'
+        label: 'Direct 2-Bolt Side Mount (No Plates)',
+        description: 'Ensure posts mount directly to outer fascia with 2 through-bolts, strictly no mounting plates.',
+        prompt: 'DIRECT 2-BOLT SIDE MOUNT (STRICTLY NO PLATES): Ensure every side-mount post attaches directly flat against the outer stair stringer or deck fascia face using 2 through-bolts (vertically stacked) passing straight through the post body. Eliminate and remove all mounting plates, bracket flanges, standoff collars, and external saddles. Posts must sit flush against the wood face with only the 2 bolt heads visible.'
     },
     {
         id: 'top_mount',

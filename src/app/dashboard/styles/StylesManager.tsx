@@ -550,7 +550,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                                     <span className={`w-2 h-2 rounded-full ${postMount === 'side' ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
                                     Side Mount Posts
                                 </div>
-                                <div className="text-[11px] text-gray-400 mt-0.5">Fascia mounted to outer stair stringer face</div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Fascia mounted to stringer face (direct 2-bolt, no plates)</div>
                             </button>
                         </div>
                     </div>
@@ -1345,7 +1345,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                                     <span className={`w-2 h-2 rounded-full ${postMount === 'side' ? 'bg-[var(--primary)]' : 'bg-gray-600'}`}></span>
                                     Side Mount Posts
                                 </div>
-                                <div className="text-[11px] text-gray-400 mt-0.5">Fascia mounted to outer stair stringer face</div>
+                                <div className="text-[11px] text-gray-400 mt-0.5">Fascia mounted to stringer face (direct 2-bolt, no plates)</div>
                             </button>
                         </div>
                     </div>

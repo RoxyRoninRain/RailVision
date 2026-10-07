@@ -656,7 +656,11 @@ export async function generateDesign(formData: FormData) {
                     const { assembleRefinementPrompt, refineDesignWithNanoBanana } = await import('@/lib/vertex');
                     const refinementPrompt = assembleRefinementPrompt(secondPassConfig);
                     if (refinementPrompt) {
-                        const pass2Result = await refineDesignWithNanoBanana(result.image, refinementPrompt);
+                        const refImagesForPass2 = (typeof styleInput !== 'string' && styleInput.base64StyleImages && styleInput.base64StyleImages.length > 1)
+                            ? styleInput.base64StyleImages.slice(1)
+                            : undefined;
+
+                        const pass2Result = await refineDesignWithNanoBanana(result.image, refinementPrompt, refImagesForPass2);
                         if (pass2Result.success && pass2Result.image) {
                             console.log('[DEBUG] Second-Pass Refinement completed successfully!');
                             result.image = pass2Result.image;

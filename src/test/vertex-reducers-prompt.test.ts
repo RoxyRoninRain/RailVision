@@ -160,11 +160,12 @@ describe('Vertex NanoBanana Prompt & SystemInstruction Reducer Enforcement', () 
         expect(capturedRequestBody).toBeDefined();
 
         const parts = capturedRequestBody.contents[0].parts;
-        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('SIDE / FASCIA MOUNT REQUIRED'));
+        const promptPart = parts.find((p: any) => typeof p.text === 'string' && p.text.includes('SIDE / FASCIA MOUNT - DIRECT 2-BOLT ATTACHMENT, NO PLATES'));
         expect(promptPart).toBeDefined();
         expect(promptPart.text).toContain('Side Mount (Fascia Mount)');
         expect(promptPart.text).toContain('outer side face / exterior stringer / side fascia');
-        expect(promptPart.text).toContain('side-mount fascia brackets');
+        expect(promptPart.text).toContain('2 through-bolts (vertically stacked)');
+        expect(promptPart.text).toContain('STRICTLY NO MOUNTING PLATES OR BRACKETS');
     });
 
     it('injects top-mount surface directives when postMount is top', async () => {
