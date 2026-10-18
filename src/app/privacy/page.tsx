@@ -1,7 +1,14 @@
-'use client';
-
+import type { Metadata } from 'next';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+
+export const metadata: Metadata = {
+    title: 'Privacy Policy',
+    description: 'Privacy Policy for Railify AI Handrail Visualizer and Quote Estimation Platform.',
+    alternates: {
+        canonical: 'https://railify.app/privacy',
+    },
+};
 
 export default function PrivacyPage() {
     return (
@@ -11,7 +18,7 @@ export default function PrivacyPage() {
             <main className="flex-grow pt-32 pb-20 px-6">
                 <div className="max-w-4xl mx-auto prose prose-invert prose-p:text-gray-400 prose-headings:text-white prose-a:text-primary">
                     <h1>Privacy Policy</h1>
-                    <p className="text-sm text-gray-500">Last Updated: {new Date().toLocaleDateString()}</p>
+                    <p className="text-sm text-gray-500">Last Updated: October 18, 2026</p>
 
                     <p>
                         Welcome to Railify ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy.

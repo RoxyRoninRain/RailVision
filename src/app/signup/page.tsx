@@ -81,15 +81,17 @@ function SignupContent() {
     };
 
     const getPlanName = (p: string) => {
-        if (p === 'starter') return 'Starter';
-        if (p === 'agency') return 'Agency';
+        const norm = p.toLowerCase();
+        if (norm === 'starter') return 'Starter';
+        if (norm === 'volume' || norm === 'agency') return 'Volume';
         return 'Professional';
     };
 
     const getPlanPrice = (p: string) => {
-        if (p === 'starter') return '$49';
-        if (p === 'agency') return '$249';
-        return '$99';
+        const norm = p.toLowerCase();
+        if (norm === 'starter') return '$20';
+        if (norm === 'volume' || norm === 'agency') return '$100';
+        return '$50';
     };
 
     return (

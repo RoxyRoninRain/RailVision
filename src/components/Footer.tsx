@@ -16,21 +16,24 @@ export default function Footer() {
                             />
                         </div>
                     </div>
-                    <p>The #1 Handrail Visualization Platform.</p>
+                    <p className="leading-relaxed">
+                        The #1 White-Label AI Handrail &amp; Stair Railing Visualizer and Instant Quote Estimator for custom fabricators.
+                    </p>
                 </div>
                 <div>
                     <h4 className="font-bold text-white mb-4">Product</h4>
                     <ul className="space-y-2">
                         <li><Link href="/#features" className="hover:text-primary">Features</Link></li>
-                        <li><Link href="/#pricing" className="hover:text-primary">Pricing</Link></li>
+                        <li><Link href="/pricing" className="hover:text-primary">Pricing &amp; Plans</Link></li>
+                        <li><Link href="/#faq" className="hover:text-primary">FAQ</Link></li>
                     </ul>
                 </div>
                 <div>
                     <h4 className="font-bold text-white mb-4">Resources</h4>
                     <ul className="space-y-2">
-                        {/* <li><a href="#" className="hover:text-primary">Documentation</a></li> */}
-                        {/* <li><a href="#" className="hover:text-primary">API</a></li> */}
-                        <li><Link href="/contact" className="hover:text-primary">Contact</Link></li>
+                        <li><Link href="/contact" className="hover:text-primary">Contact Support</Link></li>
+                        <li><Link href="/signup" className="hover:text-primary">Fabricator Sign Up</Link></li>
+                        <li><a href="/llms.txt" className="hover:text-primary">AI / LLMs Guide</a></li>
                     </ul>
                 </div>
                 <div>

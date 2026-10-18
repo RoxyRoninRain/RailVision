@@ -1,13 +1,148 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Check, Sparkles, Building2, Store, HandCoins, ChevronRight, Zap, ShieldCheck, Palette, Code2 } from 'lucide-react';
+import { ArrowRight, Check, Sparkles, Building2, Store, HandCoins, ChevronRight, Zap, ShieldCheck, Palette, Code2, HelpCircle } from 'lucide-react';
 import PricingCarousel from '@/components/PricingCarousel';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
+export const metadata: Metadata = {
+  title: 'Railify | AI Handrail & Stair Railing Visualizer + Instant Quote Estimator',
+  description:
+    'Embeddable white-label AI handrail and stair railing visualizer for custom metal fabricators, ornamental iron shops, and railing contractors. Let homeowners preview your railing styles on their own stairs and get an instant linear-foot quote.',
+  alternates: {
+    canonical: 'https://railify.app',
+  },
+};
+
+const LANDING_FAQS = [
+  {
+    question: 'What is Railify and who is it built for?',
+    answer:
+      'Railify is a white-label AI handrail and stair railing visualizer paired with an instant linear-foot quote estimator. It is built specifically for custom metal fabricators, ornamental ironwork shops, welding businesses, stair builders, and deck or railing contractors who want to convert website visitors into pre-qualified leads.',
+  },
+  {
+    question: 'How does the AI handrail visualizer work on a customer’s staircase photo?',
+    answer:
+      'Homeowners snap or upload a photo of their indoor staircase, front porch steps, or exterior deck directly on your website. They select one of your shop’s actual railing styles, and Railify’s architectural AI removes their old handrail and renders your exact design—honoring shoe rail vs. direct mount, top mount vs. fascia side mount, and weld details—while keeping their stairs, walls, and lighting intact.',
+  },
+  {
+    question: 'How does Railify filter out tire-kickers and budget shoppers?',
+    answer:
+      'After seeing the photorealistic design on their stairs, customers can calculate an instant estimate using your per-linear-foot price range and automated ZIP-code travel distance fees. Prospects who cannot afford custom fabrication filter themselves out before calling you, so you only spend time on leads who already love the look and accept your pricing.',
+  },
+  {
+    question: 'What do I receive when a customer submits a quote request?',
+    answer:
+      'You receive an instant email alert and a dashboard lead entry containing the customer’s name, email, phone number, project notes, estimated linear footage, price breakdown, and side-by-side Before (original staircase) and After (AI-generated railing) photos.',
+  },
+  {
+    question: 'Can I embed Railify on WordPress, Wix, Squarespace, or a custom website?',
+    answer:
+      'Yes. Railify embeds on any website—including WordPress, Wix, Squarespace, Webflow, Shopify, GoDaddy, or custom HTML—using a single copy-and-paste responsive iframe snippet. On Professional and Volume plans, it is 100% white-labeled with your brand colors and automatic shop logo watermarks.',
+  },
+  {
+    question: 'How much does Railify cost and can I cap my monthly spend?',
+    answer:
+      'Plans start at $20/month (Starter), $50/month (Professional with full white-labeling and 25 free signup credits), and $100/month (Volume with 50 free signup credits), plus a small metered per-render fee ($0.80–$1.20). You can set a hard Monthly Spend Safety Cap in your dashboard so your bill never exceeds your budget.',
+  },
+];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': 'https://railify.app/#organization',
+      name: 'Railify',
+      url: 'https://railify.app',
+      logo: 'https://railify.app/logo.png',
+      email: 'railifyai@gmail.com',
+      description:
+        'The #1 White-Label AI Handrail & Stair Railing Visualizer and Instant Quote Estimator for custom metal fabricators, ornamental iron shops, and railing contractors.',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': 'https://railify.app/#website',
+      url: 'https://railify.app',
+      name: 'Railify',
+      publisher: { '@id': 'https://railify.app/#organization' },
+    },
+    {
+      '@type': 'SoftwareApplication',
+      '@id': 'https://railify.app/#software',
+      name: 'Railify AI Handrail Visualizer',
+      applicationCategory: 'BusinessApplication',
+      applicationSubCategory: 'Architectural Visualization & Quote Estimation Software',
+      operatingSystem: 'Web, iOS, Android (Browser-based & Embeddable Widget)',
+      url: 'https://railify.app',
+      provider: { '@id': 'https://railify.app/#organization' },
+      description:
+        'Embeddable AI handrail and stair railing visualizer that lets homeowners preview a fabricator’s custom railing styles on a photo of their own stairs and calculate an instant linear-foot and travel-radius price estimate.',
+      featureList: [
+        'Photorealistic AI staircase and deck handrail visualization on customer photos',
+        'Supports custom wrought iron, steel, aluminum, cable, glass, and wood-metal railing styles',
+        'Fabrication-accurate rendering for Shoe Rail vs. Direct Mount and Top Mount vs. Side/Fascia Mount',
+        'Instant linear-foot and ZIP-code travel radius price estimator',
+        '100% White-Label website embed widget with automatic shop logo watermarking',
+        'Automated Before & After photo lead capture and tire-kicker price filtering',
+      ],
+      offers: {
+        '@type': 'AggregateOffer',
+        lowPrice: '20.00',
+        highPrice: '100.00',
+        priceCurrency: 'USD',
+        offerCount: 3,
+        offers: [
+          {
+            '@type': 'Offer',
+            name: 'Starter Plan',
+            price: '20.00',
+            priceCurrency: 'USD',
+            description: '$20/mo base + $1.20 per AI render. Includes website embed, instant quote estimator, and lead dashboard.',
+            url: 'https://railify.app/pricing',
+          },
+          {
+            '@type': 'Offer',
+            name: 'Professional Plan',
+            price: '50.00',
+            priceCurrency: 'USD',
+            description: '$50/mo base + $1.00 per AI render. Includes 100% White-Label branding, custom logo watermark, and 25 Free Bonus Credits on signup.',
+            url: 'https://railify.app/pricing',
+          },
+          {
+            '@type': 'Offer',
+            name: 'Volume Plan',
+            price: '100.00',
+            priceCurrency: 'USD',
+            description: '$100/mo base + $0.80 per AI render. Includes 100% White-Label branding, priority support, and 50 Free Bonus Credits on signup.',
+            url: 'https://railify.app/pricing',
+          },
+        ],
+      },
+    },
+    {
+      '@type': 'FAQPage',
+      '@id': 'https://railify.app/#faq',
+      mainEntity: LANDING_FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.answer,
+        },
+      })),
+    },
+  ],
+};
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden selection:bg-primary/30 selection:text-white font-sans">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       {/* --- NAVBAR --- */}
       <Navbar />
@@ -21,7 +156,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-primary mb-8 animate-fade-in-up">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            New: Plans start at just $20/mo
+            AI Handrail &amp; Stair Railing Visualizer · Plans start at $20/mo
           </div>
 
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 leading-[1.1]">
@@ -30,12 +165,15 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Show customers exactly what they’re getting, and show them the cost upfront. Pay only for what you use. You only hear from the ones who love the design and can afford the bid.
+            The white-label AI handrail visualizer and instant quote estimator for custom metal fabricators and railing contractors. Show homeowners your exact railing styles on their stairs, show them the cost upfront, and only hear from leads who love the design and can afford the bid.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/signup" className="w-full sm:w-auto px-8 py-4 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2">
               Get Started <ChevronRight size={18} />
+            </Link>
+            <Link href="/pricing" className="w-full sm:w-auto px-8 py-4 text-gray-400 hover:text-white font-medium rounded-xl transition-all flex items-center justify-center gap-2">
+              View Pricing &amp; Plans
             </Link>
           </div>
         </div>
@@ -213,6 +351,44 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* --- HOW IT WORKS & FABRICATION ACCURACY SECTION --- */}
+      <section className="py-24 px-6 bg-[#0d0d0d] border-y border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">How Railify Works for Your Railing Shop</h2>
+            <p className="text-lg text-gray-400 max-w-2xl mx-auto">
+              Purpose-built for custom metal fabricators, ornamental ironwork shops, welders, and stair builders.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-[#141414] border border-white/10 rounded-2xl p-8">
+              <div className="text-xs font-mono uppercase tracking-widest text-primary mb-3">Step 01</div>
+              <h3 className="text-xl font-bold mb-3">Homeowner Uploads Their Stairs</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Visitors on your website snap or upload a photo of their interior staircase, porch steps, or deck from any phone or computer—no app download required.
+              </p>
+            </div>
+
+            <div className="bg-[#141414] border border-white/10 rounded-2xl p-8">
+              <div className="text-xs font-mono uppercase tracking-widest text-primary mb-3">Step 02</div>
+              <h3 className="text-xl font-bold mb-3">AI Renders Your Exact Fabrication Styles</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Our multi-pass architectural AI overlays your actual portfolio styles—honoring shoe rail vs. direct mount, top mount vs. side fascia mount, and weld details—directly onto their stairs.
+              </p>
+            </div>
+
+            <div className="bg-[#141414] border border-white/10 rounded-2xl p-8">
+              <div className="text-xs font-mono uppercase tracking-widest text-primary mb-3">Step 03</div>
+              <h3 className="text-xl font-bold mb-3">Instant Quote Pre-Qualifies the Lead</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                Customers enter their linear footage and ZIP code to see an instant estimate based on your per-foot rate and travel radius. You receive their Before &amp; After photos and contact info ready to close.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* --- PRICING SECTION --- */}
       <section id="pricing" className="py-24 px-6 bg-[#080808]">
         <div className="max-w-7xl mx-auto">
@@ -228,9 +404,33 @@ export default function LandingPage() {
             <PricingCarousel />
             <div className="mt-8 text-center">
               <p className="text-xs md:text-sm text-emerald-400 font-mono bg-emerald-500/10 inline-block px-4 py-2 rounded-full border border-emerald-500/20">
-                🎁 Bonus Perk: Up to 50 Free Setup Credits included on first-time Pro & Volume signups.
+                🎁 Bonus Perk: Up to 50 Free Setup Credits included on first-time Pro &amp; Volume signups.
               </p>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --- FAQ SECTION (FOR USERS, SEARCH ENGINES & AI ASSISTANTS) --- */}
+      <section id="faq" className="py-24 px-6 bg-[#0a0a0a] border-t border-white/5">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-gray-300 mb-4">
+              <HelpCircle size={14} /> Frequently Asked Questions
+            </div>
+            <h2 className="text-3xl md:text-5xl font-bold mb-4">Everything Railing Shops Need to Know</h2>
+            <p className="text-gray-400 max-w-2xl mx-auto">
+              How Railify helps custom metal fabricators, ornamental iron shops, and railing contractors win more bids in less time.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {LANDING_FAQS.map((faq, idx) => (
+              <div key={idx} className="bg-[#111] border border-white/10 rounded-2xl p-6">
+                <h3 className="text-lg font-bold text-white mb-2">{faq.question}</h3>
+                <p className="text-sm text-gray-400 leading-relaxed">{faq.answer}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>

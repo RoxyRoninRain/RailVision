@@ -1,12 +1,61 @@
+import type { Metadata } from 'next';
 import { PRICING_TIERS } from '@/config/pricing';
-import { Check, Info } from 'lucide-react';
-import Link from 'next/link';
+import { Check } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import SelectPlanButton from '@/components/SelectPlanButton';
+
+export const metadata: Metadata = {
+    title: 'Pricing & Plans — White-Label AI Handrail Visualizer',
+    description:
+        'Transparent, performance-based pricing for custom handrail fabricators and railing contractors. Plans start at $20/mo with white-label embedding, instant quote estimation, and configurable spending caps.',
+    alternates: {
+        canonical: 'https://railify.app/pricing',
+    },
+};
+
+const PRICING_FAQS = [
+    {
+        question: 'How does billing work?',
+        answer:
+            "You pay a small monthly platform fee to access the tools. Then, you simply pay for each image you generate at your plan's rate.",
+    },
+    {
+        question: 'Can I control my spending?',
+        answer:
+            'Absolutely. You can set a "Safety Cap" in your settings. We will automatically stop generation if you hit your monthly budget limit.',
+    },
+    {
+        question: 'What is the Onboarding Fee for?',
+        answer:
+            'This one-time fee covers the manual setup of your white-labeled tool, uploading your logo, and calibrating the AI to your specific styles.',
+    },
+    {
+        question: 'Can I switch plans?',
+        answer:
+            'Yes, you can upgrade or downgrade at any time. If your volume increases, moving to a higher tier will lower your per-image cost significantly.',
+    },
+];
+
+const pricingJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: PRICING_FAQS.map((faq) => ({
+        '@type': 'Question',
+        name: faq.question,
+        acceptedAnswer: {
+            '@type': 'Answer',
+            text: faq.answer,
+        },
+    })),
+};
 
 export default function PricingPage() {
     return (
         <div className="min-h-screen bg-black text-white font-sans selection:bg-[var(--primary)] selection:text-black">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingJsonLd) }}
+            />
             <Navbar />
             <div className="max-w-7xl mx-auto px-4 py-24">
                 <div className="text-center mb-16">
@@ -109,30 +158,12 @@ export default function PricingPage() {
                 <div className="mt-24 text-center border-t border-gray-900 pt-16">
                     <h2 className="text-2xl font-mono font-bold text-white mb-8">Frequently Asked Questions</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left max-w-4xl mx-auto">
-                        <div>
-                            <h3 className="text-[var(--primary)] font-bold mb-2">How does billing work?</h3>
-                            <p className="text-gray-500 text-sm">
-                                You pay a small monthly platform fee to access the tools. Then, you simply pay for each image you generate at your plan's rate.
-                            </p>
-                        </div>
-                        <div>
-                            <h3 className="text-[var(--primary)] font-bold mb-2">Can I control my spending?</h3>
-                            <p className="text-gray-500 text-sm">
-                                Absolutely. You can set a "Safety Cap" in your settings. We will automatically stop generation if you hit your montly budget limit.
-                            </p>
-                        </div>
-                        <div>
-                            <h3 className="text-[var(--primary)] font-bold mb-2">What is the Onboarding Fee for?</h3>
-                            <p className="text-gray-500 text-sm">
-                                This one-time fee covers the manual setup of your white-labeled tool, uploading your logo, and calibrating the AI to your specific styles.
-                            </p>
-                        </div>
-                        <div>
-                            <h3 className="text-[var(--primary)] font-bold mb-2">Can I switch plans?</h3>
-                            <p className="text-gray-500 text-sm">
-                                Yes, you can upgrade or downgrade at any time. If your volume increases, moving to a higher tier will lower your per-image cost significantly.
-                            </p>
-                        </div>
+                        {PRICING_FAQS.map((faq, idx) => (
+                            <div key={idx}>
+                                <h3 className="text-[var(--primary)] font-bold mb-2">{faq.question}</h3>
+                                <p className="text-gray-500 text-sm">{faq.answer}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>

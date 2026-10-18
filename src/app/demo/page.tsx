@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import DesignStudio from '@/components/design-studio/DesignStudio';
 import { getStyles, getPublicStyles, getTenantLogo } from '../actions';
 import { createClient } from '@/lib/supabase/server';
@@ -6,6 +7,14 @@ import { ShieldAlert } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120; // 2 minutes
+
+export const metadata: Metadata = {
+    title: 'Interactive AI Handrail Design Studio',
+    robots: {
+        index: false,
+        follow: false,
+    },
+};
 
 export default async function Page({
     searchParams,

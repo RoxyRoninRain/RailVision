@@ -70,12 +70,12 @@ export default function ContactPage() {
                             <div className="bg-[#111] border border-white/10 rounded-2xl p-8">
                                 <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                                     <MessageSquare className="text-secondary" size={20} />
-                                    FAQ
+                                    Pricing &amp; FAQ
                                 </h3>
                                 <p className="text-sm text-gray-400 mb-4">
-                                    Check our documentation for quick answers to common questions about installation and API usage.
+                                    Explore our metered plans, white-label setup options, and answers to common questions about website embedding.
                                 </p>
-                                <a href="#" className="text-sm font-medium text-white hover:underline decoration-primary">Read Documentation &rarr;</a>
+                                <a href="/pricing" className="text-sm font-medium text-white hover:underline decoration-primary">View Pricing &amp; FAQ &rarr;</a>
                             </div>
                         </div>
 
