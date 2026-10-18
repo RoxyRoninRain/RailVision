@@ -3,7 +3,18 @@ import type { MetadataRoute } from 'next';
 export default function robots(): MetadataRoute.Robots {
     const baseUrl = 'https://railify.app';
 
-    const publicAllow = ['/', '/pricing', '/contact', '/privacy', '/terms', '/llms.txt', '/llms-full.txt'];
+    const publicAllow = [
+        '/',
+        '/pricing',
+        '/contact',
+        '/privacy',
+        '/terms',
+        '/llms.txt',
+        '/llms-full.txt',
+        '/.well-known/ai-plugin.json',
+        '/manifest.webmanifest',
+        '/railifyindexnowkey2026a1b2c3d4e5.txt',
+    ];
     const privateDisallow = [
         '/admin/',
         '/dashboard/',

@@ -62,14 +62,15 @@ export default function WidgetPage() {
         }
     };
 
+    const isStarterPlan = !profile?.tier_name || profile?.tier_name === 'Starter';
     const embedCode = `<iframe 
   src="https://railify.app/demo?org=${profile?.id || 'YOUR_ID'}" 
   width="100%" 
   height="${isFullScreen ? '100vh' : embedHeight}" 
   style="border:none; border-radius: 12px; background: transparent;"
-  title="Design Studio"
+  title="AI Handrail & Stair Railing Visualizer"
   allow="camera; clipboard-write; web-share"
-></iframe>`;
+></iframe>${isStarterPlan ? `\n<div style="text-align:right;font-family:sans-serif;font-size:11px;margin-top:4px;"><a href="https://railify.app" target="_blank" rel="noopener" style="color:#888;text-decoration:none;">Powered by Railify AI Handrail Visualizer</a></div>` : ''}`;
 
     const copyToClipboard = () => {
         navigator.clipboard.writeText(embedCode);

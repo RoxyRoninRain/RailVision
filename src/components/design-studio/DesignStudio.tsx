@@ -989,10 +989,17 @@ export default function DesignStudio({
                 </motion.div>
             )}
 
-            {/* Footer Branding */}
-            <div className="fixed bottom-4 right-4 z-40 pointer-events-none opacity-30 text-[10px] font-mono text-white uppercase tracking-widest hidden md:block">
-                Software by Railify
-            </div>
+            {/* Footer Branding (Starter / Non-White-Label Plans) */}
+            {!isWhiteLabel && (
+                <a
+                    href="https://railify.app?utm_source=widget&utm_medium=powered_by_badge"
+                    target="_blank"
+                    rel="noopener"
+                    className="fixed bottom-4 right-4 z-40 opacity-50 hover:opacity-100 transition-opacity text-[10px] font-mono text-white hover:text-[var(--primary)] uppercase tracking-widest hidden md:inline-flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10"
+                >
+                    Powered by Railify
+                </a>
+            )}
 
             {/* Quote Modal */}
             <AnimatePresence>
