@@ -29,6 +29,12 @@ export async function runBulkTest(formData: FormData) {
 
     if (!targetFile) return { error: 'Target Image is required' };
 
+    const technicalSpecs = {
+        hasBottomRail: mountStyle ? (mountStyle === 'shoe_rail' || mountStyle === 'bottom_rail' || mountStyle === 'true') : undefined,
+        hasReducers: terminationStyle ? (terminationStyle === 'reducers' || terminationStyle === 'true') : undefined,
+        postMount: (postStyle === 'side' || postStyle === 'side_mount') ? 'side' : 'top',
+    };
+
     try {
         // 3. Prepare Images
         // Target
@@ -42,33 +48,12 @@ export async function runBulkTest(formData: FormData) {
             const base64Style = styleBuffer.toString('base64');
             styleInput = {
                 base64StyleImages: [base64Style],
-                technicalSpecs: {
-                    mountStyle,
-                    postStyle,
-                    terminationStyle
-                }
+                technicalSpecs
             };
         } else {
-            // If no style image, we still pass specs? 
-            // vertex.ts expects styleInput object to hold specs.
-            // If styleInput is string, it ignores specs! 
-            // We need to force an object even if no image? 
-            // The vertex.ts types say: styleInput: string | { base64StyleImages: string[]; technicalSpecs?: ... }
-            // If we want to test specs WITHOUT style image (e.g. text style + toggles), we might need to verify vertex.ts support.
-            // Looking at vertex.ts: 
-            // "if (typeof styleInput === 'string') { console.log('[DEBUG] Text-only style, skipping Image B/C slots'); }"
-            // AND dynamic logic block: "if (typeof styleInput !== 'string' && styleInput.technicalSpecs) {"
-            // So if we pass string, we LOSE the specs.
-            // We must pass an object. If no style image, maybe pass empty array?
-            // Vertex logic: "const styleImages = styleInput.base64StyleImages; if (styleImages.length > 0) { ... }"
-            // So empty array is safe for logic.
             styleInput = {
                 base64StyleImages: [],
-                technicalSpecs: {
-                    mountStyle,
-                    postStyle,
-                    terminationStyle
-                }
+                technicalSpecs
             };
         }
 

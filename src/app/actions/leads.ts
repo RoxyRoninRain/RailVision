@@ -29,7 +29,8 @@ export async function trackDownload(formData: FormData) {
     // --- IP SECURITY CHECK ---
     const { headers } = await import('next/headers');
     const headersList = await headers();
-    const clientIp = headersList.get('x-forwarded-for') || 'unknown';
+    const rawIp = headersList.get('x-forwarded-for') || 'unknown';
+    const clientIp = rawIp.split(',')[0].trim();
 
     const { checkIpStatus } = await import('@/app/admin/actions/security');
     const ipStatus = await checkIpStatus(clientIp, orgId);
@@ -54,14 +55,14 @@ export async function trackDownload(formData: FormData) {
                 // For storage, 'downloads' folder might be nice.
                 const fileName = `downloads/${orgId || 'public'}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
 
-                const { error: uploadError } = await supabase.storage
+                const { error: uploadError } = await (adminSupabase || supabase).storage
                     .from('quote-uploads')
                     .upload(fileName, buffer, {
                         contentType: `image/${ext}`
                     });
 
                 if (!uploadError) {
-                    const { data: { publicUrl } } = supabase.storage
+                    const { data: { publicUrl } } = (adminSupabase || supabase).storage
                         .from('quote-uploads')
                         .getPublicUrl(fileName);
 
@@ -293,19 +294,30 @@ export async function submitLead(formData: FormData) {
                                 </div>
                             ` : ''}
 
-                             ${generatedUrl ? `
-                                <div style="margin-top: 20px;">
-                                    <p><strong>Generated Design:</strong></p>
-                                    <img src="${generatedUrl}" alt="Design" style="max-width: 300px; border-radius: 8px;" />
-                                    <p><a href="${generatedUrl}">View Full Image</a></p>
+                             ${(generatedUrl || attachmentUrls.length > 0) ? `
+                                <div style="margin-top: 20px; display: flex; gap: 20px; flex-wrap: wrap;">
+                                    ${attachmentUrls.length > 0 ? `
+                                        <div style="margin-right: 16px;">
+                                            <p><strong>Original Staircase (Before):</strong></p>
+                                            <img src="${attachmentUrls[0]}" alt="Original Staircase" style="max-width: 280px; border-radius: 8px; border: 1px solid #ddd;" />
+                                            <p><a href="${attachmentUrls[0]}">View Full Original Photo</a></p>
+                                        </div>
+                                    ` : ''}
+                                    ${generatedUrl ? `
+                                        <div>
+                                            <p><strong>Generated Design (After):</strong></p>
+                                            <img src="${generatedUrl}" alt="Design" style="max-width: 280px; border-radius: 8px; border: 1px solid #ddd;" />
+                                            <p><a href="${generatedUrl}">View Full Generated Design</a></p>
+                                        </div>
+                                    ` : ''}
                                 </div>
                             ` : ''}
 
-                            ${attachmentUrls.length > 0 ? `
-                                <div style="margin-top: 20px; border-top: 1px solid #eee; pt-3;">
-                                    <p><strong>Customer Uploads (${attachmentUrls.length}):</strong></p>
+                            ${attachmentUrls.length > 1 ? `
+                                <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top: 12px;">
+                                    <p><strong>All Customer Uploads (${attachmentUrls.length}):</strong></p>
                                     <ul>
-                                        ${attachmentUrls.map(url => `<li><a href="${url}">View Photo</a></li>`).join('')}
+                                        ${attachmentUrls.map((url, idx) => `<li><a href="${url}">View Photo ${idx + 1}</a></li>`).join('')}
                                     </ul>
                                 </div>
                             ` : ''}
@@ -370,20 +382,20 @@ export async function submitLead(formData: FormData) {
 
 
 export async function getOwnerLeads(limit: number = 100, statusFilter?: string): Promise<Lead[]> {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return [];
 
     console.log(`[DEBUG] getOwnerLeads: Fetching leads. Limit: ${limit}, Status: ${statusFilter}`);
 
-    let query = supabase
+    let query = actingSupabase
         .from('leads')
         .select(`
-          id, created_at, email, customer_name, status, organization_id, generated_design_url, estimate_json, attachments,
+          id, created_at, email, customer_name, status, style_name, organization_id, generated_design_url, estimate_json, attachments,
           portfolio ( name )
         `)
-        .eq('organization_id', user.id)
+        .eq('organization_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(limit);
 
@@ -416,7 +428,7 @@ export async function getOwnerLeads(limit: number = 100, statusFilter?: string):
             customer_name: lead.customer_name || 'Unknown',
             status: lead.status || 'New',
             created_at: lead.created_at,
-            style_name: lead.portfolio?.name || 'Unknown',
+            style_name: lead.style_name || lead.portfolio?.name || 'Unknown',
             organization_id: lead.organization_id,
             generated_design_url: designUrl,
             estimate_json: lead.estimate_json || {},
@@ -428,16 +440,16 @@ export async function getOwnerLeads(limit: number = 100, statusFilter?: string):
 }
 
 export async function updateLeadStatus(leadId: string, status: Lead['status']) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return { success: false, error: 'Unauthorized' };
 
-    const { error } = await supabase
+    const { error } = await actingSupabase
         .from('leads')
         .update({ status })
         .eq('id', leadId)
-        .eq('organization_id', user.id);
+        .eq('organization_id', tenantId);
 
     if (error) {
         console.error('Update Status Error:', error);
@@ -448,17 +460,17 @@ export async function updateLeadStatus(leadId: string, status: Lead['status']) {
 }
 
 export async function markLeadOpened(leadId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return { success: false, error: 'Unauthorized' };
 
     // Only update to 'Pending' if currently 'New'
-    const { error } = await supabase
+    const { error } = await actingSupabase
         .from('leads')
         .update({ status: 'Pending' })
         .eq('id', leadId)
-        .eq('organization_id', user.id)
+        .eq('organization_id', tenantId)
         .eq('status', 'New');
 
     if (error) {
@@ -471,17 +483,17 @@ export async function markLeadOpened(leadId: string) {
 }
 
 export async function deleteLead(leadId: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return { success: false, error: 'Unauthorized' };
 
     // SECURITY: Strictly enforce organization_id match
-    const { error } = await supabase
+    const { error } = await actingSupabase
         .from('leads')
         .delete()
         .eq('id', leadId)
-        .eq('organization_id', user.id);
+        .eq('organization_id', tenantId);
 
     if (error) {
         console.error('Delete Lead Error:', error);
@@ -493,13 +505,14 @@ export async function deleteLead(leadId: string) {
 
 // --- Stats Actions ---
 export async function getTenantStatsLegacy() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
     if (!user) return { totalGenerations: 0, topStyle: 'None' };
 
-    const { data, error } = await supabase
+    const { data, error } = await actingSupabase
         .from('leads')
-        .select('style_name');
+        .select('style_name')
+        .eq('organization_id', tenantId);
 
     if (error || !data) return { totalGenerations: 0, topStyle: 'None' };
 
@@ -507,7 +520,7 @@ export async function getTenantStatsLegacy() {
 
     // Calculate Top Style
     const styleCounts: Record<string, number> = {};
-    data.forEach(l => {
+    data.forEach((l: any) => {
         const s = l.style_name || 'Unknown';
         styleCounts[s] = (styleCounts[s] || 0) + 1;
     });

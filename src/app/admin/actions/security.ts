@@ -102,8 +102,8 @@ export async function getBlockedIps(tenantId?: string) {
 }
 
 export async function checkIpStatus(ip: string, tenantId?: string) {
-    const isAdmin = await checkIsAdmin();
-    if (!isAdmin) return { blocked: false };
+    const cleanIp = ip ? ip.split(',')[0].trim() : '';
+    if (!cleanIp || cleanIp === 'unknown') return { blocked: false };
 
     const supabase = createAdminClient();
     if (!supabase) return { blocked: false };
@@ -115,7 +115,7 @@ export async function checkIpStatus(ip: string, tenantId?: string) {
     let query = supabase
         .from('blocked_ips')
         .select('id, reason, tenant_id')
-        .eq('ip_address', ip);
+        .eq('ip_address', cleanIp);
 
     if (tenantId) {
         // We want (tenant_id = null OR tenant_id = tenantId)
@@ -125,10 +125,8 @@ export async function checkIpStatus(ip: string, tenantId?: string) {
     }
 
     const { data } = await query;
-    // data is array of matches
 
     if (data && data.length > 0) {
-        // Prioritize reason? Just take first.
         return { blocked: true, reason: data[0].reason };
     }
 
@@ -136,15 +134,15 @@ export async function checkIpStatus(ip: string, tenantId?: string) {
 }
 
 export async function getSecurityActivity() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return [];
 
-    const { data } = await supabase
+    const { data } = await actingSupabase
         .from('generations')
         .select('id, created_at, ip_address, prompt_used, style_id, image_url')
-        .eq('organization_id', user.id)
+        .eq('organization_id', tenantId)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -152,16 +150,18 @@ export async function getSecurityActivity() {
 }
 
 export async function blockVisitor(ip: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
     if (!user) return { error: 'Unauthorized' };
 
+    const cleanIp = ip ? ip.split(',')[0].trim() : ip;
+
     try {
-        const { error } = await supabase
+        const { error } = await actingSupabase
             .from('blocked_ips')
             .upsert({
-                ip_address: ip,
-                tenant_id: user.id,
+                ip_address: cleanIp,
+                tenant_id: tenantId,
                 reason: 'Blocked by Tenant'
             }, { onConflict: 'tenant_id,ip_address' });
 
@@ -174,16 +174,18 @@ export async function blockVisitor(ip: string) {
 }
 
 export async function unblockVisitor(ip: string) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
     if (!user) return { error: 'Unauthorized' };
 
+    const cleanIp = ip ? ip.split(',')[0].trim() : ip;
+
     try {
-        const { error } = await supabase
+        const { error } = await actingSupabase
             .from('blocked_ips')
             .delete()
-            .eq('ip_address', ip)
-            .eq('tenant_id', user.id); // Redundant if RLS active but safe
+            .eq('ip_address', cleanIp)
+            .eq('tenant_id', tenantId);
 
         if (error) throw error;
         revalidatePath('/dashboard/security');
@@ -194,14 +196,14 @@ export async function unblockVisitor(ip: string) {
 }
 
 export async function getTenantBlockedIps() {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
     if (!user) return [];
 
-    const { data } = await supabase
+    const { data } = await actingSupabase
         .from('blocked_ips')
         .select('*')
-        .eq('tenant_id', user.id)
+        .eq('tenant_id', tenantId)
         .order('created_at', { ascending: false });
 
     return data || [];

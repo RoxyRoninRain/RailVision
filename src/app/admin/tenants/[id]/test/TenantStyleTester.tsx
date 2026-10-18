@@ -124,6 +124,7 @@ export default function TenantStyleTester({
 
     // Troubleshooting / Technical Specs overrides
     const [bottomRailOverride, setBottomRailOverride] = useState<'default' | 'with_rail' | 'without_rail'>('default');
+    const [postMountOverride, setPostMountOverride] = useState<'default' | 'top' | 'side'>('default');
     const [reducerOverride, setReducerOverride] = useState<'default' | 'without_reducers' | 'with_reducers'>('default');
     const [secondPassMode, setSecondPassMode] = useState<'default' | 'force_enabled' | 'force_disabled'>('default');
     const [customPromptNote, setCustomPromptNote] = useState<string>('');
@@ -324,6 +325,10 @@ export default function TenantStyleTester({
                 formData.append('has_bottom_rail', 'true');
             } else if (bottomRailOverride === 'without_rail') {
                 formData.append('has_bottom_rail', 'false');
+            }
+
+            if (postMountOverride === 'top' || postMountOverride === 'side') {
+                formData.append('post_mount', postMountOverride);
             }
 
             if (reducerOverride === 'with_reducers') {
@@ -843,6 +848,30 @@ export default function TenantStyleTester({
                                                 onClick={() => setBottomRailOverride(opt.id as any)}
                                                 className={`p-2 rounded border text-center transition-all ${
                                                     bottomRailOverride === opt.id
+                                                        ? 'bg-emerald-950/60 border-emerald-500 text-white font-bold'
+                                                        : 'bg-black/50 border-white/10 text-gray-400 hover:text-white'
+                                                }`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-gray-400 block mb-1">Post Mounting Override:</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[
+                                            { id: 'default', label: 'Use Style Default' },
+                                            { id: 'top', label: 'Force Top Mount' },
+                                            { id: 'side', label: 'Force Side Mount' }
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => setPostMountOverride(opt.id as any)}
+                                                className={`p-2 rounded border text-center transition-all ${
+                                                    postMountOverride === opt.id
                                                         ? 'bg-emerald-950/60 border-emerald-500 text-white font-bold'
                                                         : 'bg-black/50 border-white/10 text-gray-400 hover:text-white'
                                                 }`}

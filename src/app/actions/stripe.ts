@@ -146,9 +146,8 @@ export async function reportUsage(userId: string, quantity: number = 1) {
     // Verify the calling context has a valid userId
     if (!userId) return;
 
-    const supabase = await createClient(); // Use server client
-    // Use admin client if we need to bypassing RLS for fetching sensitive profile data?
-    // For now, assume authorized user action calling this.
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const supabase = createAdminClient() || await createClient();
 
     // 1. Get User's Subscription ID
     const { data: profile } = await supabase

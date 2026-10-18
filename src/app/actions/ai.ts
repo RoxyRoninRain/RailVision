@@ -11,14 +11,13 @@ import { generateDesignWithNanoBanana } from '@/lib/vertex';
 const maxDuration = 120; // 2 minutes (User confirmed working limit)
 
 export async function convertHeicToJpg(formData: FormData) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Authentication required');
-
     console.log('[Server Action] Converting HEIC to JPG (using heic-convert)...');
     try {
         const file = formData.get('file') as File;
         if (!file) throw new Error('No file provided');
+        if (file.size > 15 * 1024 * 1024) {
+            return { success: false, error: 'File too large (max 15MB)' };
+        }
 
         const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -71,6 +70,12 @@ export async function generateDesign(formData: FormData) {
             errorMsg = validationResult.error.message;
         }
         return { error: `Invalid Request: ${errorMsg}` };
+    }
+
+    // Server-side file validation upfront before any billing or DB mutations
+    const validation = InputSanitizer.validate(file);
+    if (!validation.valid) {
+        return { error: validation.error };
     }
     // ---------------------------
 
@@ -128,7 +133,8 @@ export async function generateDesign(formData: FormData) {
 
     // --- IP SECURITY CHECK ---
     const headersList = await headers();
-    const clientIp = headersList.get('x-forwarded-for') || 'unknown';
+    const rawIp = headersList.get('x-forwarded-for') || 'unknown';
+    const clientIp = rawIp.split(',')[0].trim();
     const userAgent = headersList.get('user-agent') || 'unknown';
 
     // Lazy load security actions
@@ -326,16 +332,6 @@ export async function generateDesign(formData: FormData) {
 
         // Proceed with standard billing accumulation
         transactionOverageCount = 1;
-
-        // Report to Stripe (Metered Usage) ONLY for standard full-price designs
-        try {
-            if (profileIdToBill && tier.stripeMeteredPriceId) {
-                const { reportUsage } = await import('@/app/actions/stripe');
-                await reportUsage(profileIdToBill, 1);
-            }
-        } catch (err) {
-            console.error('[BILLING] Failed to report usage to Stripe:', err);
-        }
     }
 
     // 3. Billing Threshold Check (Charge Card for standard usage)
@@ -349,9 +345,11 @@ export async function generateDesign(formData: FormData) {
         newOverageCount = 0;
     }
 
-    // 4. Commit Usage & Credit Updates
+    // 4. Prepare Usage & Credit Updates (Committed ONLY after generation succeeds)
+    const shouldReportStripeUsage = !isGenericDemo && !isAdminTest && !isFreeCreditUsed && !isDiscountedCreditUsed && currentUsage >= allowance && !!(profileIdToBill && tier?.stripeMeteredPriceId);
+    let billingUpdatePayload: any = null;
     if (!isGenericDemo && !isAdminTest) {
-        const updatePayload: any = {
+        billingUpdatePayload = {
             current_usage: currentUsage + 1,
             pending_overage_balance: newPendingBalance,
             current_overage_count: newOverageCount,
@@ -359,30 +357,14 @@ export async function generateDesign(formData: FormData) {
         };
 
         if (isFreeCreditUsed) {
-            updatePayload.free_credits_remaining = Math.max(0, freeCredits - 1);
+            billingUpdatePayload.free_credits_remaining = Math.max(0, freeCredits - 1);
         } else if (isDiscountedCreditUsed) {
-            updatePayload.discounted_credits_remaining = Math.max(0, discountedCredits - 1);
-            updatePayload.pending_discounted_amount = parseFloat(((Number(profile?.pending_discounted_amount) || 0) + overageCost).toFixed(2));
-            updatePayload.pending_discounted_count = (Number(profile?.pending_discounted_count) || 0) + 1;
-        }
-
-        const { error: updateError } = await dbClient
-            .from('profiles')
-            .update(updatePayload)
-            .eq('id', profileIdToBill);
-
-        if (updateError) {
-            console.error('[BILLING] Failed to update usage:', updateError);
-            return { error: 'Transaction failed. Please try again.' };
+            billingUpdatePayload.discounted_credits_remaining = Math.max(0, discountedCredits - 1);
+            billingUpdatePayload.pending_discounted_amount = parseFloat(((Number(profile?.pending_discounted_amount) || 0) + overageCost).toFixed(2));
+            billingUpdatePayload.pending_discounted_count = (Number(profile?.pending_discounted_count) || 0) + 1;
         }
     }
-    // --- METERED BILLING LOGIC (END) ---
-
-    // Server-side validation
-    const validation = InputSanitizer.validate(file);
-    if (!validation.valid) {
-        return { error: validation.error };
-    }
+    // --- METERED BILLING PREPARATION (END) ---
 
     try {
         const arrayBuffer = await file.arrayBuffer();
@@ -620,6 +602,27 @@ export async function generateDesign(formData: FormData) {
             secondPassConfig.custom_prompt = formSecondPassCustomPrompt.trim();
         }
 
+        // If Pass 2 is explicitly enabled (e.g. Force Pass 2) but no targets or custom_prompt were specified,
+        // automatically derive the audit targets from the active style's technicalSpecs so Pass 2 always executes.
+        if (secondPassConfig?.enabled && (!secondPassConfig.targets || secondPassConfig.targets.length === 0) && !secondPassConfig.custom_prompt) {
+            const derivedTargets: string[] = [];
+            const activeSpecs = typeof styleInput !== 'string' ? styleInput.technicalSpecs : undefined;
+            if (activeSpecs) {
+                if (activeSpecs.hasBottomRail === true) derivedTargets.push('bottom_rail');
+                else if (activeSpecs.hasBottomRail === false) derivedTargets.push('direct_weld');
+
+                if (activeSpecs.hasReducers === true) derivedTargets.push('reducers');
+                else if (activeSpecs.hasReducers === false && !derivedTargets.includes('direct_weld')) derivedTargets.push('direct_weld');
+
+                if (activeSpecs.postMount === 'side') derivedTargets.push('side_mount');
+                else if (activeSpecs.postMount === 'top') derivedTargets.push('top_mount');
+            }
+            if (derivedTargets.length === 0) {
+                derivedTargets.push('direct_weld', 'top_mount');
+            }
+            secondPassConfig.targets = derivedTargets;
+        }
+
         // 1. Fetch dynamic prompt configuration
         // Dynamic import to avoid circular dependency loop if admin actions import this file? 
         // Or simply separation of concerns.
@@ -643,6 +646,29 @@ export async function generateDesign(formData: FormData) {
 
         if (result.success && result.image) {
             console.log('[DEBUG] Image generated successfully with Nano Banana');
+
+            // --- COMMIT BILLING & CREDITS AFTER SUCCESSFUL GENERATION ---
+            if (shouldReportStripeUsage && profileIdToBill) {
+                try {
+                    const { reportUsage } = await import('@/app/actions/stripe');
+                    await reportUsage(profileIdToBill, 1);
+                } catch (err) {
+                    console.error('[BILLING] Failed to report usage to Stripe:', err);
+                }
+            }
+
+            if (billingUpdatePayload && profileIdToBill) {
+                const { error: updateError } = await dbClient
+                    .from('profiles')
+                    .update(billingUpdatePayload)
+                    .eq('id', profileIdToBill);
+
+                if (updateError) {
+                    console.error('[BILLING] Failed to update usage:', updateError);
+                    return { error: 'Transaction failed. Please try again.' };
+                }
+            }
+            // ------------------------------------------------------------
 
             // --- SECOND-PASS AI REFINEMENT ---
             let secondPassApplied = false;
@@ -677,15 +703,16 @@ export async function generateDesign(formData: FormData) {
                             }
                         }
 
-                        const refImagesForPass2 = (typeof styleInput !== 'string' && styleInput.base64StyleImages && styleInput.base64StyleImages.length > 1)
-                            ? styleInput.base64StyleImages.slice(1)
+                        const refImagesForPass2 = (typeof styleInput !== 'string' && styleInput.base64StyleImages && styleInput.base64StyleImages.length > 0)
+                            ? (styleInput.base64StyleImages.length > 1 ? styleInput.base64StyleImages.slice(1) : styleInput.base64StyleImages)
                             : undefined;
 
                         const pass2Result = await refineDesignWithNanoBanana(
                             result.image, 
                             refinementPrompt, 
                             refImagesForPass2,
-                            detailImagesForPass2.length > 0 ? detailImagesForPass2 : undefined
+                            detailImagesForPass2.length > 0 ? detailImagesForPass2 : undefined,
+                            base64Image
                         );
                         if (pass2Result.success && pass2Result.image) {
                             console.log('[DEBUG] Second-Pass Refinement completed successfully!');
@@ -708,11 +735,6 @@ export async function generateDesign(formData: FormData) {
             try {
                 const trackingClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
 
-                // Capture Analytics
-                const headersList = await headers();
-                const ip = headersList.get('x-forwarded-for') || 'unknown';
-                const userAgent = headersList.get('user-agent') || 'unknown';
-
                 const promptTag = isAdminTest
                     ? `[ADMIN_TEST] ${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}${secondPassApplied ? ' + Second-Pass' : ''}`
                     : `${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}${secondPassApplied ? ' + Second-Pass' : ''}`;
@@ -722,7 +744,7 @@ export async function generateDesign(formData: FormData) {
                     image_url: result.image.startsWith('data:') ? 'Base64 Image Data' : result.image,
                     prompt_used: promptTag,
                     style_id: style,
-                    ip_address: ip,
+                    ip_address: clientIp,
                     user_agent: userAgent,
                     created_at: new Date().toISOString(),
                     // COST TRACKING
@@ -730,7 +752,7 @@ export async function generateDesign(formData: FormData) {
                     input_tokens: result.usage?.inputTokens || 0,
                     output_tokens: result.usage?.outputTokens || 0
                 }]);
-                console.log('[DEBUG] Generation tracked in DB with IP:', ip);
+                console.log('[DEBUG] Generation tracked in DB with IP:', clientIp);
             } catch (err) {
                 console.warn('[Tracking] Failed to log generation:', err);
             }

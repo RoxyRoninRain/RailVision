@@ -49,10 +49,12 @@ export default function SettingsPage() {
                         shop_name: formData.get('shop_name') as string,
                         phone: formData.get('phone') as string,
                         address: formData.get('address') as string,
+                        address_zip: formData.get('address_zip') as string,
+                        confirmation_email_body: formData.get('confirmation_email_body') as string,
                         primary_color: formData.get('primary_color') as string,
                         tool_background_color: formData.get('tool_background_color') as string,
                         website: formData.get('website') as string,
-                        enable_overdrive: formData.get('enable_overdrive') === 'true',
+                        enable_overdrive: formData.get('enable_overdrive') === 'true' || formData.get('enable_overdrive') === 'on',
                         max_monthly_spend: formData.get('max_monthly_spend') ? Number(formData.get('max_monthly_spend')) : null,
                     });
                 }

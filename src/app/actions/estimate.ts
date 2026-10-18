@@ -24,7 +24,8 @@ interface EstimateRequest {
 }
 
 export async function calculateEstimate({ styleId, linearFeet, zipCode }: EstimateRequest) {
-    const supabase = await createClient();
+    const { createAdminClient } = await import('@/lib/supabase/admin');
+    const supabase = createAdminClient() || await createClient();
 
     // 1. Get Style Price
     const { data: style } = await supabase

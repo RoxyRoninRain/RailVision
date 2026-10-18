@@ -79,6 +79,8 @@ export default function DesignStudio({
     const [result, setResult] = useState<string | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [showOriginalComparison, setShowOriginalComparison] = useState(false);
+    const [generatedHistory, setGeneratedHistory] = useState<Array<{ styleId: string; styleName: string; image: string; styleIndex: number }>>([]);
 
     // Quote
     const [quoteOpen, setQuoteOpen] = useState(false);
@@ -100,8 +102,8 @@ export default function DesignStudio({
     const [showEstimate, setShowEstimate] = useState(false);
     const [showDisclaimer, setShowDisclaimer] = useState(false);
 
-
-    const styleList = initialStyles;
+    const styleList = initialStyles || [];
+    const activeStyle = styleList.length > 0 ? styleList[selectedStyleIndex % styleList.length] : null;
 
     // Effects
     useEffect(() => {
@@ -139,6 +141,8 @@ export default function DesignStudio({
             const selectedFile = e.target.files[0];
             setIsProcessing(true); // Start loading
             setError(null); // Clear previous errors
+            setGeneratedHistory([]);
+            setShowOriginalComparison(false);
 
             try {
                 const compressed = await compressImage(selectedFile);
@@ -287,9 +291,14 @@ export default function DesignStudio({
 
     const handleGenerate = async () => {
         if (!file) return;
+        if (!activeStyle && !(styleSource === 'upload' && customStyleFile)) {
+            setError("No railing styles are currently available.");
+            return;
+        }
         setIsGenerating(true);
         setError(null);
         setResult(null);
+        setShowOriginalComparison(false);
 
         // Advance to step 3 (Loading State)
         if (step !== 3) paginate(1);
@@ -299,19 +308,19 @@ export default function DesignStudio({
             formData.append('image', file);
 
             // Handle Style Source
-            if (styleSource === 'preset') {
-                formData.append('styleId', styleList[selectedStyleIndex].id);
-                formData.append('style', styleList[selectedStyleIndex].name);
-                if (styleList[selectedStyleIndex].description) {
-                    formData.append('style_description', styleList[selectedStyleIndex].description);
+            if (styleSource === 'preset' && activeStyle) {
+                formData.append('styleId', activeStyle.id);
+                formData.append('style', activeStyle.name);
+                if (activeStyle.description) {
+                    formData.append('style_description', activeStyle.description);
                 }
-                if (styleList[selectedStyleIndex].image_url) {
-                    formData.append('style_url', styleList[selectedStyleIndex].image_url);
+                if (activeStyle.image_url) {
+                    formData.append('style_url', activeStyle.image_url);
                 }
             } else if (styleSource === 'upload' && customStyleFile) {
                 formData.append('style_image', customStyleFile);
                 formData.append('style', 'Custom Style');
-            } else {
+            } else if (styleList.length > 0) {
                 // Fallback to first style if custom selected but no file
                 formData.append('styleId', styleList[0].id);
                 formData.append('style', styleList[0].name);
@@ -334,7 +343,7 @@ export default function DesignStudio({
 
             console.log("Calling generateDesign with formData...");
             console.log("File:", file.name, file.type, file.size);
-            console.log("Style:", styleList[selectedStyleIndex].name);
+            console.log("Style:", activeStyle?.name || 'Custom Style');
 
             const response = await generateDesign(formData);
             console.log("generateDesign response received (success/fail):", response.success);
@@ -349,6 +358,22 @@ export default function DesignStudio({
                 // BAKE WATERMARK HERE
                 const finalImage = await compositeWatermark(response.image);
                 setResult(finalImage);
+
+                // Save to session history so user can compare multiple generated styles
+                if (activeStyle) {
+                    setGeneratedHistory(prev => {
+                        const filtered = prev.filter(item => item.styleId !== activeStyle.id);
+                        return [
+                            {
+                                styleId: activeStyle.id,
+                                styleName: activeStyle.name,
+                                image: finalImage,
+                                styleIndex: selectedStyleIndex
+                            },
+                            ...filtered
+                        ].slice(0, 6);
+                    });
+                }
             } else {
                 console.error("Generation failed:", response.error);
                 setError(response.error || "Generation failed");
@@ -373,14 +398,19 @@ export default function DesignStudio({
             formData.append('email', email);
             formData.append('phone', phone);
             formData.append('message', message);
-            formData.append('style_name', styleList[selectedStyleIndex]?.name || 'Custom');
+            formData.append('style_name', activeStyle?.name || 'Custom');
             if (result) formData.append('generated_design_url', result);
             if (orgId) formData.append('organization_id', orgId);
             if (currentEstimate) formData.append('estimate_json', JSON.stringify(currentEstimate));
 
-            // Append Files
-            quoteFiles.forEach(file => {
+            // Always include the original staircase photo first so the fabricator receives Before + After
+            if (file) {
                 formData.append('files', file);
+            }
+
+            // Append any additional customer uploaded files
+            quoteFiles.forEach(qFile => {
+                formData.append('files', qFile);
             });
 
             const response = await submitLead(formData);
@@ -418,7 +448,7 @@ export default function DesignStudio({
         // 2. Track Data in Background
         const formData = new FormData();
         if (orgId) formData.append('organization_id', orgId);
-        formData.append('style_name', styleList[selectedStyleIndex]?.name || 'Custom');
+        formData.append('style_name', activeStyle?.name || 'Custom');
         formData.append('generated_design_url', result);
 
         try {
@@ -459,7 +489,7 @@ export default function DesignStudio({
         const formData = new FormData();
         formData.append('customer_name', data.name);
         formData.append('email', data.email);
-        formData.append('style_name', styleList[selectedStyleIndex]?.name || 'Custom');
+        formData.append('style_name', activeStyle?.name || 'Custom');
         formData.append('status', 'New'); // Or 'Soft Lead' if supported
         if (orgId) formData.append('organization_id', orgId);
         if (result) formData.append('generated_design_url', result); // Optional: save image link
@@ -702,74 +732,82 @@ export default function DesignStudio({
                                         <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter mb-2 md:mb-4">Select Style</h3>
 
                                         {/* Carousel - Center Mode with Neighbors */}
-                                        <div className="relative w-full h-64 md:h-80 flex items-center justify-center mb-6 perspective-[1000px] group select-none">
-
-                                            {/* PREVIOUS Image (Left) */}
-                                            <div
-                                                className="absolute left-[-5%] w-[60%] h-[80%] opacity-40 blur-[1px] scale-90 z-0 cursor-pointer transition-all duration-300 hover:opacity-60 hover:scale-95"
-                                                onClick={() => setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length)}
-                                            >
-                                                <img
-                                                    src={styleList[(selectedStyleIndex - 1 + styleList.length) % styleList.length].image_url || '/styles/industrial.png'}
-                                                    className="w-full h-full object-cover rounded-xl grayscale"
-                                                />
+                                        {styleList.length === 0 ? (
+                                            <div className="w-full h-64 md:h-80 flex flex-col items-center justify-center mb-6 rounded-2xl border border-dashed border-white/10 bg-[#111] p-6 text-center">
+                                                <p className="text-gray-400 font-mono text-sm">No railing styles have been published yet.</p>
                                             </div>
+                                        ) : (
+                                            <div className="relative w-full h-64 md:h-80 flex items-center justify-center mb-6 perspective-[1000px] group select-none">
 
-                                            {/* NEXT Image (Right) */}
-                                            <div
-                                                className="absolute right-[-5%] w-[60%] h-[80%] opacity-40 blur-[1px] scale-90 z-0 cursor-pointer transition-all duration-300 hover:opacity-60 hover:scale-95"
-                                                onClick={() => setSelectedStyleIndex((prev) => (prev + 1) % styleList.length)}
-                                            >
-                                                <img
-                                                    src={styleList[(selectedStyleIndex + 1) % styleList.length].image_url || '/styles/industrial.png'}
-                                                    className="w-full h-full object-cover rounded-xl grayscale"
-                                                />
-                                            </div>
-
-                                            {/* ACTIVE Image (Center) */}
-                                            <div className="relative z-20 w-[70%] h-full shadow-2xl rounded-2xl overflow-hidden border-2 border-[var(--primary)] bg-[#111]">
-                                                <AnimatePresence mode='popLayout' custom={direction}>
-                                                    <motion.img
-                                                        key={styleList[selectedStyleIndex].id}
-                                                        src={styleList[selectedStyleIndex].image_url || '/styles/industrial.png'}
-                                                        initial={{ opacity: 0, scale: 0.9 }}
-                                                        animate={{ opacity: 1, scale: 1 }}
-                                                        exit={{ opacity: 0, scale: 0.9 }}
-                                                        transition={{ duration: 0.3 }}
-                                                        className="w-full h-full object-cover"
+                                                {/* PREVIOUS Image (Left) */}
+                                                <div
+                                                    className="absolute left-[-5%] w-[60%] h-[80%] opacity-40 blur-[1px] scale-90 z-0 cursor-pointer transition-all duration-300 hover:opacity-60 hover:scale-95"
+                                                    onClick={() => setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length)}
+                                                >
+                                                    <img
+                                                        src={styleList[(selectedStyleIndex - 1 + styleList.length) % styleList.length]?.image_url || '/styles/industrial.png'}
+                                                        className="w-full h-full object-cover rounded-xl grayscale"
+                                                        alt="Previous style"
                                                     />
-                                                </AnimatePresence>
-
-                                                {/* Overlay Text */}
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-6">
-                                                    <h4 className="text-white text-2xl md:text-3xl font-black uppercase italic tracking-tighter shadow-black drop-shadow-lg">
-                                                        {styleList[selectedStyleIndex].name}
-                                                    </h4>
-                                                    <p className="text-gray-300 text-xs line-clamp-2 md:line-clamp-3 leading-relaxed shadow-black drop-shadow-md">
-                                                        {styleList[selectedStyleIndex].description}
-                                                    </p>
                                                 </div>
-                                            </div>
 
-                                            {/* Arrows - Integrated */}
-                                            <button
-                                                onClick={() => setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length)}
-                                                className="absolute left-2 top-1/2 -translate-y-1/2 z-30 bg-black/50 hover:bg-[var(--primary)] text-white hover:text-black p-3 rounded-full backdrop-blur-md transition-all active:scale-90"
-                                            >
-                                                <ChevronLeft className="w-6 h-6" />
-                                            </button>
-                                            <button
-                                                onClick={() => setSelectedStyleIndex((prev) => (prev + 1) % styleList.length)}
-                                                className="absolute right-2 top-1/2 -translate-y-1/2 z-30 bg-black/50 hover:bg-[var(--primary)] text-white hover:text-black p-3 rounded-full backdrop-blur-md transition-all active:scale-90"
-                                            >
-                                                <ChevronRight className="w-6 h-6" />
-                                            </button>
-                                        </div>
+                                                {/* NEXT Image (Right) */}
+                                                <div
+                                                    className="absolute right-[-5%] w-[60%] h-[80%] opacity-40 blur-[1px] scale-90 z-0 cursor-pointer transition-all duration-300 hover:opacity-60 hover:scale-95"
+                                                    onClick={() => setSelectedStyleIndex((prev) => (prev + 1) % styleList.length)}
+                                                >
+                                                    <img
+                                                        src={styleList[(selectedStyleIndex + 1) % styleList.length]?.image_url || '/styles/industrial.png'}
+                                                        className="w-full h-full object-cover rounded-xl grayscale"
+                                                        alt="Next style"
+                                                    />
+                                                </div>
+
+                                                {/* ACTIVE Image (Center) */}
+                                                <div className="relative z-20 w-[70%] h-full shadow-2xl rounded-2xl overflow-hidden border-2 border-[var(--primary)] bg-[#111]">
+                                                    <AnimatePresence mode='popLayout' custom={direction}>
+                                                        <motion.img
+                                                            key={activeStyle?.id || 'active-style'}
+                                                            src={activeStyle?.image_url || '/styles/industrial.png'}
+                                                            initial={{ opacity: 0, scale: 0.9 }}
+                                                            animate={{ opacity: 1, scale: 1 }}
+                                                            exit={{ opacity: 0, scale: 0.9 }}
+                                                            transition={{ duration: 0.3 }}
+                                                            className="w-full h-full object-cover"
+                                                        />
+                                                    </AnimatePresence>
+
+                                                    {/* Overlay Text */}
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-6">
+                                                        <h4 className="text-white text-2xl md:text-3xl font-black uppercase italic tracking-tighter shadow-black drop-shadow-lg">
+                                                            {activeStyle?.name}
+                                                        </h4>
+                                                        <p className="text-gray-300 text-xs line-clamp-2 md:line-clamp-3 leading-relaxed shadow-black drop-shadow-md">
+                                                            {activeStyle?.description}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* Arrows - Integrated */}
+                                                <button
+                                                    onClick={() => setSelectedStyleIndex((prev) => (prev - 1 + styleList.length) % styleList.length)}
+                                                    className="absolute left-2 top-1/2 -translate-y-1/2 z-30 bg-black/50 hover:bg-[var(--primary)] text-white hover:text-black p-3 rounded-full backdrop-blur-md transition-all active:scale-90"
+                                                >
+                                                    <ChevronLeft className="w-6 h-6" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setSelectedStyleIndex((prev) => (prev + 1) % styleList.length)}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 z-30 bg-black/50 hover:bg-[var(--primary)] text-white hover:text-black p-3 rounded-full backdrop-blur-md transition-all active:scale-90"
+                                                >
+                                                    <ChevronRight className="w-6 h-6" />
+                                                </button>
+                                            </div>
+                                        )}
 
                                         <button
                                             onClick={handleGenerate}
-                                            disabled={isGenerating}
-                                            className="w-full py-4 bg-[var(--primary)] text-black font-bold text-lg uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_-5px_var(--primary)] rounded-xl flex items-center justify-center gap-2"
+                                            disabled={isGenerating || styleList.length === 0}
+                                            className="w-full py-4 bg-[var(--primary)] text-black font-bold text-lg uppercase tracking-wider hover:brightness-110 transition-all shadow-[0_0_20px_-5px_var(--primary)] rounded-xl flex items-center justify-center gap-2 disabled:opacity-50"
                                         >
                                             {isGenerating ? <Loader2 className="animate-spin" /> : <TrendingUp size={20} />}
                                             Generate
@@ -823,20 +861,59 @@ export default function DesignStudio({
                                 <div className="text-center">
                                     <div className="w-24 h-24 border-4 border-[#222] border-t-[var(--primary)] rounded-full animate-spin mx-auto mb-8" />
                                     <h2 className="text-3xl font-black uppercase tracking-widest animate-pulse">Forging Vision</h2>
-                                    <p className="text-gray-500 mt-4 font-mono">Applying {styleList[selectedStyleIndex].name} aesthetics...</p>
+                                    <p className="text-gray-500 mt-4 font-mono">Applying {activeStyle?.name || 'Custom'} aesthetics...</p>
                                 </div>
                             ) : (
                                 <div className="relative w-full h-full flex flex-col">
                                     {/* Result Area */}
-                                    <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden p-8">
+                                    <div className="flex-1 relative bg-black flex flex-col items-center justify-center overflow-hidden p-4 md:p-8">
                                         {result && (
-                                            <img
-                                                src={result}
-                                                className="w-full h-full object-contain max-h-[60vh] rounded-3xl border border-[#333] shadow-2xl"
-                                            // Prevent default drag to allow user to drag-save if they want, but context menu is key
-                                            />
+                                            <div className="relative w-full h-full flex items-center justify-center">
+                                                <img
+                                                    src={showOriginalComparison && preview ? preview : result}
+                                                    alt={showOriginalComparison ? "Original Staircase" : "Generated Railing Design"}
+                                                    className="w-full h-full object-contain max-h-[58vh] rounded-3xl border border-[#333] shadow-2xl"
+                                                />
+                                                {preview && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowOriginalComparison(prev => !prev)}
+                                                        className={`absolute top-4 right-4 z-30 px-3.5 py-2 rounded-full text-xs font-mono font-bold uppercase tracking-wider border backdrop-blur-md transition-all ${
+                                                            showOriginalComparison
+                                                                ? 'bg-[var(--primary)] text-black border-[var(--primary)] shadow-lg'
+                                                                : 'bg-black/70 text-white border-white/20 hover:bg-black/90'
+                                                        }`}
+                                                    >
+                                                        {showOriginalComparison ? 'Viewing Original • Click for New Design' : 'Compare Original Before Photo'}
+                                                    </button>
+                                                )}
+                                            </div>
                                         )}
-                                        {/* NO OVERLAY - Baked In */}
+
+                                        {/* Session Generated Styles Switcher */}
+                                        {generatedHistory.length > 1 && (
+                                            <div className="mt-3 flex items-center gap-2 overflow-x-auto max-w-full px-3 py-1.5 bg-[#111] border border-white/10 rounded-full">
+                                                <span className="text-[10px] font-mono uppercase text-gray-500 pl-2 shrink-0">Saved Renders:</span>
+                                                {generatedHistory.map((item) => (
+                                                    <button
+                                                        key={item.styleId}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setResult(item.image);
+                                                            setSelectedStyleIndex(item.styleIndex);
+                                                            setShowOriginalComparison(false);
+                                                        }}
+                                                        className={`px-3 py-1 rounded-full text-xs font-mono transition-all shrink-0 ${
+                                                            result === item.image
+                                                                ? 'bg-[var(--primary)] text-black font-bold'
+                                                                : 'bg-white/5 text-gray-300 hover:bg-white/15'
+                                                        }`}
+                                                    >
+                                                        {item.styleName}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
 
                                     {/* Action Bar */}
@@ -847,7 +924,7 @@ export default function DesignStudio({
                                             <button onClick={() => paginate(-1)} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-white hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
                                                 <ChevronLeft className="w-4 h-4" /> <span className="hidden md:inline">Back</span>
                                             </button>
-                                            <button onClick={() => { setFile(null); setPreview(null); setResult(null); setStep(1); }} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
+                                            <button onClick={() => { setFile(null); setPreview(null); setResult(null); setGeneratedHistory([]); setShowOriginalComparison(false); setStep(1); }} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-red-500 hover:text-white transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
                                                 <RefreshCw className="w-4 h-4" /> <span className="hidden md:inline">Restart</span>
                                             </button>
                                             <button onClick={handleShare} className="bg-[#222] text-white px-3 md:px-4 py-3 rounded-xl border border-white/5 hover:bg-[var(--primary)] hover:text-black transition-all flex items-center gap-2 text-xs uppercase font-bold tracking-widest">
@@ -866,13 +943,13 @@ export default function DesignStudio({
                                         {/* Show Request Quote ONLY if Pricing is NOT available (fallback).
                                             If Pricing IS available, users should go through Estimate -> Quote flow.
                                         */}
-                                        {!(styleList[selectedStyleIndex]?.price_per_ft_min && styleList[selectedStyleIndex]?.price_per_ft_min > 0) && (
+                                        {!(activeStyle?.price_per_ft_min && activeStyle?.price_per_ft_min > 0) && (
                                             <button onClick={() => setQuoteOpen(true)} className="px-6 py-3 bg-white text-black font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-colors text-xs md:text-sm cursor-pointer shadow-lg">
                                                 Request Quote
                                             </button>
                                         )}
 
-                                        {(styleList[selectedStyleIndex]?.price_per_ft_min || 0) > 0 && (
+                                        {(activeStyle?.price_per_ft_min || 0) > 0 && (
                                             <button onClick={() => setShowEstimate(true)} className="px-6 py-3 bg-blue-600 text-white font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-colors text-xs md:text-sm cursor-pointer shadow-lg flex items-center gap-2">
                                                 <TrendingUp size={16} /> Estimate
                                             </button>
@@ -1032,13 +1109,13 @@ export default function DesignStudio({
             <EstimateModal
                 isOpen={showEstimate}
                 onClose={() => setShowEstimate(false)}
-                styleId={styleList[selectedStyleIndex]?.id}
-                styleName={styleList[selectedStyleIndex]?.name}
+                styleId={activeStyle?.id || ''}
+                styleName={activeStyle?.name || 'Custom'}
                 onRequestQuote={(estimateData: any) => {
                     setShowEstimate(false);
                     setQuoteOpen(true);
                     setCurrentEstimate(estimateData); // Save for submission
-                    setMessage(`I received an estimate of ${estimateData.min} - ${estimateData.max} for ${estimateData.linearFeet}ft of ${styleList[selectedStyleIndex]?.name}. (Zip: ${estimateData.zipCode})`);
+                    setMessage(`I received an estimate of ${estimateData.min} - ${estimateData.max} for ${estimateData.linearFeet}ft of ${activeStyle?.name || 'Custom'}. (Zip: ${estimateData.zipCode})`);
                 }}
             />
 

@@ -44,10 +44,14 @@ export async function updateSession(request: NextRequest) {
                         const profile = data[0];
                         if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
                             if (profile.website) {
-                                // Extract clean domain
-                                const cleanDomain = profile.website.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '').toLowerCase();
-                                allowedDomains.push(`https://${cleanDomain}`);
-                                allowedDomains.push(`https://www.${cleanDomain}`);
+                                const rawDomains = String(profile.website).split(',').map((d: string) => d.trim()).filter(Boolean);
+                                for (const rawDomain of rawDomains) {
+                                    const cleanDomain = rawDomain.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '').toLowerCase();
+                                    if (cleanDomain) {
+                                        allowedDomains.push(`https://${cleanDomain}`);
+                                        allowedDomains.push(`https://www.${cleanDomain}`);
+                                    }
+                                }
                             }
                         }
                     }

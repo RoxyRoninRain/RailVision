@@ -1,4 +1,4 @@
-export const compressImage = async (file: File, maxSize: number = 1024): Promise<File> => {
+export const compressImage = async (file: File, maxSize: number = 1536, quality: number = 0.88): Promise<File> => {
     console.log(`[ImageUtils] Processing file: ${file.name}, Type: ${file.type}, Size: ${file.size}`);
 
     // 1. Check for HEIC/HEIF
@@ -24,7 +24,7 @@ export const compressImage = async (file: File, maxSize: number = 1024): Promise
             const conversionPromise = heic2any({
                 blob: file,
                 toType: 'image/jpeg',
-                quality: 0.9
+                quality: 0.92
             });
 
             // Silence potential unhandled rejection if this promise fails AFTER the timeout wins
@@ -88,7 +88,7 @@ export const compressImage = async (file: File, maxSize: number = 1024): Promise
                     } else {
                         reject(new Error("Canvas to Blob conversion failed"));
                     }
-                }, 'image/jpeg', 0.8);
+                }, 'image/jpeg', quality);
             };
             img.onerror = (e) => {
                 console.error("Image load error:", e);

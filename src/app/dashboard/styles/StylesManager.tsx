@@ -1239,9 +1239,9 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             image.crossOrigin = "anonymous";
             image.onload = () => {
                 const canvas = document.createElement('canvas');
-                // Target: Square 800x800
-                canvas.width = 800;
-                canvas.height = 800;
+                // Target: High-res 1200x1200 for sharper hardware/weld detail in Image B
+                canvas.width = 1200;
+                canvas.height = 1200;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) return;
 
@@ -1282,7 +1282,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                 canvas.toBlob(blob => {
                     if (blob) resolve(blob);
                     else reject(new Error('Canvas is empty'));
-                }, 'image/jpeg', 0.9);
+                }, 'image/jpeg', 0.92);
             };
             image.onerror = reject;
         });

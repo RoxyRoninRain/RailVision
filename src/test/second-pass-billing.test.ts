@@ -218,4 +218,26 @@ describe('Second-Pass Billing Verification', () => {
         expect(mockReportUsage).toHaveBeenCalledTimes(0);
         expect(mockProfileUpdate).toHaveBeenCalledTimes(0);
     });
+
+    it('does not charge the tenant or deduct credits when Pass 1 AI generation fails', async () => {
+        mockGenerateDesignWithNanoBanana.mockResolvedValueOnce({
+            success: false,
+            error: 'Vertex API Error 503: Service Unavailable'
+        });
+
+        const { generateDesign } = await import('@/app/actions/ai');
+
+        const formData = new FormData();
+        const fakeFile = new File(['fake-scene-bytes'], 'scene.jpg', { type: 'image/jpeg' });
+        fakeFile.arrayBuffer = async () => new Uint8Array([1, 2, 3, 4]).buffer;
+        formData.append('image', fakeFile);
+        formData.append('styleId', '327247e9-8b3e-4b4c-857b-59dcffe4b83b');
+        formData.append('style', 'Rainier - TM - Round Top');
+
+        const result = await generateDesign(formData);
+
+        expect(result.success).toBe(false);
+        expect(mockReportUsage).toHaveBeenCalledTimes(0);
+        expect(mockProfileUpdate).toHaveBeenCalledTimes(0);
+    });
 });

@@ -39,14 +39,19 @@ export async function createStyle(formData: FormData) {
     // ------------------------------------------
 
     // 1. Validate Files
-    // Support legacy 'file' or new 'files' keys
-    const files = formData.getAll('files') as File[];
+    // Support legacy 'file', 'files', and admin 'reference_files' keys
+    const files = (formData.getAll('files') as File[]).filter(f => f && f.size > 0);
     const singleFile = formData.get('file') as File;
+    const referenceFiles = (formData.getAll('reference_files') as File[]).filter(f => f && f.size > 0);
 
     // Consolidate
     let allFiles: File[] = [];
-    if (files && files.length > 0) allFiles = files;
-    else if (singleFile) allFiles = [singleFile];
+    if (files && files.length > 0) allFiles = [...files];
+    else if (singleFile && singleFile.size > 0) allFiles = [singleFile];
+
+    if (referenceFiles.length > 0) {
+        allFiles.push(...referenceFiles);
+    }
 
     if (allFiles.length === 0 && !formData.get('image_url')) return { error: 'No files uploaded' };
 
@@ -293,7 +298,7 @@ export async function updateStyle(formData: FormData) {
     // Legacy fallback
     if (referenceFiles && referenceFiles.length > 0) {
         for (const refFile of referenceFiles) {
-            if (refFile.size > 5 * 1024 * 1024) continue; // Skip large files or handle error
+            if (!refFile || refFile.size === 0 || refFile.size > 5 * 1024 * 1024) continue; // Skip empty or large files
             const ext = refFile.name.split('.').pop();
             const refName = `${targetTenantId}/${Date.now()}_ref_${Math.random().toString(36).substring(7)}.${ext}`;
 

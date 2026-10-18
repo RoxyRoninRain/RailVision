@@ -226,7 +226,7 @@ export async function generateDesignWithNanoBanana(
 
 
             // DYNAMIC FABRICATION & MOUNTING INSTRUCTIONS
-            let mountingInstructionStep = "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2."; // Default generic fallback
+            let mountingInstructionStep = "1a. **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Image B and Image C."; // Default generic fallback
             let postMountInstructionStep = "";
             let reducerInstructionStep = "";
             let styleSpecsStep = "";
@@ -237,24 +237,24 @@ export async function generateDesignWithNanoBanana(
                 if (specs.hasBottomRail !== undefined && specs.hasBottomRail !== null) {
                     if (specs.hasBottomRail) {
                         // CASE 1: SHOE RAIL REQUIRED
-                        mountingInstructionStep = `2.  **Mounting (SHOE RAIL):** The user requires a **Shoe Rail**. Continuous horizontal bottom rail connecting all spindles. The spindles terminate into this rail.`;
+                        mountingInstructionStep = `1a. **Mounting (SHOE RAIL REQUIRED):** The user requires a **Shoe Rail**. Render a continuous horizontal bottom rail running parallel to the stair pitch 2–4 inches above the stair nosing line connecting all spindles. All intermediate spindles must terminate cleanly into the top of this bottom rail—never extend spindles through the bottom rail into the stair treads.`;
                     } else {
                         // CASE 2: DIRECT MOUNT REQUIRED
-                        mountingInstructionStep = `2.  **Mounting (DIRECT MOUNT):** The user requires **Direct Mount**. Each post base mounts directly into the stair tread/floor with a base plate.`;
+                        mountingInstructionStep = `1a. **Mounting (DIRECT MOUNT - NO BOTTOM RAIL):** The user requires **Direct Mount**. Each post/spindle mounts directly into the stair tread/floor without a bottom shoe rail. NEVER render a parallel bottom channel or lower shoe rail running above the stair nosings.`;
                     }
                 }
 
                 // POST MOUNTING SPECIFICATION (Side mount vs Top mount):
                 if (specs.postMount) {
                     if (specs.postMount === 'side') {
-                        postMountInstructionStep = `2.  **POST MOUNTING (SIDE / FASCIA MOUNT - DIRECT 2-BOLT ATTACHMENT, NO PLATES):**
+                        postMountInstructionStep = `1b. **POST MOUNTING (SIDE / FASCIA MOUNT - DIRECT 2-BOLT ATTACHMENT, NO PLATES):**
 - The user requires **Side Mount (Fascia Mount)** posts.
 - Inspect **IMAGE C** closely for the exact post-to-stringer mounting detail.
 - **DIRECT 2-BOLT FASTENING:** Every post (bottom newel, intermediate stair posts, and landing posts) must mount directly flat against the outer side face / exterior stringer / side fascia of the staircase using **2 through-bolts (vertically stacked)** passing directly through the post body into the wood stringer or deck rim joist.
 - **STRICTLY NO MOUNTING PLATES OR BRACKETS:** Do NOT generate mounting plates, bracket collars, standoff saddles, or external mounting tabs. The post tube/bar must sit directly flat against the stringer face with only the 2 bolt heads visible, exactly as shown in **IMAGE C**.
 - Posts must extend downward along the outside edge of the stairs; do NOT mount post bases onto the top horizontal surface of the stair treads. Keep the tread walking surface completely open and clear of post bases.`;
                     } else if (specs.postMount === 'top') {
-                        postMountInstructionStep = `2.  **POST MOUNTING (TOP / SURFACE MOUNT REQUIRED):**
+                        postMountInstructionStep = `1b. **POST MOUNTING (TOP / SURFACE MOUNT REQUIRED):**
 - The user requires **Top Mount (Surface Mount)** posts.
 - Every post base must mount directly onto the top horizontal surface of the stair treads or landing floor using surface-mounted base plates / flange shoes anchored vertically down into the tread/deck floor.
 - Posts must stand upright directly on top of the steps or landing flooring, NOT attached to the exterior side fascia or outer stringer edge.`;
@@ -264,11 +264,11 @@ export async function generateDesignWithNanoBanana(
                 // POST-TO-RAIL REDUCER SPECIFICATION (Strictly toggle-controlled):
                 if (specs.hasReducers !== undefined && specs.hasReducers !== null) {
                     if (specs.hasReducers === true) {
-                        reducerInstructionStep = `3.  **POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):**
+                        reducerInstructionStep = `1c. **POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):**
 - The style requires reducer fittings: Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
 - Posts connect to the top rail using post-top stem reducers / transition collars at the top of each post.`;
                     } else {
-                        reducerInstructionStep = `2.  **POST-TO-RAIL JOINT (DIRECT SEAMLESS WELD):**
+                        reducerInstructionStep = `1c. **POST-TO-RAIL JOINT (DIRECT SEAMLESS WELD):**
 - Exactly match the seamless joint shown in **IMAGE B** and **IMAGE C**.
 - Every square post (including the bottom newel post, intermediate stair posts, and landing posts) is a single continuous tube that reaches all the way to touch the underside of the top handrail.
 - The top of each square post meets the handrail directly with the handrail resting directly on top of each post. Direct solid metal-to-metal fusion throughout.
@@ -349,7 +349,7 @@ Renovate **IMAGE A**.
 
             // CRITICAL FABRICATION OVERRIDES (Ensure these are never dropped regardless of template used)
             const overrides: string[] = [];
-            if (!promptText.includes(mountingInstructionStep) && mountingInstructionStep !== "2.  **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Layer 2.") {
+            if (!promptText.includes(mountingInstructionStep) && !mountingInstructionStep.startsWith("1a. **Analysis:**")) {
                 overrides.push(mountingInstructionStep);
             }
             if (postMountInstructionStep && !promptText.includes(postMountInstructionStep)) {
@@ -360,7 +360,7 @@ Renovate **IMAGE A**.
             }
 
             if (overrides.length > 0) {
-                promptText += `\n\n**CRITICAL FABRICATION OVERRIDES:**\n${overrides.map(o => `- ${o}`).join('\n')}`;
+                promptText += `\n\n**CRITICAL FABRICATION OVERRIDES (HIGHEST PRIORITY - SUPERSEDES ANY CONFLICTING DEFAULTS ABOVE):**\n${overrides.map(o => `- ${o}`).join('\n')}`;
             }
 
             if (styleSpecsStep && !promptText.includes(styleSpecsStep)) {
@@ -370,8 +370,6 @@ Renovate **IMAGE A**.
             if (customNoteStep) {
                 promptText += `\n\n${customNoteStep.trim()}`;
             }
-
-
 
             // Negative Constraints (keep only clean user-defined negative prompt, no keyword dumping)
             let combinedNegative = (promptConfig?.negative_prompt || "").trim();
@@ -385,8 +383,6 @@ Renovate **IMAGE A**.
             console.log(promptText);
             console.log('--- END PROMPT ---');
 
-
-
             // BYPASS SDK: Use Raw Fetch because SDK fails on Gemini 3 'thought' responses (JSON parsing error)
             const authOptions = getGoogleAuthOptions();
             const token = await getAccessToken(authOptions.credentials?.client_email, authOptions.credentials?.private_key);
@@ -395,6 +391,8 @@ Renovate **IMAGE A**.
             const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3.1-flash-image:generateContent`;
 
             console.log(`[VERTEX RAW] Calling URL: ${url}`);
+
+            const attemptTemp = Math.max(0.2, 0.4 - attempts * 0.1);
 
             const rawResponse = await withTimeout(fetch(url, {
                 method: 'POST',
@@ -408,7 +406,7 @@ Renovate **IMAGE A**.
                     },
                     contents: [{ role: 'user', parts }],
                     generationConfig: {
-                        temperature: 0.4,
+                        temperature: attemptTemp,
                         maxOutputTokens: 2048
                     }
                 })
@@ -428,7 +426,7 @@ Renovate **IMAGE A**.
             };
 
             const candidate = responseJson.candidates?.[0];
-            if (!candidate) throw new Error("No candidates returned");
+            if (!candidate || !candidate.content?.parts) throw new Error("No candidates returned");
 
             for (const part of candidate.content.parts) {
                 // Handle "Thought" parts vs "Image" parts
@@ -445,11 +443,9 @@ Renovate **IMAGE A**.
                         usage
                     };
                 }
-
-                // Fallback: Check if text contains an image url (improbable for this model but good safety)
             }
 
-            return { success: false, error: "Model returned text/thoughts instead of image." };
+            throw new Error("Model returned text/thoughts instead of image.");
 
         } catch (error: any) {
             console.error(`[NANO BANANA ERROR] Attempt ${attempts + 1} failed:`, error);
@@ -464,20 +460,18 @@ Renovate **IMAGE A**.
                 error.code === 429 ||
                 error.code === 503;
 
-            if (isQuotaError) {
+            const isTextOnlyResponse =
+                error.message?.includes('Model returned text/thoughts instead of image') ||
+                error.message?.includes('No candidates returned');
+
+            if (isQuotaError || (isTextOnlyResponse && attempts < 2)) {
                 attempts++;
                 if (attempts < maxAttempts) {
-                    // Exponential Backoff:
-                    // Attempt 1 (attempts=1): 2000 * 2^0 = 2000ms
-                    // Attempt 2 (attempts=2): 2000 * 2^1 = 4000ms
-                    // Attempt 3 (attempts=3): 2000 * 2^2 = 8000ms
-                    // Attempt 4 (attempts=4): 2000 * 2^3 = 16000ms
-
-                    const baseDelay = 2000 * Math.pow(2, attempts - 1);
-                    const jitter = Math.floor(Math.random() * 500); // 0-500ms jitter
+                    const baseDelay = isTextOnlyResponse ? 1000 : 2000 * Math.pow(2, attempts - 1);
+                    const jitter = Math.floor(Math.random() * 500);
                     const waitTime = baseDelay + jitter;
 
-                    console.warn(`[VERTEX RETRY] Quota/Service hit. Waiting ${waitTime}ms (Attempt ${attempts} of ${maxAttempts} remaining)...`);
+                    console.warn(`[VERTEX RETRY] ${isTextOnlyResponse ? 'Text-only response' : 'Quota/Service hit'}. Waiting ${waitTime}ms (Attempt ${attempts} of ${maxAttempts})...`);
                     await sleep(waitTime);
                     continue;
                 }
@@ -534,6 +528,7 @@ export function assembleRefinementPrompt(config: {
 
     return `Perform a targeted micro-refinement on this railing photograph.
 Preserve the room, walls, stair treads, background, lighting, and general scene perspective exactly as shown.
+When removing any unwanted mounting plates, brackets, or ghosted spindles, restore the underlying stair tread, nosing, stringer, or wall surface cleanly using the Original Staircase Background reference if provided.
 Apply the following specific fabrication enhancements:
 ${issues.join('\n')}
 Output a single unified high-resolution photograph.`;
@@ -543,7 +538,8 @@ export async function refineDesignWithNanoBanana(
     base64Image: string,
     refinementPrompt: string,
     referenceImages?: string[],
-    detailImages?: SecondPassDetailImage[]
+    detailImages?: SecondPassDetailImage[],
+    originalSceneBase64?: string
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     const maxAttempts = 3;
     let attempts = 0;
@@ -556,11 +552,12 @@ export async function refineDesignWithNanoBanana(
 * Do NOT alter the room, stairs, walls, flooring, lighting, or camera POV.
 * Keep all materials, stair treads, and overall composition intact.
 * Modify ONLY the specific joints, connections, or details requested.
+* When removing misplaced hardware, baseplates, or ghosted balusters, heal the exposed stair tread, nosing, or wall surface to match the untouched Original Staircase Background reference.
 * If close-up hardware or fabrication reference photos are provided, replicate their physical appearance and construction methods precisely onto the canvas railing.
 * RETURN ONLY THE REFINED PHOTOGRAPH.`;
 
     const parts: any[] = [
-        { text: "Input railing photograph to refine:" },
+        { text: "**CANVAS TO REFINE:** Input railing photograph from Pass 1:" },
         {
             inlineData: {
                 mimeType: 'image/jpeg',
@@ -568,6 +565,19 @@ export async function refineDesignWithNanoBanana(
             }
         }
     ];
+
+    if (originalSceneBase64) {
+        const cleanScene = originalSceneBase64.includes(',') ? originalSceneBase64.split(',')[1] : originalSceneBase64;
+        parts.push({
+            text: "**ORIGINAL STAIRCASE BACKGROUND (READ-ONLY RESTORATION REFERENCE):** Use this untouched original staircase photo ONLY to restore authentic stair tread wood/carpet, nosings, stringers, or wall textures behind any misplaced plates, posts, or ghosted spindles you remove."
+        });
+        parts.push({
+            inlineData: {
+                mimeType: 'image/jpeg',
+                data: cleanScene
+            }
+        });
+    }
 
     if (detailImages && detailImages.length > 0) {
         for (const detail of detailImages) {
@@ -582,8 +592,10 @@ export async function refineDesignWithNanoBanana(
                 }
             });
         }
-    } else if (referenceImages && referenceImages.length > 0) {
-        parts.push({ text: "Hardware & Context Reference Imagery (Inspect closely for connection hardware, joints, and mounting details):" });
+    }
+
+    if (referenceImages && referenceImages.length > 0) {
+        parts.push({ text: "**STYLE & HARDWARE CONTEXT REFERENCES:** Inspect closely for connection hardware, post joints, and mounting details:" });
         for (const refImg of referenceImages) {
             const cleanRef = refImg.includes(',') ? refImg.split(',')[1] : refImg;
             parts.push({
@@ -638,7 +650,7 @@ export async function refineDesignWithNanoBanana(
             };
 
             const candidate = responseJson.candidates?.[0];
-            if (!candidate) throw new Error("No candidates returned from refinement");
+            if (!candidate || !candidate.content?.parts) throw new Error("No candidates returned from refinement");
 
             for (const part of candidate.content.parts) {
                 if (part.thought) continue;
@@ -651,7 +663,7 @@ export async function refineDesignWithNanoBanana(
                 }
             }
 
-            return { success: false, error: "Model returned no image during refinement." };
+            throw new Error("Model returned no image during refinement.");
 
         } catch (error: any) {
             console.error(`[REFINEMENT ERROR] Attempt ${attempts + 1} failed:`, error);

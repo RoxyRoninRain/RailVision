@@ -76,8 +76,8 @@ export async function getProfile() {
 
 export async function updateProfile(formData: FormData) {
     try {
-        const supabase = await createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+        const { getActingUser } = await import('@/lib/auth-context');
+        const { user, tenantId, supabase: actingSupabase, isImpersonating } = await getActingUser();
 
         if (!user) return { error: 'Not authenticated' };
 
@@ -88,9 +88,24 @@ export async function updateProfile(formData: FormData) {
             let s = String(v).trim();
             if (s === '') return undefined;
 
-            // Auto-fix URLs
-            if (isUrl && !s.startsWith('http://') && !s.startsWith('https://')) {
-                s = 'https://' + s;
+            // Auto-fix URLs (supports comma-separated domain lists for 'website')
+            if (isUrl) {
+                if (key === 'website') {
+                    s = s
+                        .split(',')
+                        .map(domain => {
+                            const trimmed = domain.trim();
+                            if (!trimmed) return '';
+                            if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+                                return 'https://' + trimmed;
+                            }
+                            return trimmed;
+                        })
+                        .filter(Boolean)
+                        .join(', ');
+                } else if (!s.startsWith('http://') && !s.startsWith('https://')) {
+                    s = 'https://' + s;
+                }
             }
             return s;
         };
@@ -169,13 +184,13 @@ export async function updateProfile(formData: FormData) {
         if (val.max_monthly_spend !== undefined) updates.max_monthly_spend = val.max_monthly_spend;
 
         const upsertData: any = {
-            id: user.id,
-            email: user.email,
+            id: tenantId,
+            ...(isImpersonating ? {} : { email: user.email }),
             ...updates,
             updated_at: new Date().toISOString(),
         };
 
-        const { error } = await supabase
+        const { error } = await actingSupabase
             .from('profiles')
             .upsert(upsertData);
 
@@ -192,8 +207,8 @@ export async function updateProfile(formData: FormData) {
 }
 
 export async function uploadLogo(formData: FormData) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return { error: 'Not authenticated' };
 
@@ -211,10 +226,10 @@ export async function uploadLogo(formData: FormData) {
     }
 
     const fileExt = file.name.split('.').pop();
-    const bucket = targetField === 'watermark_logo_url' ? 'logos' : 'logos'; // Could separate buckets later if needed
-    const filePath = `${user.id}/${targetField}_${Date.now()}.${fileExt}`;
+    const bucket = targetField === 'watermark_logo_url' ? 'logos' : 'logos';
+    const filePath = `${tenantId}/${targetField}_${Date.now()}.${fileExt}`;
 
-    const { error: uploadError } = await supabase.storage
+    const { error: uploadError } = await actingSupabase.storage
         .from(bucket)
         .upload(filePath, file, {
             upsert: true,
@@ -225,7 +240,7 @@ export async function uploadLogo(formData: FormData) {
         return { error: uploadError.message };
     }
 
-    const { data: { publicUrl } } = supabase.storage
+    const { data: { publicUrl } } = actingSupabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
 
@@ -233,10 +248,10 @@ export async function uploadLogo(formData: FormData) {
     const updatePayload: any = { updated_at: new Date().toISOString() };
     updatePayload[targetField] = publicUrl;
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await actingSupabase
         .from('profiles')
         .update(updatePayload)
-        .eq('id', user.id);
+        .eq('id', tenantId);
 
     if (updateError) {
         return { error: updateError.message };

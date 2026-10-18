@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { startOfDay, subDays, subMonths, subYears, startOfYear, startOfMonth } from 'date-fns';
 
 export async function getDeepStats(range: '7d' | '30d' | 'mtd' | 'ytd' | 'all' = '30d') {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { getActingUser } = await import('@/lib/auth-context');
+    const { user, tenantId, supabase: actingSupabase } = await getActingUser();
 
     if (!user) return null;
 
@@ -26,17 +26,17 @@ export async function getDeepStats(range: '7d' | '30d' | 'mtd' | 'ytd' | 'all' =
 
     // 2. Parallel Queries
     // A. Generations
-    const generationsPromise = supabase
+    const generationsPromise = actingSupabase
         .from('generations')
         .select('created_at, style_id')
-        .eq('organization_id', user.id)
+        .eq('organization_id', tenantId)
         .gte('created_at', isoStart);
 
     // B. Leads
-    const leadsPromise = supabase
+    const leadsPromise = actingSupabase
         .from('leads')
         .select('created_at, status')
-        .eq('organization_id', user.id)
+        .eq('organization_id', tenantId)
         .gte('created_at', isoStart);
 
     // C. All time stats (for verification/cards that might need all time)
@@ -52,8 +52,8 @@ export async function getDeepStats(range: '7d' | '30d' | 'mtd' | 'ytd' | 'all' =
         return null;
     }
 
-    const generations = genRes.data || [];
-    const leads = leadsRes.data || [];
+    const generations: any[] = genRes.data || [];
+    const leads: any[] = leadsRes.data || [];
 
     // 3. Aggregate Data
     const quotes = leads.filter(l => l.status !== 'Download');
@@ -74,10 +74,15 @@ export async function getDeepStats(range: '7d' | '30d' | 'mtd' | 'ytd' | 'all' =
     const topStyleId = Object.entries(styleCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
     let topStyleName = 'None';
 
-    // Fetch style name if exists (same logic as before)
+    // Fetch style name if exists (supports both UUID and direct style name in generations.style_id)
     if (topStyleId) {
-        const { data: style } = await supabase.from('portfolio').select('name').eq('id', topStyleId).single();
-        if (style) topStyleName = style.name;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(topStyleId);
+        if (isUuid) {
+            const { data: style } = await actingSupabase.from('portfolio').select('name').eq('id', topStyleId).single();
+            topStyleName = style?.name || topStyleId;
+        } else {
+            topStyleName = topStyleId;
+        }
     }
 
     // Chart Data (Group by Day)
