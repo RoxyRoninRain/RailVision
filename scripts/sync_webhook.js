@@ -9,6 +9,8 @@ async function syncWebhook() {
 
     const requiredEvents = [
         'checkout.session.completed',
+        'invoice.created',
+        'invoice.paid',
         'invoice.payment_succeeded',
         'customer.subscription.updated',
         'customer.subscription.deleted',
@@ -16,8 +18,9 @@ async function syncWebhook() {
 
     if (existingEndpoint) {
       console.log(`Found existing endpoint for ${targetUrl}. Updating events...`);
+      const mergedEvents = Array.from(new Set([...(existingEndpoint.enabled_events || []), ...requiredEvents]));
       const updated = await stripe.webhookEndpoints.update(existingEndpoint.id, {
-        enabled_events: requiredEvents,
+        enabled_events: mergedEvents,
       });
       console.log('Successfully updated events!');
       console.log('Endpoint ID:', updated.id);

@@ -34,15 +34,15 @@ export async function createCheckoutSession(tierName: TierName) {
 
     // Handle case-insensitivity and aliases like 'pro'
     const normalizedName = String(tierName).toLowerCase();
-    const actualTierName = Object.keys(PRICING_TIERS).find(k => k.toLowerCase() === normalizedName) || 
-                           (normalizedName === 'pro' ? 'Professional' : null);
+    const actualTierName = (Object.keys(PRICING_TIERS).find(k => k.toLowerCase() === normalizedName) || 
+                           (normalizedName === 'pro' ? 'Professional' : null)) as TierName | null;
 
     if (!actualTierName) {
         console.error(`Pricing tier ${tierName} not found.`);
         return { error: `Pricing tier ${tierName} not found.` };
     }
 
-    const tier = PRICING_TIERS[actualTierName as TierName];
+    const tier = PRICING_TIERS[actualTierName];
     if (!tier || !tier.stripePriceId) {
         return { error: `Pricing tier ${actualTierName} configuration missing.` };
     }
@@ -67,10 +67,15 @@ export async function createCheckoutSession(tierName: TierName) {
 
         customerId = customer.id;
 
-        // Save to DB
+        // Save to DB along with selected tier_name so billing rate is immediately accurate
         await supabase
             .from('profiles')
-            .update({ stripe_customer_id: customerId })
+            .update({ stripe_customer_id: customerId, tier_name: actualTierName })
+            .eq('id', user.id);
+    } else {
+        await supabase
+            .from('profiles')
+            .update({ tier_name: actualTierName })
             .eq('id', user.id);
     }
 
@@ -120,12 +125,12 @@ export async function createCheckoutSession(tierName: TierName) {
             cancel_url: `${baseUrl}/pricing?checkout=cancel`,
             subscription_data: {
                 metadata: {
-                    tierName: tierName,
+                    tierName: actualTierName,
                 },
             },
             metadata: {
                 userId: user.id,
-                tierName: tierName
+                tierName: actualTierName
             },
             allow_promotion_codes: true, // Optional: allow promo codes
         });
@@ -149,43 +154,71 @@ export async function reportUsage(userId: string, quantity: number = 1) {
     const { createAdminClient } = await import('@/lib/supabase/admin');
     const supabase = createAdminClient() || await createClient();
 
-    // 1. Get User's Subscription ID
+    // 1. Get User's Subscription ID & Customer ID
     const { data: profile } = await supabase
         .from('profiles')
-        .select('stripe_subscription_id')
+        .select('stripe_subscription_id, stripe_customer_id')
         .eq('id', userId)
         .single();
 
-    if (!profile?.stripe_subscription_id) {
-        console.warn(`User ${userId} has no active subscription. Usage not reported.`);
+    let subscriptionId = profile?.stripe_subscription_id;
+    let subscription: Stripe.Subscription | null = null;
+
+    if (subscriptionId) {
+        try {
+            subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        } catch (err: any) {
+            console.warn(`Could not retrieve subscription ${subscriptionId}:`, err?.message);
+        }
+    }
+
+    // Fallback: look up active subscription by stripe_customer_id and backfill stripe_subscription_id
+    if (!subscription && profile?.stripe_customer_id) {
+        try {
+            const subList = await stripe.subscriptions.list({
+                customer: profile.stripe_customer_id,
+                status: 'active',
+                limit: 1,
+            });
+            if (subList.data && subList.data.length > 0) {
+                subscription = subList.data[0];
+                subscriptionId = subscription.id;
+                await supabase
+                    .from('profiles')
+                    .update({ stripe_subscription_id: subscriptionId })
+                    .eq('id', userId);
+            }
+        } catch (err: any) {
+            console.warn(`Could not list subscriptions for customer ${profile.stripe_customer_id}:`, err?.message);
+        }
+    }
+
+    if (!subscription) {
+        console.warn(`User ${userId} has no active Stripe subscription. Usage tracked in pending_overage_balance for monthly invoice.`);
         return;
     }
 
-    // 2. Fetch Subscription Items to find the Metered Item
-    // We cache this in DB ideally, but for MVP we fetch from Stripe
-    const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id);
-
-    // Find item with recurring.usage_type = 'metered'
+    // 2. Find item with recurring.usage_type = 'metered'
     const meteredItem = subscription.items.data.find(item => item.price.recurring?.usage_type === 'metered');
 
     if (!meteredItem) {
-        console.warn(`Subscription ${subscription.id} has no metered item.`);
+        console.warn(`Subscription ${subscription.id} has no metered item. Usage will be billed from pending_overage_balance on invoice.created.`);
         return;
     }
 
-    // 3. Report Usage
-    // Note: Stripe idempotency key is recommended.
-    const idempotencyKey = crypto.randomUUID();
-
-    await (stripe.subscriptionItems as any).createUsageRecord(
-        meteredItem.id,
-        {
-            quantity: quantity,
-            timestamp: Math.floor(Date.now() / 1000),
-            action: 'increment',
-        },
-        {
-            idempotencyKey
-        }
-    );
+    // 3. Report Usage if legacy createUsageRecord is supported by the active Stripe SDK
+    if (typeof (stripe.subscriptionItems as any).createUsageRecord === 'function') {
+        const idempotencyKey = crypto.randomUUID();
+        await (stripe.subscriptionItems as any).createUsageRecord(
+            meteredItem.id,
+            {
+                quantity: quantity,
+                timestamp: Math.floor(Date.now() / 1000),
+                action: 'increment',
+            },
+            {
+                idempotencyKey
+            }
+        );
+    }
 }
