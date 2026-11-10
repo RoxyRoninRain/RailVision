@@ -166,12 +166,12 @@ export default function SettingsPage() {
                                 <input
                                     ref={watermarkInputRef}
                                     type="file"
-                                    accept="image/png, image/jpeg, image/svg+xml, .svg"
+                                    accept="image/png, image/jpeg, image/webp"
                                     className="hidden"
                                     onChange={handleWatermarkUpload}
                                 />
                                 <p className="text-xs text-gray-600 mt-2 text-center">
-                                    Used for image overlays.<br />PNG/SVG with transparency best.
+                                    Used for image overlays.<br />PNG or WebP with transparency best.
                                 </p>
                             </div>
                         </div>

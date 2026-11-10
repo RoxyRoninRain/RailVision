@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   experimental: {
     serverActions: {
-      bodySizeLimit: '50mb',
+      bodySizeLimit: '20mb',
     },
   },
   images: {
@@ -23,10 +23,8 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN', // Middleware handles detailed CSP, this is fallback
-          },
+          // Note: Framing permissions are controlled dynamically via `Content-Security-Policy: frame-ancestors`
+          // in `src/lib/supabase/middleware.ts` so authorized tenant domains can embed `/demo?org=<id>`.
           {
             key: 'X-Content-Type-Options',
             value: 'nosniff',

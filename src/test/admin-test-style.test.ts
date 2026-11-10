@@ -1,4 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resetRateLimitBuckets } from '@/lib/rate-limit';
+
+const VALID_JPEG_BYTES = new Uint8Array([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9,
+]);
 
 // Mock dependencies
 const mockGetUser = vi.fn();
@@ -143,6 +148,12 @@ vi.mock('@/app/admin/actions', () => ({
 describe('Tenant Style Testing - Zero Usage Charge Verification', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetRateLimitBuckets();
+
+        global.fetch = vi.fn(async () => ({
+            ok: true,
+            arrayBuffer: async () => VALID_JPEG_BYTES.slice().buffer,
+        } as any));
 
         mockGetUser.mockResolvedValue({
             data: { user: { id: 'admin-user-id', email: 'admin@railify.com' } },
@@ -194,8 +205,8 @@ describe('Tenant Style Testing - Zero Usage Charge Verification', () => {
         const { generateDesign } = await import('@/app/actions/ai');
 
         const formData = new FormData();
-        const dummyFile = new File(['dummy-image-bytes'], 'test-stairs.jpg', { type: 'image/jpeg' });
-        dummyFile.arrayBuffer = async () => new Uint8Array([1, 2, 3]).buffer;
+        const dummyFile = new File([VALID_JPEG_BYTES], 'test-stairs.jpg', { type: 'image/jpeg' });
+        dummyFile.arrayBuffer = async () => VALID_JPEG_BYTES.slice().buffer;
         formData.append('image', dummyFile);
         formData.append('style', 'Modern Iron');
         formData.append('styleId', '550e8400-e29b-41d4-a716-446655440001');
@@ -242,8 +253,8 @@ describe('Tenant Style Testing - Zero Usage Charge Verification', () => {
         const { generateDesign } = await import('@/app/actions/ai');
 
         const formData = new FormData();
-        const dummyFile = new File(['dummy-image-bytes'], 'test-stairs.jpg', { type: 'image/jpeg' });
-        dummyFile.arrayBuffer = async () => new Uint8Array([1, 2, 3]).buffer;
+        const dummyFile = new File([VALID_JPEG_BYTES], 'test-stairs.jpg', { type: 'image/jpeg' });
+        dummyFile.arrayBuffer = async () => VALID_JPEG_BYTES.slice().buffer;
         formData.append('image', dummyFile);
         formData.append('style', 'Modern Iron');
         formData.append('is_admin_test', 'true'); // Fake attempt
@@ -261,8 +272,8 @@ describe('Tenant Style Testing - Zero Usage Charge Verification', () => {
         const { testTenantStyle } = await import('@/app/admin/actions');
 
         const formData = new FormData();
-        const dummyFile = new File(['dummy-image-bytes'], 'test-stairs.jpg', { type: 'image/jpeg' });
-        dummyFile.arrayBuffer = async () => new Uint8Array([1, 2, 3]).buffer;
+        const dummyFile = new File([VALID_JPEG_BYTES], 'test-stairs.jpg', { type: 'image/jpeg' });
+        dummyFile.arrayBuffer = async () => VALID_JPEG_BYTES.slice().buffer;
         formData.append('image', dummyFile);
         formData.append('style', 'Modern Iron');
         formData.append('styleId', '550e8400-e29b-41d4-a716-446655440001');

@@ -450,7 +450,8 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Unauthorized");
 
-        const ext = file.name.split('.').pop();
+        const rawExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const ext = ['jpg', 'jpeg', 'png', 'webp'].includes(rawExt) ? (rawExt === 'jpeg' ? 'jpg' : rawExt) : 'jpg';
         const fileName = `${user.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${ext}`;
 
         const { error } = await supabase.storage
@@ -493,14 +494,14 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                 // ADMIN: Skip Client Upload (RLS limitation). Use Server Action.
                 // Main
                 setUploadProgress(10);
-                const compressedMain = await compressImage(mainFile, 1280);
+                const compressedMain = await compressImage(mainFile, 1536, 0.92);
                 formData.append('file', compressedMain);
 
                 // Refs
                 let processed = 0;
                 for (const f of refFiles) {
                     setUploadProgress(30 + (processed / refFiles.length) * 50);
-                    const compressedRef = await compressImage(f, 1280);
+                    const compressedRef = await compressImage(f, 1536, 0.92);
                     formData.append('reference_files', compressedRef); // Use 'reference_files' key
                     processed++;
                 }
@@ -508,7 +509,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                 // TENANT: Direct Upload
                 // 1. Main Image
                 setUploadProgress(10);
-                const compressedMain = await compressImage(mainFile, 1280);
+                const compressedMain = await compressImage(mainFile, 1536, 0.92);
                 const mainUrl = await handleClientUpload(compressedMain);
                 formData.append('image_url', mainUrl);
 
@@ -517,7 +518,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                 let processed = 0;
                 for (const f of refFiles) {
                     setUploadProgress(30 + (processed / refFiles.length) * 50);
-                    const compressedRef = await compressImage(f, 1280);
+                    const compressedRef = await compressImage(f, 1536, 0.92);
                     const refUrl = await handleClientUpload(compressedRef);
                     refUrls.push(refUrl);
                     processed++;
@@ -534,7 +535,7 @@ function AddStyleModal({ onClose, onSuccess, isAdmin, adminTenantId }: { onClose
                     const file = secondPassDetailFiles[targetId];
                     const existingUrl = secondPassDetailUrls[targetId];
                     if (file) {
-                        const compressed = await compressImage(file, 1280);
+                        const compressed = await compressImage(file, 1536, 0.92);
                         if (isAdmin) {
                             formData.append(`second_pass_detail_file_${targetId}`, compressed);
                         } else {
@@ -1239,9 +1240,9 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             image.crossOrigin = "anonymous";
             image.onload = () => {
                 const canvas = document.createElement('canvas');
-                // Target: High-res 1200x1200 for sharper hardware/weld detail in Image B
-                canvas.width = 1200;
-                canvas.height = 1200;
+                // Target: High-res 1536x1536 for sharper hardware/weld detail in Image B
+                canvas.width = 1536;
+                canvas.height = 1536;
                 const ctx = canvas.getContext('2d');
                 if (!ctx) return;
 
@@ -1293,7 +1294,8 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Unauthorized");
 
-        const ext = file.name.split('.').pop() || 'jpg';
+        const rawExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+        const ext = ['jpg', 'jpeg', 'png', 'webp'].includes(rawExt) ? (rawExt === 'jpeg' ? 'jpg' : rawExt) : 'jpg';
         const fileName = `${user.id}/${Date.now()}_client_up_${Math.random().toString(36).substring(7)}.${ext}`;
 
         const { error } = await supabase.storage
@@ -1361,7 +1363,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                 if (isAdmin) {
                     // Server Side
                     try {
-                        const compressedRef = await compressImage(f, 1280);
+                        const compressedRef = await compressImage(f, 1536, 0.92);
                         formData.append('reference_files', compressedRef);
                     } catch (err) {
                         formData.append('reference_files', f);
@@ -1369,7 +1371,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                 } else {
                     // Client Side
                     try {
-                        const compressedRef = await compressImage(f, 1280);
+                        const compressedRef = await compressImage(f, 1536, 0.92);
                         const refUrl = await handleClientUpload(compressedRef);
                         newRefUrls.push(refUrl);
                     } catch (err) {
@@ -1394,7 +1396,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                     const file = secondPassDetailFiles[targetId];
                     const existingUrl = secondPassDetailUrls[targetId];
                     if (file) {
-                        const compressed = await compressImage(file, 1280);
+                        const compressed = await compressImage(file, 1536, 0.92);
                         if (isAdmin) {
                             formData.append(`second_pass_detail_file_${targetId}`, compressed);
                         } else {
@@ -1448,8 +1450,8 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
             //   Base Width = 100%
             //   Base Height covers container (H_base = W_container / Aspect) -> H% = (1/Aspect) * 100%
 
-            let baseW_ratio = imgAspect > 1 ? imgAspect : 1;
-            let baseH_ratio = imgAspect > 1 ? 1 : (1 / imgAspect);
+            const baseW_ratio = imgAspect > 1 ? imgAspect : 1;
+            const baseH_ratio = imgAspect > 1 ? 1 : (1 / imgAspect);
 
             const scaledW = baseW_ratio * zoom;
             const scaledH = baseH_ratio * zoom;

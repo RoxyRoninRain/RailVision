@@ -1,6 +1,45 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { detectImageMetadata, isSafeExternalUrl, isValidUuid } from '@/lib/validations';
+import { SECOND_PASS_ISSUES } from './types';
+
+const ALLOWED_PORTFOLIO_MIME_MAP: Record<string, string> = {
+    'image/jpeg': 'jpg',
+    'image/jpg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+};
+
+const SECOND_PASS_DETAIL_KEYS = SECOND_PASS_ISSUES.map(issue => issue.id);
+
+function isAllowedPortfolioUrl(url: unknown): url is string {
+    if (typeof url !== 'string' || !url.trim()) return false;
+    if (url.startsWith('/styles/') && !url.includes('..') && !url.includes('//')) {
+        return true;
+    }
+    return isSafeExternalUrl(url);
+}
+
+function getSafeImageExt(file: File): string | null {
+    if (file.type && ALLOWED_PORTFOLIO_MIME_MAP[file.type]) {
+        return ALLOWED_PORTFOLIO_MIME_MAP[file.type];
+    }
+    const rawExt = file.name?.split('.').pop()?.toLowerCase();
+    if (rawExt && ['jpg', 'jpeg', 'png', 'webp'].includes(rawExt)) {
+        return rawExt === 'jpeg' ? 'jpg' : rawExt;
+    }
+    return null;
+}
+
+async function verifyPortfolioImageBuffer(file: File): Promise<{ buffer: Buffer; ext: string; contentType: string } | null> {
+    if (!getSafeImageExt(file)) return null;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const meta = detectImageMetadata(buffer);
+    if (!meta.valid || !meta.mimeType || meta.mimeType === 'image/heic') return null;
+    const ext = ALLOWED_PORTFOLIO_MIME_MAP[meta.mimeType] || 'jpg';
+    return { buffer, ext, contentType: meta.mimeType };
+}
 
 // --- Portfolio Actions ---
 
@@ -14,13 +53,10 @@ export async function createStyle(formData: FormData) {
     // 2. Impersonating Admin (acting as target tenant via cookie)
     // 3. Admin Override (legacy check for explicitly passed mismatching IDs can be handled below if strict mode is needed, but Impersonation is preferred)
 
-    let {
-        user,
-        tenantId: targetTenantId,
-        supabase: actingSupabase,
-        isImpersonating,
-        isAdmin
-    } = await getActingUser();
+    const actingContext = await getActingUser();
+    const { user, isImpersonating, isAdmin } = actingContext;
+    let targetTenantId = actingContext.tenantId;
+    let actingSupabase = actingContext.supabase;
 
     if (!user) return { error: 'Not authenticated' };
 
@@ -30,6 +66,7 @@ export async function createStyle(formData: FormData) {
     const formAdminTenantId = formData.get('admin_tenant_id') as string;
     if (!isImpersonating && formAdminTenantId && formAdminTenantId !== user.id) {
         if (!isAdmin) return { error: 'Unauthorized Admin Access' };
+        if (!isValidUuid(formAdminTenantId)) return { error: 'Invalid tenant ID' };
 
         targetTenantId = formAdminTenantId;
         const { createAdminClient } = await import('@/lib/supabase/admin');
@@ -67,10 +104,20 @@ export async function createStyle(formData: FormData) {
     const directRefUrlsJson = formData.get('reference_urls') as string;
 
     if (directMainUrl) {
+        if (!isAllowedPortfolioUrl(directMainUrl)) {
+            return { error: 'Invalid or unsafe main image URL' };
+        }
         galleryUrls.push(directMainUrl);
         if (directRefUrlsJson) {
             const refs = JSON.parse(directRefUrlsJson);
-            galleryUrls.push(...refs);
+            if (Array.isArray(refs)) {
+                for (const refUrl of refs) {
+                    if (!isAllowedPortfolioUrl(refUrl)) {
+                        return { error: 'Invalid or unsafe reference image URL' };
+                    }
+                    galleryUrls.push(refUrl);
+                }
+            }
         }
     } else {
         // Fallback: Server-Side Upload (Legacy/Small files)
@@ -79,12 +126,15 @@ export async function createStyle(formData: FormData) {
                 return { error: `File ${file.name} too large. Max 4.5MB.` };
             }
 
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${targetTenantId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const verified = await verifyPortfolioImageBuffer(file);
+            if (!verified) {
+                return { error: `Unsupported or corrupted image file (${file.name}). Only JPG, PNG, and WEBP are allowed.` };
+            }
+            const fileName = `${targetTenantId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${verified.ext}`;
 
             const { error: uploadError } = await actingSupabase.storage
                 .from('portfolio')
-                .upload(fileName, file, { contentType: file.type, upsert: false });
+                .upload(fileName, verified.buffer, { contentType: verified.contentType, upsert: false });
 
             if (uploadError) {
                 console.error('Upload Error:', uploadError);
@@ -122,24 +172,32 @@ export async function createStyle(formData: FormData) {
 
     // Parse second-pass detail images
     const secondPassDetailImagesRaw = formData.get('second_pass_detail_images') as string;
-    let detailImages: Record<string, string> = {};
+    const detailImages: Record<string, string> = {};
     if (secondPassDetailImagesRaw) {
         try {
-            detailImages = JSON.parse(secondPassDetailImagesRaw);
+            const parsedDetails = JSON.parse(secondPassDetailImagesRaw);
+            if (parsedDetails && typeof parsedDetails === 'object') {
+                for (const [k, v] of Object.entries(parsedDetails)) {
+                    if (isAllowedPortfolioUrl(v)) {
+                        detailImages[k] = v;
+                    }
+                }
+            }
         } catch (e) {
             console.warn('Failed to parse second_pass_detail_images in createStyle:', e);
         }
     }
 
     // Also handle files uploaded on server side (e.g. Admin mode)
-    for (const key of ['reducers', 'side_mount', 'top_mount', 'shoe_rail']) {
+    for (const key of SECOND_PASS_DETAIL_KEYS) {
         const detailFile = formData.get(`second_pass_detail_file_${key}`) as File;
         if (detailFile && detailFile.size > 0 && detailFile.size <= 5 * 1024 * 1024) {
-            const fileExt = detailFile.name.split('.').pop();
-            const fileName = `${targetTenantId}/${Date.now()}_detail_${key}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const verified = await verifyPortfolioImageBuffer(detailFile);
+            if (!verified) continue;
+            const fileName = `${targetTenantId}/${Date.now()}_detail_${key}_${Math.random().toString(36).substring(7)}.${verified.ext}`;
             const { error: upErr } = await actingSupabase.storage
                 .from('portfolio')
-                .upload(fileName, detailFile, { contentType: detailFile.type, upsert: false });
+                .upload(fileName, verified.buffer, { contentType: verified.contentType, upsert: false });
             if (!upErr) {
                 const { data: pubData } = actingSupabase.storage.from('portfolio').getPublicUrl(fileName);
                 detailImages[key] = pubData.publicUrl;
@@ -229,13 +287,10 @@ export async function updateStyle(formData: FormData) {
     const styleId = formData.get('id') as string;
     if (!styleId) return { error: 'Style ID required' };
 
-    let {
-        user,
-        tenantId: targetTenantId,
-        supabase: actingSupabase,
-        isImpersonating,
-        isAdmin
-    } = await getActingUser();
+    const actingContext = await getActingUser();
+    const { user, isImpersonating, isAdmin } = actingContext;
+    let targetTenantId = actingContext.tenantId;
+    let actingSupabase = actingContext.supabase;
 
     if (!user) return { error: 'Not authenticated' };
 
@@ -243,6 +298,7 @@ export async function updateStyle(formData: FormData) {
     const formAdminTenantId = formData.get('admin_tenant_id') as string;
     if (!isImpersonating && formAdminTenantId && formAdminTenantId !== user.id) {
         if (!isAdmin) return { error: 'Unauthorized Admin Access' };
+        if (!isValidUuid(formAdminTenantId)) return { error: 'Invalid tenant ID' };
 
         targetTenantId = formAdminTenantId;
         const { createAdminClient } = await import('@/lib/supabase/admin');
@@ -260,18 +316,24 @@ export async function updateStyle(formData: FormData) {
     let mainImage = null;
 
     if (directMainUrl) {
+        if (!isAllowedPortfolioUrl(directMainUrl)) {
+            return { error: 'Invalid or unsafe main image URL' };
+        }
         mainImage = directMainUrl;
     } else if (file && file.size > 0) {
         if (file.size > 5 * 1024 * 1024) {
             return { error: `File ${file.name} too large. Max 5MB.` };
         }
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${targetTenantId}/${Date.now()}_update_main_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const verified = await verifyPortfolioImageBuffer(file);
+        if (!verified) {
+            return { error: `Unsupported or corrupted image file (${file.name}). Only JPG, PNG, and WEBP are allowed.` };
+        }
+        const fileName = `${targetTenantId}/${Date.now()}_update_main_${Math.random().toString(36).substring(7)}.${verified.ext}`;
 
         const { error: uploadError } = await actingSupabase.storage
             .from('portfolio')
-            .upload(fileName, file, { contentType: file.type, upsert: false });
+            .upload(fileName, verified.buffer, { contentType: verified.contentType, upsert: false });
 
         if (uploadError) {
             console.error('Update Main Upload Error:', uploadError);
@@ -292,19 +354,27 @@ export async function updateStyle(formData: FormData) {
 
     if (directNewRefUrlsJson) {
         const refs = JSON.parse(directNewRefUrlsJson);
-        newRefUrls.push(...refs);
+        if (Array.isArray(refs)) {
+            for (const refUrl of refs) {
+                if (!isAllowedPortfolioUrl(refUrl)) {
+                    return { error: 'Invalid or unsafe reference image URL' };
+                }
+                newRefUrls.push(refUrl);
+            }
+        }
     }
 
     // Legacy fallback
     if (referenceFiles && referenceFiles.length > 0) {
         for (const refFile of referenceFiles) {
             if (!refFile || refFile.size === 0 || refFile.size > 5 * 1024 * 1024) continue; // Skip empty or large files
-            const ext = refFile.name.split('.').pop();
-            const refName = `${targetTenantId}/${Date.now()}_ref_${Math.random().toString(36).substring(7)}.${ext}`;
+            const verified = await verifyPortfolioImageBuffer(refFile);
+            if (!verified) continue;
+            const refName = `${targetTenantId}/${Date.now()}_ref_${Math.random().toString(36).substring(7)}.${verified.ext}`;
 
             const { error: refErr } = await actingSupabase.storage
                 .from('portfolio')
-                .upload(refName, refFile, { contentType: refFile.type, upsert: false });
+                .upload(refName, verified.buffer, { contentType: verified.contentType, upsert: false });
 
             if (!refErr) {
                 const { data: pubData } = actingSupabase.storage.from('portfolio').getPublicUrl(refName);
@@ -318,7 +388,8 @@ export async function updateStyle(formData: FormData) {
     const keptRefsJson = formData.get('kept_reference_urls') as string;
 
     if (keptRefsJson || newRefUrls.length > 0) {
-        const keptRefs = keptRefsJson ? JSON.parse(keptRefsJson) : [];
+        const rawKeptRefs = keptRefsJson ? JSON.parse(keptRefsJson) : [];
+        const keptRefs = Array.isArray(rawKeptRefs) ? rawKeptRefs.filter(isAllowedPortfolioUrl) : [];
 
         if (keptRefsJson !== null) {
             // Explicit list provided
@@ -362,7 +433,15 @@ export async function updateStyle(formData: FormData) {
     let updatedDetailImages: Record<string, string> | null = null;
     if (secondPassDetailImagesRaw) {
         try {
-            updatedDetailImages = JSON.parse(secondPassDetailImagesRaw);
+            const parsedDetails = JSON.parse(secondPassDetailImagesRaw);
+            if (parsedDetails && typeof parsedDetails === 'object') {
+                updatedDetailImages = {};
+                for (const [k, v] of Object.entries(parsedDetails)) {
+                    if (isAllowedPortfolioUrl(v)) {
+                        updatedDetailImages[k] = v;
+                    }
+                }
+            }
         } catch (e) {
             console.warn('Failed to parse second_pass_detail_images in updateStyle:', e);
         }
@@ -384,14 +463,15 @@ export async function updateStyle(formData: FormData) {
         }
 
         // Check for direct server file uploads in updateStyle (e.g. Admin mode)
-        for (const key of ['reducers', 'side_mount', 'top_mount', 'shoe_rail']) {
+        for (const key of SECOND_PASS_DETAIL_KEYS) {
             const detailFile = formData.get(`second_pass_detail_file_${key}`) as File;
             if (detailFile && detailFile.size > 0 && detailFile.size <= 5 * 1024 * 1024) {
-                const fileExt = detailFile.name.split('.').pop();
-                const fileName = `${targetTenantId}/${Date.now()}_detail_${key}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const verified = await verifyPortfolioImageBuffer(detailFile);
+                if (!verified) continue;
+                const fileName = `${targetTenantId}/${Date.now()}_detail_${key}_${Math.random().toString(36).substring(7)}.${verified.ext}`;
                 const { error: upErr } = await actingSupabase.storage
                     .from('portfolio')
-                    .upload(fileName, detailFile, { contentType: detailFile.type, upsert: false });
+                    .upload(fileName, verified.buffer, { contentType: verified.contentType, upsert: false });
                 if (!upErr) {
                     const { data: pubData } = actingSupabase.storage.from('portfolio').getPublicUrl(fileName);
                     if (!updatedDetailImages) {
@@ -496,7 +576,7 @@ export async function seedDefaultStyles() {
         { name: 'Industrial', description: 'Raw steel and exposed elements', image_url: '/styles/industrial.png' },
         { name: 'Modern', description: 'Clean lines and glass', image_url: '/styles/modern.png' },
         { name: 'Rustic Farmhouse', description: 'Warm wood tones mixed with metal', image_url: '/styles/rustic.png' },
-        { name: 'Art Deco', description: 'Bold geometric patterns and luxury', image_url: '/styles/artdeco.png' },
+        { name: 'Art Deco', description: 'Bold geometric patterns and luxury', image_url: 'https://images.unsplash.com/photo-1534349762913-961f712ba68e?auto=format&fit=crop&w=800&q=80' },
     ];
 
     const { error } = await actingSupabase
@@ -556,7 +636,7 @@ export async function getTenantStyles(tenantId?: string) {
     const { getActingUser } = await import('@/lib/auth-context');
     const { user, tenantId: actingTenantId, supabase: actingSupabase, isAdmin, isImpersonating } = await getActingUser();
 
-    let targetTenantId = tenantId || actingTenantId; // Use argument if present, else acting ID
+    const targetTenantId = tenantId || actingTenantId; // Use argument if present, else acting ID
 
     // If argument provided AND it's different from who we are acting as
     if (tenantId && tenantId !== actingTenantId) {
@@ -606,6 +686,8 @@ export async function getTenantStyles(tenantId?: string) {
 }
 
 export async function getPublicStyles(tenantId: string) {
+    if (!isValidUuid(tenantId)) return [];
+
     // Use Admin Client to bypass RLS for public portfolio access
     const { createAdminClient } = await import('@/lib/supabase/admin');
     const supabase = createAdminClient();
@@ -629,7 +711,6 @@ export async function getPublicStyles(tenantId: string) {
         return data;
     }
 
-    let data = [];
     let adminError = null;
 
     if (supabase) {
@@ -668,17 +749,19 @@ export async function getPublicStyles(tenantId: string) {
 }
 
 export async function getStyles(tenantId?: string) {
-    const supabase = await createClient();
-    const { data } = await supabase
-        .from('portfolio')
-        .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
-        .eq('tenant_id', tenantId)
-        .order('display_order', { ascending: true })
-        .order('created_at', { ascending: false });
+    if (tenantId && isValidUuid(tenantId)) {
+        const supabase = await createClient();
+        const { data } = await supabase
+            .from('portfolio')
+            .select('id, name, description, image_url, price_per_ft_min, price_per_ft_max') // Exclude reference_images
+            .eq('tenant_id', tenantId)
+            .order('display_order', { ascending: true })
+            .order('created_at', { ascending: false });
 
-    if (data && data.length > 0) {
-        // Map to ensure it matches the format
-        return data as any[];
+        if (data && data.length > 0) {
+            // Map to ensure it matches the format
+            return data as any[];
+        }
     }
 
 

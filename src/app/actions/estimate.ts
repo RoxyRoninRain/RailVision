@@ -93,8 +93,8 @@ export async function calculateEstimate({ styleId, linearFeet, zipCode }: Estima
 
     // 5. Final Calculation
 
-    let baseTotalMin = priceMin * linearFeet;
-    let baseTotalMax = priceMax * linearFeet;
+    const baseTotalMin = priceMin * linearFeet;
+    const baseTotalMax = priceMax * linearFeet;
 
     let finalMin = baseTotalMin;
     let finalMax = baseTotalMax;

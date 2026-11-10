@@ -122,7 +122,11 @@ export async function updateProfile(formData: FormData) {
             website: getString('website', true),
             address_zip: getString('address_zip'),
             confirmation_email_body: getString('confirmation_email_body'),
-            enable_overdrive: formData.get('enable_overdrive') === 'true' || formData.get('enable_overdrive') === 'on',
+            // Only update `enable_overdrive` when explicitly submitted in FormData so partial saves
+            // (e.g. WidgetPage saving domain/colors) do not silently overwrite Overdrive to false!
+            enable_overdrive: formData.has('enable_overdrive')
+                ? (formData.get('enable_overdrive') === 'true' || formData.get('enable_overdrive') === 'on')
+                : undefined,
         };
 
         // Number conversion
@@ -213,27 +217,41 @@ export async function uploadLogo(formData: FormData) {
     if (!user) return { error: 'Not authenticated' };
 
     const file = formData.get('file') as File;
-    const targetField = (formData.get('field') as string) || 'logo_url'; // 'logo_url' or 'watermark_logo_url'
+    const rawTargetField = (formData.get('field') as string) || 'logo_url';
+    const targetField = rawTargetField === 'watermark_logo_url' ? 'watermark_logo_url' : 'logo_url';
 
     if (!file) return { error: 'No file provided' };
 
-    // Validate file
-    if (!file.type.startsWith('image/') && file.type !== 'image/svg+xml') {
-        return { error: 'File must be an image (PNG, JPG, SVG)' };
+    // Validate file (SVG disallowed to prevent stored XSS)
+    const ALLOWED_LOGO_TYPES: Record<string, string> = {
+        'image/jpeg': 'jpg',
+        'image/jpg': 'jpg',
+        'image/png': 'png',
+        'image/webp': 'webp',
+    };
+    const safeExt = ALLOWED_LOGO_TYPES[file.type];
+    if (!safeExt) {
+        return { error: 'File must be a raster image (PNG, JPG, WEBP)' };
     }
     if (file.size > 2 * 1024 * 1024) { // 2MB
         return { error: 'File size must be less than 2MB' };
     }
 
-    const fileExt = file.name.split('.').pop();
-    const bucket = targetField === 'watermark_logo_url' ? 'logos' : 'logos';
-    const filePath = `${tenantId}/${targetField}_${Date.now()}.${fileExt}`;
+    const { detectImageMetadata } = await import('@/lib/validations');
+    const logoBuffer = Buffer.from(await file.arrayBuffer());
+    const logoMeta = detectImageMetadata(logoBuffer);
+    if (!logoMeta.valid || !logoMeta.mimeType || logoMeta.mimeType === 'image/heic' || !logoMeta.ext) {
+        return { error: 'Invalid logo image file. Only genuine PNG, JPG, and WebP files are allowed.' };
+    }
+
+    const bucket = 'logos';
+    const filePath = `${tenantId}/${targetField}_${Date.now()}.${logoMeta.ext}`;
 
     const { error: uploadError } = await actingSupabase.storage
         .from(bucket)
-        .upload(filePath, file, {
+        .upload(filePath, logoBuffer, {
             upsert: true,
-            contentType: file.type
+            contentType: logoMeta.mimeType
         });
 
     if (uploadError) {

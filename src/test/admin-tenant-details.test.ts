@@ -291,8 +291,11 @@ describe('getTenantDetails Admin Action', () => {
             ]
         });
 
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-09-28T12:00:00Z'));
         const { getTenantDetails } = await import('@/app/admin/actions');
         const res = await getTenantDetails('tenant-ags');
+        vi.useRealTimers();
 
         expect(res).not.toBeNull();
         if (!res) return;

@@ -1,38 +1,65 @@
 'use server';
 
-import { createClient } from '@supabase/supabase-js';
+import { isTrustedAppHost } from '@/lib/validations';
+import { checkRateLimit, extractClientIp } from '@/lib/rate-limit';
 
 // We use the admin service role to bypass email confirmation limits
 export async function adminSignUp(formData: FormData) {
-    const email = formData.get('email') as string;
+    const { headers } = await import('next/headers');
+    const headersList = await headers();
+    const clientIp = extractClientIp(headersList);
+    const rl = checkRateLimit('auth-signup', clientIp, 5, 15 * 60 * 1000);
+    if (!rl.allowed) {
+        return { user: null, error: 'Too many sign-up attempts. Please wait a few minutes and try again.' };
+    }
+
+    const email = (formData.get('email') as string)?.trim().toLowerCase();
     const password = formData.get('password') as string;
-    const fullName = formData.get('fullName') as string;
+    const fullName = (formData.get('fullName') as string)?.trim();
 
     if (!email || !password) {
         return { error: 'Email and password are required' };
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return { error: 'Invalid email address format' };
+    }
+
+    if (password.length < 8) {
+        return { error: 'Password must be at least 8 characters long' };
+    }
+    if (password.length > 128) {
+        return { error: 'Password must be 128 characters or fewer' };
+    }
+
     try {
-        const supabaseAdmin = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+        const { createAdminClient } = await import('@/lib/supabase/admin');
+        const supabaseAdmin = createAdminClient();
+        if (!supabaseAdmin) {
+            return { user: null, error: 'Registration service temporarily unavailable' };
+        }
 
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
             email,
             password,
             email_confirm: true,
             user_metadata: {
-                full_name: fullName,
+                full_name: fullName ? fullName.slice(0, 120) : undefined,
             },
         });
 
-        if (error) throw error;
+        if (error) {
+            if (error.message?.toLowerCase().includes('already')) {
+                return { user: null, error: 'An account with this email already exists. Please log in instead.' };
+            }
+            return { user: null, error: 'Unable to create account. Please verify your details and try again.' };
+        }
 
         return { user: data.user, error: null };
     } catch (error: any) {
         console.error('Admin Sign Up Error:', error);
-        return { user: null, error: error.message };
+        return { user: null, error: 'Unable to complete registration right now. Please try again.' };
     }
 }
 
@@ -42,17 +69,23 @@ export async function requestPasswordReset(email: string) {
     }
 
     try {
+        const { headers } = await import('next/headers');
+        const headersList = await headers();
+        const clientIp = extractClientIp(headersList);
+        const rl = checkRateLimit('auth-reset', clientIp, 5, 15 * 60 * 1000);
+        if (!rl.allowed) {
+            return { error: 'Too many password reset requests. Please wait a few minutes and try again.' };
+        }
+
         const cleanEmail = email.trim().toLowerCase();
         const { createAdminClient } = await import('@/lib/supabase/admin');
         const supabase = createAdminClient();
         if (!supabase) return { error: 'Server configuration error' };
 
-        const { headers } = await import('next/headers');
-        const headersList = await headers();
         const host = headersList.get('x-forwarded-host') || headersList.get('host');
         let origin: string;
-        if (host) {
-            const proto = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
+        if (host && isTrustedAppHost(host)) {
+            const proto = host.includes('localhost') || host.startsWith('127.0.0.1') ? 'http' : 'https';
             origin = `${proto}://${host}`;
         } else {
             origin = process.env.NEXT_PUBLIC_APP_URL || 'https://railify.app';

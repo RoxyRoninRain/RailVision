@@ -50,6 +50,12 @@ backups/
 *.bak
 typescript_errors*.txt
 test_results.txt
+active_tenants*.json
+active_tenants*.log
+profiles.txt
+projects.json
+db_error.json
+supabase/.temp/
 
 # typescript
 *.tsbuildinfo

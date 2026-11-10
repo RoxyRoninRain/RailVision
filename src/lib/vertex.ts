@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { SECOND_PASS_ISSUES } from '@/app/actions/types';
+import { detectImageMetadata, type SupportedAspectRatio } from '@/lib/validations';
 
 // STRICT LAZY LOAD: Do NOT import types from @google-cloud/vertexai at top level
 // This prevents the build system from trying to resolve the module during static analysis.
@@ -9,6 +10,57 @@ let vertexAI: any = null;
 let vertexAIGlobal: any = null;
 let routerModel: any = null;
 let imagenModel: any = null;
+
+const FALLBACK_IMAGE_MODEL = 'gemini-3.1-flash-image';
+
+export function getConfiguredImageModelId(): string {
+    const envModel = process.env.VERTEX_IMAGE_MODEL?.trim();
+    return envModel || FALLBACK_IMAGE_MODEL;
+}
+
+/**
+ * Strips any `data:image/...;base64,` prefix, detects genuine binary MIME type
+ * (JPEG, PNG, WebP) and pixel aspect ratio so Vertex AI receives accurate decoder
+ * metadata and preserves the input staircase framing.
+ */
+export function parseBase64ImagePart(base64OrDataUri: string): {
+    cleanBase64: string;
+    mimeType: 'image/jpeg' | 'image/png' | 'image/webp';
+    aspectRatio?: SupportedAspectRatio;
+} {
+    let explicitMime: 'image/jpeg' | 'image/png' | 'image/webp' | undefined;
+    let cleanBase64 = base64OrDataUri;
+
+    if (base64OrDataUri.startsWith('data:')) {
+        const commaIdx = base64OrDataUri.indexOf(',');
+        if (commaIdx !== -1) {
+            const header = base64OrDataUri.slice(0, commaIdx).toLowerCase();
+            if (header.includes('image/png')) explicitMime = 'image/png';
+            else if (header.includes('image/webp')) explicitMime = 'image/webp';
+            else if (header.includes('image/jpeg') || header.includes('image/jpg')) explicitMime = 'image/jpeg';
+            cleanBase64 = base64OrDataUri.slice(commaIdx + 1);
+        }
+    }
+
+    try {
+        const buf = Buffer.from(cleanBase64, 'base64');
+        const meta = detectImageMetadata(buf);
+        if (meta.valid && meta.mimeType && meta.mimeType !== 'image/heic') {
+            return {
+                cleanBase64,
+                mimeType: meta.mimeType,
+                aspectRatio: meta.aspectRatio,
+            };
+        }
+    } catch {
+        // Fallback for synthetic unit-test strings
+    }
+
+    return {
+        cleanBase64,
+        mimeType: explicitMime || 'image/jpeg',
+    };
+}
 
 // Helper to dynamically load the VertexAI constructor
 async function loadVertexAI() {
@@ -49,7 +101,6 @@ function getGoogleAuthOptions(): GoogleAuthResult {
                 jsonStr = Buffer.from(credsStr, 'base64').toString('utf-8');
             }
             const creds = JSON.parse(jsonStr);
-            console.log('[DEBUG] Credentials parsed successfully (Lazy Load)');
             return {
                 credentials: {
                     client_email: creds.client_email,
@@ -114,27 +165,25 @@ async function getImagenModel() {
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-const DEFAULT_SYSTEM_INSTRUCTION = `**ROLE:** You are Railify-AI, an expert Architectural Visualization Engine.
-**TASK:** Renovate the user's staircase by overlaying a new handrail system.
-**DATA LAYERS (STRICT ADHERENCE):**
-**LAYER 1: THE SCENE (IMAGE A)**
-*   **Status:** IMMUTABLE BACKGROUND. **CRITICAL:** THE ROOM GEOMETRY IS LOCKED.
-*   **Rule:** You must NOT alter the walls, flooring, stair pitch, windows, lighting, or furniture.
-*   **Exception:** You may perform "Digital Cleanup" (remove trash/tools), but NEVER move a wall or stair tread.
-**LAYER 2: THE PRODUCT (HANDRAIL)**
-*   **Status:** THE ONLY VARIABLE. **CRITICAL:** THIS IS A REFERENCE ONLY.
-*   **Source:** References (B/C).
-*   **Physics:** The rail must track the *Nosing Line* relative to Layer 1.
-**STRICT PROHIBITIONS (FATAL ERRORS):**
-*   **NO STYLE TRANSFER:** Do NOT output Image B. Your canvas is Image A.
-*   **NO GHOSTING:** Spindles must NEVER pass through a Shoe Rail.
-*   **NO WARPING:** Do not change the angle or number of steps.
-*   **NO COLLAGES:** Single full-screen view only.
-*   **NO HALLUCINATIONS:** FAST FAIL if you create windows, doors, or furniture that do not exist.
-*   **NO TEXT OUTPUT:** RETURN ONLY THE IMAGE. DO NOT EXPLAIN YOUR THINKING.
+const DEFAULT_SYSTEM_INSTRUCTION = `**ROLE:** You are Railify-AI, an expert Architectural Visualization & Metal Fabrication Inpainting Engine.
+**TASK:** Renovate ONLY the handrail/railing system in **IMAGE A** while keeping 100% of the surrounding staircase, room architecture, decor, lighting, and camera geometry identical to **IMAGE A**.
+
+**DATA LAYERS (STRICT SEPARATION):**
+**LAYER 1: THE SCENE CANVAS (IMAGE A — IMMUTABLE ENVIRONMENT)**
+*   **Status:** PIXEL-LOCKED BACKGROUND. Every stair tread, riser, stringer, nosing count, wall, baseboard, trim molding, window, door, light fixture, rug, plant, decor item, and piece of furniture outside the handrail footprint is **READ-ONLY** and must remain untouched.
+*   **Foreground Occlusion:** If a foreground half-wall, column, drywall return, or stair stringer naturally overlaps the railing path in Image A, preserve that exact foreground occlusion in front of the new railing.
+
+**LAYER 2: THE PRODUCT SPECIMEN (IMAGE B / IMAGE C — HARDWARE ONLY)**
+*   **Status:** PRODUCT & HARDWARE REFERENCE ONLY.
+*   **Style-Scene Isolation:** Extract ONLY the railing product (top-rail profile, post cross-section thickness, infill geometry/spacing, metal/wood/cable/glass finish, and mounting hardware) from Image B/C. Completely ignore the walls, stairs, wood species, outdoor scenery, and lighting of Image B/C—never transfer Image B's room into Image A.
+*   **Architectural Scale & Code Proportions:**
+    *   Set the top handrail at authentic residential scale (~34–38 inches vertically above the stair tread nosing line), running strictly parallel to the stair pitch without bowing or sagging.
+    *   Keep vertical posts strictly plumb (vertical to gravity) with consistent cross-section thickness matching Image B/C, and keep balusters/cables evenly spaced (<4 inch code spacing).
+    *   Terminate top and bottom rail ends cleanly into structural newel posts, wall returns, or end caps matching Image B—never leave rail ends floating mid-air.
+
 **OUTPUT FORMAT:**
-*   **Single Image Identity:** One unified photograph.
-*   **Camera Lock:** Exact aspect ratio and POV of Image A.`;
+*   Single unified, photorealistic photograph matching the exact camera POV, lens focal length, and aspect ratio of Image A.
+*   Output ONLY the final photograph with zero visible text overlays or captions.`;
 
 export async function generateDesignWithNanoBanana(
     base64TargetImage: string,
@@ -149,74 +198,86 @@ export async function generateDesignWithNanoBanana(
         } 
     },
     promptConfig?: { systemInstruction: string; userTemplate: string; negative_prompt?: string }
-): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
+): Promise<{ success: boolean; image?: string; error?: string; modelUsed?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     const maxAttempts = 5;
     let attempts = 0;
-
-    const isReducerRequired = typeof styleInput !== 'string' && styleInput.technicalSpecs?.hasReducers === true;
+    let activeModelId = getConfiguredImageModelId();
+    let disableImageConfig = false;
 
     // Use lazy getter for the model
-    let model;
     let finalSystemInstruction = '';
     try {
         const client = await getVertexClient(true); // Restore usage of Global Client for Nano Banana
-        let baseSystemInstruction = (promptConfig?.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION)
+        const baseSystemInstruction = (promptConfig?.systemInstruction || DEFAULT_SYSTEM_INSTRUCTION)
             .replace('{{DATE}}', new Date().toISOString().split('T')[0]);
 
         finalSystemInstruction = baseSystemInstruction;
 
-        console.log('--- SYSTEM INSTRUCTION ---');
-        console.log(finalSystemInstruction);
-        console.log('--- END SYSTEM INSTRUCTION ---');
+        if (process.env.NODE_ENV !== 'production') {
+            console.log('--- SYSTEM INSTRUCTION ---');
+            console.log(finalSystemInstruction);
+            console.log('--- END SYSTEM INSTRUCTION ---');
+        }
 
-        model = client.getGenerativeModel({
-            model: 'gemini-3.1-flash-image', // Restore User's Required Model
+        client.getGenerativeModel({
+            model: activeModelId,
             systemInstruction: finalSystemInstruction
         });
 
-        console.log('[VERTEX] Model initialized. Starting generation request with 45s timeout...');
+        console.log(`[VERTEX] Initialized generation pipeline (model: ${activeModelId})...`);
 
     } catch (e) {
         console.warn("[VERTEX] Lazily init failed:", e);
         return { success: false, error: "AI Service Unavailable: Initialization Failed" };
     }
 
+    const targetPartMeta = parseBase64ImagePart(base64TargetImage);
+
     while (attempts < maxAttempts) {
         try {
-            console.log(`[NANO BANANA] Generation attempt ${attempts + 1} of ${maxAttempts}...`);
+            console.log(`[NANO BANANA] Generation attempt ${attempts + 1} of ${maxAttempts} (${activeModelId})...`);
 
             const parts: any[] = [];
 
             // 1. Target Image (Image A)
-            parts.push({ text: "**IMAGE A (Canvas):** The user's original staircase." });
+            parts.push({
+                text: `**IMAGE A (Immutable Scene Canvas${targetPartMeta.aspectRatio ? ` — Aspect Ratio ${targetPartMeta.aspectRatio}` : ''}):** The user's original staircase. Preserve all room architecture, tread count, walls, flooring, lighting, and camera POV.`
+            });
             parts.push({
                 inlineData: {
-                    mimeType: 'image/jpeg',
-                    data: base64TargetImage
+                    mimeType: targetPartMeta.mimeType,
+                    data: targetPartMeta.cleanBase64
                 }
             });
 
             // 2. Style Images (Image B & C)
+            const hasExtraStyleRefs = typeof styleInput !== 'string' && styleInput.base64StyleImages.length > 1;
             if (typeof styleInput === 'string') {
                 console.log('[DEBUG] Text-only style, skipping Image B/C slots');
             } else {
                 const styleImages = styleInput.base64StyleImages;
                 if (styleImages.length > 0) {
-                    parts.push({ text: "**IMAGE B (Primary Style):** The primary aesthetic and design reference (Style Guide)." });
+                    const primaryStyleMeta = parseBase64ImagePart(styleImages[0]);
+                    parts.push({
+                        text: "**IMAGE B (Primary Railing Specimen — Extract Hardware & Style Only, Ignore Room Background):** The primary railing design, profile dimensions, and finish reference."
+                    });
                     parts.push({
                         inlineData: {
-                            mimeType: 'image/jpeg',
-                            data: styleImages[0]
+                            mimeType: primaryStyleMeta.mimeType,
+                            data: primaryStyleMeta.cleanBase64
                         }
                     });
 
-                    if (styleImages.length > 1) {
-                        parts.push({ text: "**IMAGE C (Detailed Context References):** Additional reference photos providing extra context, close-up fabrication details, hardware, and construction methods." });
+                    if (hasExtraStyleRefs) {
+                        parts.push({
+                            text: "**IMAGE C (Detailed Hardware & Fabrication Close-Ups — Ignore Background):** Additional reference photos showing exact joints, post mounting hardware, and construction details."
+                        });
                         for (let i = 1; i < styleImages.length; i++) {
+                            const refMeta = parseBase64ImagePart(styleImages[i]);
                             parts.push({
                                 inlineData: {
-                                    mimeType: 'image/jpeg',
-                                    data: styleImages[i]
+                                    mimeType: refMeta.mimeType,
+                                    data: refMeta.cleanBase64
                                 }
                             });
                         }
@@ -224,9 +285,10 @@ export async function generateDesignWithNanoBanana(
                 }
             }
 
+            const refLabelText = hasExtraStyleRefs ? '**IMAGE B** and **IMAGE C**' : '**IMAGE B**';
 
             // DYNAMIC FABRICATION & MOUNTING INSTRUCTIONS
-            let mountingInstructionStep = "1a. **Analysis:** Extract the Style (Material) and Mounting Tech (Shoe vs Direct) from Image B and Image C."; // Default generic fallback
+            let mountingInstructionStep = `1a. **Analysis:** Extract the Style (Material, Post Profile, Infill Spacing) and Mounting Tech (Shoe Rail vs Direct Tread Mount) from ${refLabelText}.`; // Default generic fallback
             let postMountInstructionStep = "";
             let reducerInstructionStep = "";
             let styleSpecsStep = "";
@@ -237,10 +299,10 @@ export async function generateDesignWithNanoBanana(
                 if (specs.hasBottomRail !== undefined && specs.hasBottomRail !== null) {
                     if (specs.hasBottomRail) {
                         // CASE 1: SHOE RAIL REQUIRED
-                        mountingInstructionStep = `1a. **Mounting (SHOE RAIL REQUIRED):** The user requires a **Shoe Rail**. Render a continuous horizontal bottom rail running parallel to the stair pitch 2–4 inches above the stair nosing line connecting all spindles. All intermediate spindles must terminate cleanly into the top of this bottom rail—never extend spindles through the bottom rail into the stair treads.`;
+                        mountingInstructionStep = `1a. **Mounting (SHOE RAIL REQUIRED):** The user requires a **Shoe Rail**. Render a continuous horizontal bottom rail running parallel to the stair pitch 2–4 inches above the stair nosing line connecting all spindles. All intermediate spindles must terminate cleanly into the top surface of this bottom rail, leaving open air between the underside of the shoe rail and the stair treads.`;
                     } else {
                         // CASE 2: DIRECT MOUNT REQUIRED
-                        mountingInstructionStep = `1a. **Mounting (DIRECT MOUNT - NO BOTTOM RAIL):** The user requires **Direct Mount**. Each post/spindle mounts directly into the stair tread/floor without a bottom shoe rail. NEVER render a parallel bottom channel or lower shoe rail running above the stair nosings.`;
+                        mountingInstructionStep = `1a. **Mounting (DIRECT MOUNT - NO BOTTOM RAIL):** The user requires **Direct Mount**. Each post/spindle extends all the way down to anchor directly into its individual stair tread or landing floor with clean bare tread surface between spindles (no parallel lower shoe rail above the stair nosings).`;
                     }
                 }
 
@@ -287,44 +349,39 @@ export async function generateDesignWithNanoBanana(
 
             // 3. User Prompt construction
             let promptText = promptConfig?.userTemplate || `[INPUTS]
-: **IMAGE A (Canvas):** [User's Staircase]
-: **IMAGE B (Primary Style):** [Primary Style Reference]
-: **IMAGE C (Detailed Context References):** [Extra Context & Detailed References]
+: **IMAGE A (Canvas):** [User's Staircase — Immutable Scene & Camera]
+: **IMAGE B (Primary Style):** [Primary Railing Product Specimen]${hasExtraStyleRefs ? `\n: **IMAGE C (Detailed Context References):** [Close-Up Hardware & Fabrication References]` : ''}
 
 ***
 
-### PHASE 1: DIAGNOSTIC & DEMOLITION (IMAGE A)
-Analyze the User's Staircase.
-1.  **Existing Rail Check:** Is there an existing handrail?
-    - **YES:** Create a precise mask around it. DIGITALLY REMOVE IT. "Heal" the background (fill holes in steps, fix drywall, match wall texture) so it looks like an empty staircase.
-    - **NO:** Proceed immediately to Phase 2.
-2.  **Geometry Check:** Trace the "Nosing Line" (tips of the treads). Your new rail must follow this path. Confirm the start and end points (floor or wall?).
-3.  **Layout Strategy:** Analyze the width and context.
-    - **Single vs Double:** Is the stair open on one side (Single) or both sides (Double)?
-    - **Wall Rail:** Is the stair enclosed by walls? If so, does it need a wall-mounted handrail instead of a post-to-post system?
-    - *Decision:* Choose the layout that maximizes safety and matches the architectural style of Image A.
+### PHASE 1: SEMANTIC MASKING & DEMOLITION (IMAGE A)
+Analyze the User's Staircase in **IMAGE A**:
+1.  **Existing Railing Removal:** Locate ONLY the existing handrail, balusters/spindles, newel posts, and wall brackets in Image A.
+    - **If an existing railing is present:** Digitally remove it completely and seamlessly reconstruct the occluded stair tread wood/carpet, nosings, risers, stringer face, and wall paint behind it using the exact surrounding textures of Image A.
+    - **If no railing is present:** Keep every surface of Image A as-is and proceed to Phase 2.
+2.  **Geometric Anchor Path:** Trace the exact 3D **Nosing Line** (leading edges of every stair tread and landing in Image A). Count the exact treads and landings so zero steps are added, removed, or shifted.
+3.  **Run & Layout Selection:**
+    - Install the new railing only along open stair edges, landings/balconies, or existing handrail runs visible in Image A.
+    - If a staircase run is fully enclosed between two solid drywall walls with no open edge, install a matching wall-mounted handrail along the wall path rather than freestanding posts on enclosed steps.
 
-### PHASE 2: STYLE & MOUNTING EXECUTION
-Apply **IMAGE B (Primary Style)**, **IMAGE C (Detailed Context References)**, and **TECHNICAL SPECS**.
+### PHASE 2: PRODUCT & HARDWARE SYNTHESIS
+Extract ONLY the railing hardware and finish from ${refLabelText} (completely ignoring ${refLabelText}'s room background):
 1.  **Mounting & Junction Logic:**
     ${mountingInstructionStep}
     ${postMountInstructionStep ? `\n    ${postMountInstructionStep}` : ''}
     ${reducerInstructionStep ? `\n    ${reducerInstructionStep}` : ''}
-2.  **Materials & Fabrication:** Extract the exact materials, finishes, and fabrication methods from **IMAGE B** and **IMAGE C**. Apply this texture and detail to your new model.${styleSpecsStep}
-3.  **Preservation:** DO NOT CHANGE THE STAIRS, WALLS, OR FLOORING of Image A (except for the healed areas from Phase 1).
+2.  **Materials, Proportions & Scale:** Replicate the exact metal/wood/cable/glass finish, post cross-section thickness, top-rail profile, and uniform <4-inch infill spacing from ${refLabelText}. Set the top handrail height at a realistic 34–38 inches above the stair nosing line.${styleSpecsStep}
+3.  **Strict Environment Lock:** Keep all walls, stair treads, flooring, windows, doors, lighting fixtures, and room decor from Image A 100% unchanged.
 
-### PHASE 3: EXECUTION
-Renovate **IMAGE A**.
-1.  **Install:** Generate the new system defined in Phase 2 onto the path defined in Phase 1.
-2.  **Physics:** Ensure correct shadows and lighting match Image A.
-3.  **Preservation:** DO NOT CHANGE THE STAIRS, WALLS, OR FLOORING of Image A (except for the healed areas from Phase 1).
+### PHASE 3: PHOTOREALISTIC COMPOSITING
+Render the renovated **IMAGE A**:
+1.  **Perspective & Occlusion:** Match Image A's exact camera focal length, vanishing points, and foreground wall/column occlusions.
+2.  **Lighting & Contact Shadows:** Cast physically accurate contact shadows and metallic reflections driven strictly by Image A's existing light sources.
 
-**FINAL CHECK:**
-- Is the old rail gone?
-- Is the new rail mounting (Shoe vs Direct) correct according to Image B and Image C?
-- Is the post mounting style (Side Mount to outer fascia vs Top Mount on treads) strictly honored? If Side Mount, confirm direct 2-bolt through-post attachment with zero mounting plates or brackets as shown in Image C.
-- Did you examine the post-to-rail junction in Image B and Image C and follow the connection specification?
-- Is the background preserved?`;
+**FINAL VERIFICATION:**
+- Is the old handrail completely gone with zero leftover wooden/iron stubs or ghosted holes?
+- Does the new railing strictly match the Shoe Rail vs Direct Mount, Side Mount vs Top Mount, and Post-to-Rail Joint specifications?
+- Are every stair step, wall, window, piece of furniture, and camera angle pixel-faithful to Image A?`;
 
             // If user has a custom template that includes placeholders, replace them.
             if (promptText.includes('{{mounting_logic}}')) {
@@ -372,27 +429,42 @@ Renovate **IMAGE A**.
             }
 
             // Negative Constraints (keep only clean user-defined negative prompt, no keyword dumping)
-            let combinedNegative = (promptConfig?.negative_prompt || "").trim();
+            const combinedNegative = (promptConfig?.negative_prompt || "").trim();
             if (combinedNegative) {
                 promptText += `\n\nNEGATIVE CONSTRAINTS (STRICTLY PROHIBITED): ${combinedNegative}`;
             }
 
             parts.push({ text: promptText });
 
-            console.log('--- FINAL PROMPT SENT TO VERTEX ---');
-            console.log(promptText);
-            console.log('--- END PROMPT ---');
+            if (process.env.NODE_ENV !== 'production') {
+                console.log('--- FINAL PROMPT SENT TO VERTEX ---');
+                console.log(promptText);
+                console.log('--- END PROMPT ---');
+            }
 
-            // BYPASS SDK: Use Raw Fetch because SDK fails on Gemini 3 'thought' responses (JSON parsing error)
+            // BYPASS SDK: Use Raw Fetch because legacy @google-cloud/vertexai SDK fails on Gemini 3 'thought' parts
             const authOptions = getGoogleAuthOptions();
             const token = await getAccessToken(authOptions.credentials?.client_email, authOptions.credentials?.private_key);
-            const projectId = authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'railvision-480923';
+            const projectId = authOptions.projectId || process.env.VERTEX_PROJECT_ID;
+            if (!projectId && process.env.NODE_ENV === 'production') {
+                throw new Error('Missing VERTEX_PROJECT_ID configuration');
+            }
+            const resolvedProjectId = projectId || 'railvision-480923';
 
-            const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3.1-flash-image:generateContent`;
+            const url = `https://aiplatform.googleapis.com/v1/projects/${resolvedProjectId}/locations/global/publishers/google/models/${activeModelId}:generateContent`;
 
-            console.log(`[VERTEX RAW] Calling URL: ${url}`);
+            const attemptTemp = Math.max(0.15, 0.35 - attempts * 0.1);
+            const generationConfig: Record<string, any> = {
+                temperature: attemptTemp,
+                // 8192 provides ample headroom for internal Gemini thinking tokens + 1K/2K image output tokens
+                maxOutputTokens: 8192,
+            };
 
-            const attemptTemp = Math.max(0.2, 0.4 - attempts * 0.1);
+            if (!disableImageConfig && targetPartMeta.aspectRatio) {
+                generationConfig.imageConfig = {
+                    aspectRatio: targetPartMeta.aspectRatio,
+                };
+            }
 
             const rawResponse = await withTimeout(fetch(url, {
                 method: 'POST',
@@ -405,15 +477,24 @@ Renovate **IMAGE A**.
                         parts: [{ text: finalSystemInstruction }]
                     },
                     contents: [{ role: 'user', parts }],
-                    generationConfig: {
-                        temperature: attemptTemp,
-                        maxOutputTokens: 2048
-                    }
+                    generationConfig
                 })
             }), 120000, 'Vertex AI Generation Timed Out (120s)');
 
             if (!rawResponse.ok) {
                 const text = await rawResponse.text();
+                // Graceful fallback if configured VERTEX_IMAGE_MODEL is not yet enabled in the GCP project
+                if (rawResponse.status === 404 && activeModelId !== FALLBACK_IMAGE_MODEL) {
+                    console.warn(`[VERTEX] Model ${activeModelId} returned 404; falling back to ${FALLBACK_IMAGE_MODEL}`);
+                    activeModelId = FALLBACK_IMAGE_MODEL;
+                    continue;
+                }
+                // Graceful retry if endpoint rejects imageConfig payload field
+                if (rawResponse.status === 400 && !disableImageConfig && generationConfig.imageConfig) {
+                    console.warn('[VERTEX] Retrying without generationConfig.imageConfig after 400 response');
+                    disableImageConfig = true;
+                    continue;
+                }
                 throw new Error(`Vertex API Error ${rawResponse.status}: ${text}`);
             }
 
@@ -431,7 +512,6 @@ Renovate **IMAGE A**.
             for (const part of candidate.content.parts) {
                 // Handle "Thought" parts vs "Image" parts
                 if (part.thought) {
-                    console.log(`[GEMINI THOUGHT] ${part.text?.substring(0, 50)}...`);
                     continue;
                 }
 
@@ -440,6 +520,7 @@ Renovate **IMAGE A**.
                     return {
                         success: true,
                         image: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`,
+                        modelUsed: activeModelId,
                         usage
                     };
                 }
@@ -528,7 +609,7 @@ export function assembleRefinementPrompt(config: {
 
     return `Perform a targeted micro-refinement on this railing photograph.
 Preserve the room, walls, stair treads, background, lighting, and general scene perspective exactly as shown.
-When removing any unwanted mounting plates, brackets, or ghosted spindles, restore the underlying stair tread, nosing, stringer, or wall surface cleanly using the Original Staircase Background reference if provided.
+When removing any unwanted mounting plates, brackets, or ghosted spindles, restore the underlying stair tread, nosing, stringer, or wall surface cleanly using the Original Staircase Background reference if provided (never re-introduce the demolished old railing from the original before-photo).
 Apply the following specific fabrication enhancements:
 ${issues.join('\n')}
 Output a single unified high-resolution photograph.`;
@@ -543,8 +624,10 @@ export async function refineDesignWithNanoBanana(
 ): Promise<{ success: boolean; image?: string; error?: string; usage?: { inputTokens: number; outputTokens: number } }> {
     const maxAttempts = 3;
     let attempts = 0;
+    let activeModelId = getConfiguredImageModelId();
+    let disableImageConfig = false;
 
-    const cleanBase64 = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+    const canvasMeta = parseBase64ImagePart(base64Image);
 
     const systemInstruction = `**ROLE:** Architectural Image Refiner.
 **TASK:** Perform a targeted micro-refinement on the provided handrail photograph according to the user instructions.
@@ -552,56 +635,56 @@ export async function refineDesignWithNanoBanana(
 * Do NOT alter the room, stairs, walls, flooring, lighting, or camera POV.
 * Keep all materials, stair treads, and overall composition intact.
 * Modify ONLY the specific joints, connections, or details requested.
-* When removing misplaced hardware, baseplates, or ghosted balusters, heal the exposed stair tread, nosing, or wall surface to match the untouched Original Staircase Background reference.
-* If close-up hardware or fabrication reference photos are provided, replicate their physical appearance and construction methods precisely onto the canvas railing.
+* When removing misplaced hardware, baseplates, or ghosted balusters, heal the exposed stair tread, nosing, or wall surface to match the bare surface textures in the Original Staircase Background reference—NEVER copy the old pre-renovation railing, balusters, or newels back into the scene.
+* If close-up hardware or fabrication reference photos are provided, replicate their physical appearance and construction methods precisely onto the canvas railing while ignoring their backgrounds.
 * RETURN ONLY THE REFINED PHOTOGRAPH.`;
 
     const parts: any[] = [
         { text: "**CANVAS TO REFINE:** Input railing photograph from Pass 1:" },
         {
             inlineData: {
-                mimeType: 'image/jpeg',
-                data: cleanBase64
+                mimeType: canvasMeta.mimeType,
+                data: canvasMeta.cleanBase64
             }
         }
     ];
 
     if (originalSceneBase64) {
-        const cleanScene = originalSceneBase64.includes(',') ? originalSceneBase64.split(',')[1] : originalSceneBase64;
+        const sceneMeta = parseBase64ImagePart(originalSceneBase64);
         parts.push({
-            text: "**ORIGINAL STAIRCASE BACKGROUND (READ-ONLY RESTORATION REFERENCE):** Use this untouched original staircase photo ONLY to restore authentic stair tread wood/carpet, nosings, stringers, or wall textures behind any misplaced plates, posts, or ghosted spindles you remove."
+            text: "**ORIGINAL STAIRCASE BACKGROUND (BARE SURFACE TEXTURE REFERENCE ONLY):** Use this before-photo ONLY to sample authentic bare stair tread wood/carpet, nosings, stringers, or wall paint behind any misplaced plates, posts, or ghosted spindles you remove. CRITICAL: Ignore the old pre-renovation handrail in this before-photo—never copy old balusters, posts, or rails back onto the canvas."
         });
         parts.push({
             inlineData: {
-                mimeType: 'image/jpeg',
-                data: cleanScene
+                mimeType: sceneMeta.mimeType,
+                data: sceneMeta.cleanBase64
             }
         });
     }
 
     if (detailImages && detailImages.length > 0) {
         for (const detail of detailImages) {
+            const detailMeta = parseBase64ImagePart(detail.base64Data);
             parts.push({
                 text: `**CLOSE-UP REFERENCE (${detail.label.toUpperCase()}):** Inspect this close-up photo showing the exact required fabrication and hardware detail. Replicate this exact physical appearance onto the canvas railing.`
             });
-            const cleanDetail = detail.base64Data.includes(',') ? detail.base64Data.split(',')[1] : detail.base64Data;
             parts.push({
                 inlineData: {
-                    mimeType: 'image/jpeg',
-                    data: cleanDetail
+                    mimeType: detailMeta.mimeType,
+                    data: detailMeta.cleanBase64
                 }
             });
         }
     }
 
     if (referenceImages && referenceImages.length > 0) {
-        parts.push({ text: "**STYLE & HARDWARE CONTEXT REFERENCES:** Inspect closely for connection hardware, post joints, and mounting details:" });
-        for (const refImg of referenceImages) {
-            const cleanRef = refImg.includes(',') ? refImg.split(',')[1] : refImg;
+        parts.push({ text: "**STYLE & HARDWARE CONTEXT REFERENCES (IGNORE BACKGROUNDS):** Inspect closely for connection hardware, post joints, and mounting details:" });
+        for (const refImg of referenceImages.slice(0, 4)) {
+            const refMeta = parseBase64ImagePart(refImg);
             parts.push({
                 inlineData: {
-                    mimeType: 'image/jpeg',
-                    data: cleanRef
+                    mimeType: refMeta.mimeType,
+                    data: refMeta.cleanBase64
                 }
             });
         }
@@ -615,9 +698,18 @@ export async function refineDesignWithNanoBanana(
             const token = await getAccessToken(authOptions.credentials?.client_email, authOptions.credentials?.private_key);
             const projectId = authOptions.projectId || process.env.VERTEX_PROJECT_ID || 'railvision-480923';
 
-            const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/gemini-3.1-flash-image:generateContent`;
+            const url = `https://aiplatform.googleapis.com/v1/projects/${projectId}/locations/global/publishers/google/models/${activeModelId}:generateContent`;
 
-            console.log(`[VERTEX REFINEMENT RAW] Calling URL: ${url}`);
+            const generationConfig: Record<string, any> = {
+                temperature: 0.2,
+                maxOutputTokens: 8192,
+            };
+
+            if (!disableImageConfig && canvasMeta.aspectRatio) {
+                generationConfig.imageConfig = {
+                    aspectRatio: canvasMeta.aspectRatio,
+                };
+            }
 
             const rawResponse = await withTimeout(fetch(url, {
                 method: 'POST',
@@ -630,15 +722,20 @@ export async function refineDesignWithNanoBanana(
                         parts: [{ text: systemInstruction }]
                     },
                     contents: [{ role: 'user', parts }],
-                    generationConfig: {
-                        temperature: 0.2,
-                        maxOutputTokens: 2048
-                    }
+                    generationConfig
                 })
             }), 120000, 'Vertex AI Refinement Timed Out (120s)');
 
             if (!rawResponse.ok) {
                 const text = await rawResponse.text();
+                if (rawResponse.status === 404 && activeModelId !== FALLBACK_IMAGE_MODEL) {
+                    activeModelId = FALLBACK_IMAGE_MODEL;
+                    continue;
+                }
+                if (rawResponse.status === 400 && !disableImageConfig && generationConfig.imageConfig) {
+                    disableImageConfig = true;
+                    continue;
+                }
                 throw new Error(`Vertex Refinement API Error ${rawResponse.status}: ${text}`);
             }
 

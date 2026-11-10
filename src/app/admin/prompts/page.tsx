@@ -36,28 +36,6 @@ export default function PromptsPage() {
     // DEBUG STATE
     const [debugError, setDebugError] = useState<string | null>(null);
 
-    const fetchPrompts = async () => {
-        setLoading(true);
-        getAllSystemPrompts()
-            .then(data => {
-                if (data.length === 0) {
-                    setDebugError("No prompts returned. (Check RLS or DB 'updated_at' column)");
-                    // diagnoseConnection().then(report => setDebugError("DIAGNOSTIC REPORT:\n" + report));
-                }
-                if (data.length > 0) {
-                    setPrompts(data);
-                    const active = data.find(p => p.is_active);
-                    if (!selectedPrompt) selectPrompt(active || data[0]);
-                }
-            })
-            .catch(err => setDebugError("Fetch Error: " + err.message))
-            .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        fetchPrompts();
-    }, []);
-
     const selectPrompt = (prompt: SystemPrompt) => {
         setSelectedPrompt(prompt);
         setEditInstruction(prompt.system_instruction);
@@ -65,6 +43,48 @@ export default function PromptsPage() {
         setEditNegative(prompt.negative_prompt || '');
         setSaveStatus('idle');
     };
+
+    const fetchPrompts = async () => {
+        setLoading(true);
+        try {
+            const data = await getAllSystemPrompts();
+            if (data.length === 0) {
+                setDebugError("No prompts returned. (Check RLS or DB 'updated_at' column)");
+            } else {
+                setPrompts(data);
+                const active = data.find(p => p.is_active);
+                if (!selectedPrompt) selectPrompt(active || data[0]);
+            }
+        } catch (err: any) {
+            setDebugError("Fetch Error: " + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        let cancelled = false;
+        getAllSystemPrompts()
+            .then(data => {
+                if (cancelled) return;
+                if (data.length === 0) {
+                    setDebugError("No prompts returned. (Check RLS or DB 'updated_at' column)");
+                } else {
+                    setPrompts(data);
+                    const active = data.find(p => p.is_active);
+                    selectPrompt(active || data[0]);
+                }
+            })
+            .catch(err => {
+                if (!cancelled) setDebugError("Fetch Error: " + err.message);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const handleSave = async () => {
         if (!selectedPrompt) return;

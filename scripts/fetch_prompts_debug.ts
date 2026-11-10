@@ -1,6 +1,6 @@
 import { Client } from 'pg';
 
-const connectionString = 'postgresql://postgres.zlwcdhgdmshtmkqngfzg:Reneg@d3roxyronin@aws-0-us-west-2.pooler.supabase.com:6543/postgres';
+const connectionString = process.env.DATABASE_URL;
 
 async function fetchPrompts() {
     const client = new Client({ connectionString });

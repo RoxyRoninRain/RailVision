@@ -7,7 +7,7 @@ const nextVersion = packageJson.dependencies.next;
 console.log('Checking Next.js version...');
 console.log(`Found: ${nextVersion}`);
 
-const minVersion = '16.0.8';
+const minVersion = '16.4.3';
 
 // Remove strictness chars
 const cleanVer = nextVersion.replace(/[^0-9.]/g, '');
@@ -27,6 +27,6 @@ if (isSafe(v1, v2)) {
     console.log('✅ Security Check Passed: Next.js version is safe.');
     process.exit(0);
 } else {
-    console.error('❌ Security Check Failed: Next.js version is below 16.0.8');
+    console.error(`❌ Security Check Failed: Next.js version is below ${minVersion}`);
     process.exit(1);
 }

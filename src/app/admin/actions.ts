@@ -6,6 +6,7 @@ import { checkIsAdmin } from '@/lib/auth-utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
 import { InputSanitizer } from '@/components/security/InputSanitizer';
+import { INTERNAL_PROMPT_TOKEN, isValidUuid } from '@/lib/validations';
 import { PRICING_TIERS, DEFAULT_TIER, TierName } from '@/config/pricing';
 import { format, startOfMonth, startOfYear } from 'date-fns';
 
@@ -551,7 +552,7 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
         if (anchorDateStr) {
             const anchor = new Date(anchorDateStr);
             const nowTime = Date.now();
-            let nextDate = new Date(anchor);
+            const nextDate = new Date(anchor);
             if (billingInterval === 'year') {
                 while (nextDate.getTime() <= nowTime) {
                     nextDate.setFullYear(nextDate.getFullYear() + 1);
@@ -659,8 +660,12 @@ export async function getTenantDetails(tenantId: string): Promise<TenantDetailsR
     };
 }
 
-// RESTORED: System Prompt Fetcher used by src/app/actions.ts
-export async function getSystemPrompt(key: string) {
+// System Prompt Fetcher — restricted to internal trusted server callers or Super Admins
+export async function getSystemPrompt(key: string, internalToken?: symbol) {
+    if (internalToken !== INTERNAL_PROMPT_TOKEN && !(await checkIsAdmin())) {
+        return null;
+    }
+
     let supabase = createAdminClient();
 
     // Graceful fallback if no admin client (e.g. Supabase Service Key missing locally)
@@ -684,7 +689,11 @@ export async function getSystemPrompt(key: string) {
     return data;
 }
 
-export async function getActiveSystemPrompt() {
+export async function getActiveSystemPrompt(internalToken?: symbol) {
+    if (internalToken !== INTERNAL_PROMPT_TOKEN && !(await checkIsAdmin())) {
+        return null;
+    }
+
     let supabase = createAdminClient();
     if (!supabase) {
         // Fallback for local dev without service key
@@ -701,7 +710,7 @@ export async function getActiveSystemPrompt() {
 
     if (error) {
         // Fallback to main if no active one found (shouldn't happen due to default)
-        return getSystemPrompt('gemini-handrail-main');
+        return getSystemPrompt('gemini-handrail-main', INTERNAL_PROMPT_TOKEN);
     }
 
     return data;
@@ -864,12 +873,29 @@ export async function testDesignGeneration(formData: FormData) {
         return { error: 'Both Source Image and Style Image are required for testing.' };
     }
 
+    const sourceValidation = InputSanitizer.validate(imageFile);
+    if (!sourceValidation.valid) {
+        return { error: sourceValidation.error || 'Invalid source image.' };
+    }
+    const styleValidation = InputSanitizer.validate(styleFile);
+    if (!styleValidation.valid) {
+        return { error: styleValidation.error || 'Invalid style image.' };
+    }
+
     try {
-        // 2. Prepare Base64
+        // 2. Prepare Base64 & verify magic bytes
         const imageBuffer = Buffer.from(await imageFile.arrayBuffer());
+        const sourceMagic = InputSanitizer.validateBuffer(imageBuffer);
+        if (!sourceMagic.valid) {
+            return { error: sourceMagic.error || 'Invalid source image content.' };
+        }
         const base64Image = imageBuffer.toString('base64');
 
         const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
+        const styleMagic = InputSanitizer.validateBuffer(styleBuffer);
+        if (!styleMagic.valid) {
+            return { error: styleMagic.error || 'Invalid style image content.' };
+        }
         const base64Style = styleBuffer.toString('base64');
         const styleInput = { base64StyleImages: [base64Style] };
 
@@ -899,6 +925,7 @@ export async function testDesignGeneration(formData: FormData) {
 export async function updateSubscriptionStatus(tenantId: string, status: 'active' | 'cancelled') {
     const isAdmin = await checkIsAdmin();
     if (!isAdmin) return { error: 'Unauthorized' };
+    if (!isValidUuid(tenantId)) return { error: 'Invalid tenant ID' };
 
     const supabase = createAdminClient();
     if (!supabase) return { error: 'Admin client missing' };
@@ -921,6 +948,7 @@ export async function updateSubscriptionStatus(tenantId: string, status: 'active
 export async function grantFreeCredits(tenantId: string, count: number) {
     const isAdmin = await checkIsAdmin();
     if (!isAdmin) return { error: 'Unauthorized' };
+    if (!isValidUuid(tenantId)) return { error: 'Invalid tenant ID' };
 
     const parsedCount = parseInt(String(count), 10);
     if (isNaN(parsedCount) || parsedCount <= 0) {
@@ -959,6 +987,7 @@ export async function grantFreeCredits(tenantId: string, count: number) {
 export async function grantDiscountedCredits(tenantId: string, count: number, rate?: number) {
     const isAdmin = await checkIsAdmin();
     if (!isAdmin) return { error: 'Unauthorized' };
+    if (!isValidUuid(tenantId)) return { error: 'Invalid tenant ID' };
 
     const parsedCount = parseInt(String(count), 10);
     if (isNaN(parsedCount) || parsedCount <= 0) {
@@ -1035,7 +1064,7 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
         let totalGenerations = 0;
         let totalInputTokens = 0;
         let totalOutputTokens = 0;
-        let modelBreakdown: any = {};
+        const modelBreakdown: any = {};
         const chartDataMap: Record<string, any> = {};
 
         data.forEach((gen: any) => {
@@ -1359,7 +1388,8 @@ export async function sendTenantPasswordReset(tenantId: string) {
         const headersList = await headers();
         const host = headersList.get('x-forwarded-host') || headersList.get('host');
         let origin: string;
-        if (host) {
+        const { isTrustedAppHost } = await import('@/lib/validations');
+        if (host && isTrustedAppHost(host)) {
             const proto = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https');
             origin = `${proto}://${host}`;
         } else {
@@ -1398,7 +1428,8 @@ export async function sendTenantPasswordReset(tenantId: string) {
             try {
                 const { Resend } = await import('resend');
                 const resend = new Resend(process.env.RESEND_API_KEY);
-                const tenantName = profile.shop_name || 'Valued Partner';
+                const { escapeHtml } = await import('@/lib/sanitize');
+                const tenantName = escapeHtml(profile.shop_name || 'Valued Partner');
 
                 const { data: resendData, error: resendErr } = await resend.emails.send({
                     from: 'Railify <notifications@railify.app>',

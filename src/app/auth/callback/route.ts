@@ -1,11 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+import { isTrustedAppHost } from '@/lib/validations';
 
 export async function GET(request: Request) {
     const { searchParams, origin } = new URL(request.url);
     const code = searchParams.get('code');
-    // if "next" is in param, use it as the redirect URL
-    const next = searchParams.get('next') ?? '/dashboard/leads';
+    // Sanitize "next" param to prevent open redirects (must be a single-slash relative path)
+    const rawNext = searchParams.get('next') ?? '/dashboard/leads';
+    const next = (rawNext.startsWith('/') && !rawNext.startsWith('//') && !rawNext.startsWith('/\\'))
+        ? rawNext
+        : '/dashboard/leads';
     const errorParam = searchParams.get('error');
     const errorDesc = searchParams.get('error_description');
 
@@ -13,7 +17,7 @@ export async function GET(request: Request) {
 
     if (errorParam) {
         console.error('[AUTH CALLBACK] Supabase Error:', errorParam, errorDesc);
-        return NextResponse.redirect(`${origin}/login?error=${errorParam}&message=${encodeUIC(errorDesc || '')}`);
+        return NextResponse.redirect(`${origin}/login?error=${encodeUIC(errorParam)}&message=${encodeUIC(errorDesc || '')}`);
     }
 
     if (code) {
@@ -27,7 +31,7 @@ export async function GET(request: Request) {
 
             if (isLocal) {
                 return NextResponse.redirect(`${origin}${next}`);
-            } else if (forwardedHost) {
+            } else if (forwardedHost && isTrustedAppHost(forwardedHost)) {
                 return NextResponse.redirect(`https://${forwardedHost}${next}`);
             } else {
                 return NextResponse.redirect(`${origin}${next}`);

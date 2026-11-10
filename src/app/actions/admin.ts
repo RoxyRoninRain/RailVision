@@ -1,23 +1,16 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { checkIsAdmin } from '@/lib/auth-utils';
 
 export async function getAdminStats() {
-    const supabaseUser = await createClient();
-    const { data: { user } } = await supabaseUser.auth.getUser();
-
     // Switch to Admin Client for Data Fetching to bypass RLS
     const supabase = createAdminClient();
     if (!supabase) return [];
 
-    // Security Check
-    // In real app, check a specific role or table. For now, check email.
-    if (!user || !['admin@railify.com', 'me@railify.com'].includes(user.email || '')) {
-        // Fallback or empty if not admin
-        // But we might want to return empty to avoid leaking info
-        // Check constraints: "Ensure /admin is absolutely unreachable by normal users"
-        // This action should probably throw or return empty.
+    // Security Check: Unified admin check
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) {
         console.warn('Unauthorized Access to Admin Stats');
         return [];
     }
@@ -78,7 +71,6 @@ export async function getAdminStats() {
 }
 
 export async function testResendConnectivity(apiKey: string, fromEmail: string, toEmail: string) {
-    const { checkIsAdmin } = await import('@/lib/auth-utils');
     const isAdmin = await checkIsAdmin();
     if (!isAdmin) return { success: false, error: 'Unauthorized' };
 

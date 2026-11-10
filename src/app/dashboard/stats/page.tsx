@@ -11,12 +11,23 @@ export default function StatsPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        setLoading(true);
+        let cancelled = false;
         getDeepStats(range).then(data => {
+            if (cancelled) return;
             setStats(data);
             setLoading(false);
         });
+        return () => {
+            cancelled = true;
+        };
     }, [range]);
+
+    const handleRangeSelect = (nextRange: '7d' | '30d' | 'mtd' | 'ytd' | 'all') => {
+        if (nextRange !== range) {
+            setLoading(true);
+            setRange(nextRange);
+        }
+    };
 
     const ranges = [
         { label: '7 Days', value: '7d' },
@@ -42,7 +53,7 @@ export default function StatsPage() {
                     {ranges.map(r => (
                         <button
                             key={r.value}
-                            onClick={() => setRange(r.value as any)}
+                            onClick={() => handleRangeSelect(r.value as '7d' | '30d' | 'mtd' | 'ytd' | 'all')}
                             className={`px-4 py-2 text-xs font-mono uppercase tracking-wider rounded transition-all whitespace-nowrap ${range === r.value
                                 ? 'bg-[var(--primary)] text-black font-bold shadow-lg'
                                 : 'text-gray-500 hover:text-white hover:bg-white/5'

@@ -1,17 +1,15 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { checkIsAdmin } from '@/lib/auth-utils';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
+import { InputSanitizer } from '@/components/security/InputSanitizer';
 
 export async function runBulkTest(formData: FormData) {
     console.log('[Bulk Test] Starting generation request...');
 
     // 1. Admin Authentication Check
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Unauthorized' };
-
-    // Ideally check for specific admin role here, assuming verified admin for now due to route protection
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized: Admin privileges required.' };
 
     // 2. Parse Inputs
     const targetFile = formData.get('target_image') as File;
@@ -28,6 +26,17 @@ export async function runBulkTest(formData: FormData) {
     const terminationStyle = formData.get('termination_style') as string;
 
     if (!targetFile) return { error: 'Target Image is required' };
+
+    const targetValidation = InputSanitizer.validate(targetFile);
+    if (!targetValidation.valid) {
+        return { error: targetValidation.error || 'Invalid target image' };
+    }
+    if (styleFile && styleFile.size > 0) {
+        const styleValidation = InputSanitizer.validate(styleFile);
+        if (!styleValidation.valid) {
+            return { error: styleValidation.error || 'Invalid style image' };
+        }
+    }
 
     const technicalSpecs = {
         hasBottomRail: mountStyle ? (mountStyle === 'shoe_rail' || mountStyle === 'bottom_rail' || mountStyle === 'true') : undefined,

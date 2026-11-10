@@ -1,8 +1,9 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isValidUuid } from '@/lib/validations'
 
 export async function updateSession(request: NextRequest) {
-    let response = NextResponse.next({
+    const response = NextResponse.next({
         request: {
             headers: request.headers,
         },
@@ -10,33 +11,36 @@ export async function updateSession(request: NextRequest) {
 
     // --- CSP & FRAME PROTECTION ---
     // Default CSP (Self + Railify + Localhost)
-    let allowedDomains = [
+    const allowedDomains = [
         "'self'",
         "http://localhost:*",
         "https://railify.app",
-        "https://*.railify.app"
+        "https://*.railify.app",
+        "https://mississippimetalmagic.com",
+        "https://www.mississippimetalmagic.com",
     ];
 
-    // Get org parameter to check specific tenant
+    // Get org parameter to check specific tenant's authorized embed domain(s)
     const orgId = request.nextUrl.searchParams.get('org');
-    
-    // Add mississippimetalmagic as a safe fallback
-    allowedDomains.push("https://mississippimetalmagic.com");
-    allowedDomains.push("https://www.mississippimetalmagic.com");
 
-    if (orgId) {
+    if (orgId && isValidUuid(orgId)) {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        // Use service_role key on the server because RLS on `profiles` blocks `anon` reads;
+        // `orgId` is strictly UUID-validated above and only `website,subscription_status` are read.
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || supabaseKey;
 
-        if (supabaseUrl && supabaseKey) {
+        if (supabaseUrl && supabaseKey && anonKey) {
             try {
-                // Fetch the specific tenant profile
-                const res = await fetch(`${supabaseUrl}/rest/v1/profiles?id=eq.${orgId}&select=website,subscription_status`, {
-                    headers: {
-                        'apikey': supabaseKey,
-                        'Authorization': `Bearer ${supabaseKey}`
+                const res = await fetch(
+                    `${supabaseUrl}/rest/v1/profiles?id=eq.${encodeURIComponent(orgId.trim())}&select=website,subscription_status`,
+                    {
+                        headers: {
+                            'apikey': anonKey,
+                            'Authorization': `Bearer ${supabaseKey}`
+                        }
                     }
-                });
+                );
 
                 if (res.ok) {
                     const data = await res.json();
@@ -44,10 +48,11 @@ export async function updateSession(request: NextRequest) {
                         const profile = data[0];
                         if (profile.subscription_status === 'active' || profile.subscription_status === 'trialing') {
                             if (profile.website) {
+                                const DOMAIN_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i;
                                 const rawDomains = String(profile.website).split(',').map((d: string) => d.trim()).filter(Boolean);
                                 for (const rawDomain of rawDomains) {
                                     const cleanDomain = rawDomain.replace(/^https?:\/\//, '').split('/')[0].replace(/^www\./, '').toLowerCase();
-                                    if (cleanDomain) {
+                                    if (cleanDomain && DOMAIN_REGEX.test(cleanDomain)) {
                                         allowedDomains.push(`https://${cleanDomain}`);
                                         allowedDomains.push(`https://www.${cleanDomain}`);
                                     }
@@ -62,10 +67,12 @@ export async function updateSession(request: NextRequest) {
         }
     }
 
-    // Construct CSP Header
-    const csp = `frame-ancestors ${allowedDomains.join(' ')};`;
+    // Construct CSP & Defensive Headers (Note: X-Frame-Options is intentionally omitted so cross-origin tenant iframes work via frame-ancestors)
+    const csp = `frame-ancestors ${Array.from(new Set(allowedDomains)).join(' ')};`;
     response.headers.set('Content-Security-Policy', csp);
-    // REMOVED: X-Frame-Options: SAMEORIGIN because it completely breaks cross-origin iframes regardless of CSP
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    response.headers.set('Permissions-Policy', 'camera=*, microphone=(), geolocation=()');
     // -------------------------------------------------------------
 
     // Create Client

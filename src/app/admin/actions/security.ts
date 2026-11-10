@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { checkIsAdmin } from '@/lib/auth-utils';
 import { createClient } from '@/lib/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { isValidUuid } from '@/lib/validations';
 
 export async function blockIp(ip: string, reason: string = 'Administrative Block', tenantId?: string) {
     const isAdmin = await checkIsAdmin();
@@ -103,23 +104,20 @@ export async function getBlockedIps(tenantId?: string) {
 
 export async function checkIpStatus(ip: string, tenantId?: string) {
     const cleanIp = ip ? ip.split(',')[0].trim() : '';
-    if (!cleanIp || cleanIp === 'unknown') return { blocked: false };
+    if (!cleanIp || cleanIp === 'unknown' || cleanIp.length > 64) return { blocked: false };
 
     const supabase = createAdminClient();
     if (!supabase) return { blocked: false };
 
     // Check for Global Block OR Tenant Block
-    // If tenantId is provided, we check both.
-    // If blocked by EITHER, return blocked.
-
+    // Validate tenantId strictly as UUID before interpolating into PostgREST .or() filter
     let query = supabase
         .from('blocked_ips')
         .select('id, reason, tenant_id')
         .eq('ip_address', cleanIp);
 
-    if (tenantId) {
-        // We want (tenant_id = null OR tenant_id = tenantId)
-        query = query.or(`tenant_id.is.null,tenant_id.eq.${tenantId}`);
+    if (tenantId && isValidUuid(tenantId)) {
+        query = query.or(`tenant_id.is.null,tenant_id.eq.${tenantId.trim()}`);
     } else {
         query = query.is('tenant_id', null);
     }

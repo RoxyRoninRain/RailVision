@@ -98,6 +98,22 @@ export const SECOND_PASS_ISSUES = [
         prompt: 'BOTTOM SHOE RAIL INTEGRITY: Ensure all vertical spindles/infill terminate cleanly and solidly into the continuous bottom shoe rail. Spindles must NEVER pass through or ghost beneath the shoe rail.',
         uploadLabel: 'Shoe Rail Detail',
         uploadHint: 'Upload a close-up photo showing the bottom shoe rail and spindle terminations.'
+    },
+    {
+        id: 'direct_mount',
+        label: 'Direct Tread Mount (No Bottom Rail)',
+        description: 'Remove any unwanted lower shoe rail so spindles/posts anchor directly into treads.',
+        prompt: 'DIRECT TREAD MOUNT (NO BOTTOM SHOE RAIL): Remove any lower horizontal shoe rail or bottom channel hovering above the stair nosings. Extend every vertical baluster/spindle cleanly down to anchor directly into its individual stair tread surface, restoring clean tread wood/carpet between spindles.',
+        uploadLabel: 'Direct Tread Mount Detail',
+        uploadHint: 'Upload a close-up photo showing balusters anchoring directly into the stair tread.'
+    },
+    {
+        id: 'reducer_fittings',
+        label: 'Post-Top Reducer Collars',
+        description: 'Preserve and refine stem reducer / transition collars where posts meet the top rail.',
+        prompt: 'POST-TOP REDUCER FITTINGS: Ensure each structural post connects to the underside of the top handrail via clean, uniform post-top stem reducers / transition adapter collars matching the reference hardware.',
+        uploadLabel: 'Reducer Fitting Detail',
+        uploadHint: 'Upload a close-up photo showing the post-top stem reducer collar meeting the handrail.'
     }
 ] as const;
 

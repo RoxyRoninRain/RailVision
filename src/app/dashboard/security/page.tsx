@@ -22,7 +22,19 @@ export default function SecurityPage() {
     };
 
     useEffect(() => {
-        fetchData();
+        let cancelled = false;
+        Promise.all([getSecurityActivity(), getTenantBlockedIps()])
+            .then(([logs, blocks]) => {
+                if (cancelled) return;
+                setActivity(logs);
+                setBlockedIps(blocks);
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     const handleBlock = async (ip: string) => {

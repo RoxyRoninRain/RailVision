@@ -4,7 +4,7 @@ const options = {
     path: '/v1/projects',
     method: 'GET',
     headers: {
-        'Authorization': 'Bearer sbp_4ae6cd0d16331969504a9ecd1dea6c69555b298a',
+        'Authorization': `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}`,
         'User-Agent': 'node.js'
     }
 };

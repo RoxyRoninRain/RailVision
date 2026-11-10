@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { updateSystemPrompt, type SystemPrompt } from '../actions';
 
 interface PromptEditorProps {
@@ -8,19 +8,21 @@ interface PromptEditorProps {
 }
 
 export function PromptEditor({ initialPrompt }: PromptEditorProps) {
+    const [prevPromptRef, setPrevPromptRef] = useState(initialPrompt);
     const [systemInstruction, setSystemInstruction] = useState(initialPrompt?.system_instruction || '');
     const [userTemplate, setUserTemplate] = useState(initialPrompt?.user_template || '');
     const [negativePrompt, setNegativePrompt] = useState(initialPrompt?.negative_prompt || '');
     const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
     const [msg, setMsg] = useState('');
 
-    useEffect(() => {
+    if (initialPrompt !== prevPromptRef) {
+        setPrevPromptRef(initialPrompt);
         if (initialPrompt) {
             setSystemInstruction(initialPrompt.system_instruction);
             setUserTemplate(initialPrompt.user_template);
             setNegativePrompt(initialPrompt.negative_prompt || '');
         }
-    }, [initialPrompt]);
+    }
 
     const handleSave = async () => {
         setStatus('saving');

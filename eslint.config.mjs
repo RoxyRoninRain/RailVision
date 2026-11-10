@@ -12,6 +12,15 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Non-app scratch, migration, and local utility scripts:
+    "scratch/**",
+    "scripts/**",
+    ".agent/**",
+    ".agents/**",
+    "debug_env.js",
+    "check-models.js",
+    "list-models.js",
+    "temp_vertex_old.ts",
   ]),
   {
     rules: {

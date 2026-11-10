@@ -1,4 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { resetRateLimitBuckets } from '@/lib/rate-limit';
+
+const VALID_JPEG_BYTES = new Uint8Array([
+    0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0xff, 0xd9,
+]);
 
 const mockGenerateDesignWithNanoBanana = vi.fn();
 const mockRefineDesignWithNanoBanana = vi.fn();
@@ -139,11 +144,12 @@ vi.mock('@/lib/supabase/server', () => ({
 describe('Second-Pass Billing Verification', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        resetRateLimitBuckets();
         mockCheckIsAdmin.mockResolvedValue(false);
 
         global.fetch = vi.fn(async () => ({
             ok: true,
-            arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+            arrayBuffer: async () => VALID_JPEG_BYTES.slice().buffer,
         } as any));
 
         mockGenerateDesignWithNanoBanana.mockResolvedValue({
@@ -163,8 +169,8 @@ describe('Second-Pass Billing Verification', () => {
         const { generateDesign } = await import('@/app/actions/ai');
 
         const formData = new FormData();
-        const fakeFile = new File(['fake-scene-bytes'], 'scene.jpg', { type: 'image/jpeg' });
-        fakeFile.arrayBuffer = async () => new Uint8Array([1, 2, 3, 4]).buffer;
+        const fakeFile = new File([VALID_JPEG_BYTES], 'scene.jpg', { type: 'image/jpeg' });
+        fakeFile.arrayBuffer = async () => VALID_JPEG_BYTES.slice().buffer;
         formData.append('image', fakeFile);
         formData.append('styleId', '327247e9-8b3e-4b4c-857b-59dcffe4b83b');
         formData.append('style', 'Rainier - TM - Round Top');
@@ -204,8 +210,8 @@ describe('Second-Pass Billing Verification', () => {
         const { generateDesign } = await import('@/app/actions/ai');
 
         const formData = new FormData();
-        const fakeFile = new File(['fake-scene-bytes'], 'scene.jpg', { type: 'image/jpeg' });
-        fakeFile.arrayBuffer = async () => new Uint8Array([1, 2, 3, 4]).buffer;
+        const fakeFile = new File([VALID_JPEG_BYTES], 'scene.jpg', { type: 'image/jpeg' });
+        fakeFile.arrayBuffer = async () => VALID_JPEG_BYTES.slice().buffer;
         formData.append('image', fakeFile);
         formData.append('styleId', '327247e9-8b3e-4b4c-857b-59dcffe4b83b');
         formData.append('style', 'Rainier - TM - Round Top');
@@ -228,8 +234,8 @@ describe('Second-Pass Billing Verification', () => {
         const { generateDesign } = await import('@/app/actions/ai');
 
         const formData = new FormData();
-        const fakeFile = new File(['fake-scene-bytes'], 'scene.jpg', { type: 'image/jpeg' });
-        fakeFile.arrayBuffer = async () => new Uint8Array([1, 2, 3, 4]).buffer;
+        const fakeFile = new File([VALID_JPEG_BYTES], 'scene.jpg', { type: 'image/jpeg' });
+        fakeFile.arrayBuffer = async () => VALID_JPEG_BYTES.slice().buffer;
         formData.append('image', fakeFile);
         formData.append('styleId', '327247e9-8b3e-4b4c-857b-59dcffe4b83b');
         formData.append('style', 'Rainier - TM - Round Top');
@@ -239,5 +245,64 @@ describe('Second-Pass Billing Verification', () => {
         expect(result.success).toBe(false);
         expect(mockReportUsage).toHaveBeenCalledTimes(0);
         expect(mockProfileUpdate).toHaveBeenCalledTimes(0);
+    });
+
+    it('accumulates Volume tier overages at $0.80/gen without resetting at $20 or $100 mid-month', async () => {
+        const { generateDesign } = await import('@/app/actions/ai');
+
+        // Override profile select for this test to simulate a Volume tenant crossing $20 and $100
+        mockFrom.mockImplementationOnce((table: string) => {
+            if (table === 'generations') {
+                return {
+                    select: vi.fn(() => ({
+                        eq: vi.fn(() => ({
+                            gte: vi.fn(async () => ({ count: 0, error: null })),
+                        })),
+                    })),
+                } as any;
+            }
+            return { select: vi.fn() } as any;
+        }).mockImplementationOnce((table: string) => {
+            if (table === 'profiles') {
+                return {
+                    select: vi.fn(() => ({
+                        eq: vi.fn(() => ({
+                            single: vi.fn(async () => ({
+                                data: {
+                                    id: '550e8400-e29b-41d4-a716-446655440000',
+                                    subscription_status: 'active',
+                                    current_usage: 125,
+                                    tier_name: 'volume', // lowercase to verify case-insensitive resolution
+                                    pending_overage_balance: 100.00,
+                                    current_overage_count: 125,
+                                    free_credits_remaining: 0,
+                                    discounted_credits_remaining: 0,
+                                    stripe_customer_id: 'cus_456',
+                                    stripe_subscription_id: 'sub_456',
+                                },
+                                error: null,
+                            })),
+                        })),
+                    })),
+                } as any;
+            }
+            return { select: vi.fn() } as any;
+        });
+
+        const formData = new FormData();
+        const fakeFile = new File([VALID_JPEG_BYTES], 'scene.jpg', { type: 'image/jpeg' });
+        fakeFile.arrayBuffer = async () => VALID_JPEG_BYTES.slice().buffer;
+        formData.append('image', fakeFile);
+        formData.append('styleId', '327247e9-8b3e-4b4c-857b-59dcffe4b83b');
+        formData.append('style', 'Rainier - TM - Round Top');
+
+        const result = await generateDesign(formData);
+        expect(result.success).toBe(true);
+
+        expect(mockProfileUpdate).toHaveBeenCalledTimes(1);
+        const updateArgs = (mockProfileUpdate.mock.calls as any)[0][0];
+        // $100.00 + $0.80 = $100.80 (must NOT reset to 0 when crossing threshold)
+        expect(updateArgs.pending_overage_balance).toBe(100.80);
+        expect(updateArgs.current_overage_count).toBe(126);
     });
 });

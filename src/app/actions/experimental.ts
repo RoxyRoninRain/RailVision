@@ -1,9 +1,7 @@
 'use server';
 
-
-
 import { getVertexClient, getRouterModel } from '@/lib/vertex';
-import { createClient } from '@/lib/supabase/server';
+import { checkIsAdmin } from '@/lib/auth-utils';
 
 const convertToJpg = async (file: File): Promise<string> => {
     const arrayBuffer = await file.arrayBuffer();
@@ -25,16 +23,19 @@ const convertToJpg = async (file: File): Promise<string> => {
 };
 
 export async function generateExperimentalDesign(formData: FormData) {
-    const { createClient } = await import('@/lib/supabase/server');
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'Authentication required' };
+    const isAdmin = await checkIsAdmin();
+    if (!isAdmin) return { error: 'Unauthorized: Admin privileges required.' };
 
     console.log('[Experimental] Starting 3-Step Pipeline...');
     const file = formData.get('image') as File;
     const styleFile = formData.get('style_image') as File;
 
     if (!file || !styleFile) return { error: 'Missing target image or style image' };
+
+    const MAX_SIZE_BYTES = 15 * 1024 * 1024;
+    if (file.size > MAX_SIZE_BYTES || styleFile.size > MAX_SIZE_BYTES) {
+        return { error: 'File too large (Max 15MB)' };
+    }
 
     try {
         const base64Image = await convertToJpg(file);

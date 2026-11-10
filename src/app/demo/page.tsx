@@ -64,9 +64,10 @@ export default async function Page({
     }
 
     // --- SUBSCRIPTION CHECK (Widget) ---
-    // Only block if this is a tenant widget (orgId is present) AND their status is not active.
-    // We allow the generic demo (!orgId) and admin test mode (!isAdminTestMode) to proceed.
-    if (orgId && tenantProfile && tenantProfile.subscription_status !== 'active' && !isAdminTestMode) {
+    // Block if this is a tenant widget (orgId is present) AND profile is missing or status is neither active nor trialing.
+    const { isValidUuid } = await import('@/lib/validations');
+    const isTenantActive = tenantProfile && (tenantProfile.subscription_status === 'active' || tenantProfile.subscription_status === 'trialing');
+    if (orgId && (!isValidUuid(orgId) || !isTenantActive) && !isAdminTestMode) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-black text-white p-8 text-center font-sans">
                 <div className="w-16 h-16 bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 mb-6">

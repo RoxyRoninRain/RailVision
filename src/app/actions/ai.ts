@@ -1,48 +1,115 @@
 'use server';
 
-
-
 import { InputSanitizer } from '@/components/security/InputSanitizer';
 import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
+import {
+    detectImageMetadata,
+    INTERNAL_PROMPT_TOKEN,
+    isSafeExternalUrl,
+    isTrustedAppHost,
+    safeFetchImageBuffer,
+} from '@/lib/validations';
+import { checkRateLimit, extractClientIp } from '@/lib/rate-limit';
 
-const maxDuration = 120; // 2 minutes (User confirmed working limit)
+async function readSafePublicFile(relativeUrl: string): Promise<Buffer | null> {
+    if (!relativeUrl.startsWith('/') || relativeUrl.startsWith('//') || relativeUrl.includes('\0')) {
+        return null;
+    }
+    const fs = await import('fs');
+    const path = await import('path');
+    const publicRoot = path.resolve(process.cwd(), 'public');
+    const resolvedPath = path.resolve(publicRoot, '.' + relativeUrl);
+    if (!resolvedPath.startsWith(publicRoot + path.sep)) {
+        console.warn(`[SECURITY] Blocked path traversal attempt: ${relativeUrl}`);
+        return null;
+    }
+    if (fs.existsSync(resolvedPath)) {
+        return fs.readFileSync(resolvedPath);
+    }
+    return null;
+}
+
+function isOriginAllowedForTenant(originOrReferer: string | null, websiteWhitelist: string | null | undefined): boolean {
+    if (!originOrReferer) return true;
+    try {
+        const parsed = new URL(originOrReferer);
+        if (isTrustedAppHost(parsed.host)) {
+            return true;
+        }
+        const currentDomain = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+        if (currentDomain === 'mississippimetalmagic.com') {
+            return true;
+        }
+        if (!websiteWhitelist) {
+            return true;
+        }
+        const allowedDomains = websiteWhitelist
+            .split(',')
+            .map((d) => d.trim().replace(/^https?:\/\//i, '').split('/')[0].replace(/^www\./i, '').toLowerCase())
+            .filter(Boolean);
+
+        return allowedDomains.some(
+            (allowed) => currentDomain === allowed || currentDomain.endsWith('.' + allowed)
+        );
+    } catch {
+        return false;
+    }
+}
 
 export async function convertHeicToJpg(formData: FormData) {
-    console.log('[Server Action] Converting HEIC to JPG (using heic-convert)...');
     try {
+        const headersList = await headers();
+        const clientIp = extractClientIp(headersList);
+        const rl = checkRateLimit('heic-convert', clientIp, 15, 10 * 60 * 1000);
+        if (!rl.allowed) {
+            return { success: false, error: 'Too many image conversions. Please wait a few minutes and try again.' };
+        }
+
         const file = formData.get('file') as File;
-        if (!file) throw new Error('No file provided');
+        if (!file) {
+            return { success: false, error: 'No file provided' };
+        }
         if (file.size > 15 * 1024 * 1024) {
             return { success: false, error: 'File too large (max 15MB)' };
         }
 
         const buffer = Buffer.from(await file.arrayBuffer());
+        const meta = detectImageMetadata(buffer, { allowHeic: true });
+        if (!meta.valid) {
+            return { success: false, error: 'Unsupported or invalid image format.' };
+        }
+
+        // If the browser sent an already-decoded raster image with a .heic extension, return it directly
+        if (meta.mimeType && meta.mimeType !== 'image/heic') {
+            return {
+                success: true,
+                base64: `data:${meta.mimeType};base64,${buffer.toString('base64')}`
+            };
+        }
 
         // Dynamically import heic-convert (Pure JS, no native bindings issues)
         const convert = (await import('heic-convert')).default;
 
         const outputBuffer = await convert({
-            buffer: buffer,
+            buffer: buffer as any,
             format: 'JPEG',      // output format
-            quality: 0.9         // quality matches previous sharp setting
+            quality: 0.9         // high quality to preserve staircase edge details
         });
 
-        // outputBuffer is a Buffer (JPEG bytes)
         return {
             success: true,
             base64: `data:image/jpeg;base64,${Buffer.from(outputBuffer).toString('base64')}`
         };
     } catch (error: any) {
         console.error('[Server Action] HEIC conversion error:', error);
-        return { success: false, error: 'Conversion failed: ' + error.message };
+        return { success: false, error: 'Unable to convert HEIC photo. Please try a JPG or PNG image.' };
     }
 }
 
 export async function generateDesign(formData: FormData) {
-    console.log('[DEBUG] generateDesign (NANO BANANA MODE) called');
     const file = formData.get('image') as File;
     const style = formData.get('style') as string;
     const styleFile = formData.get('style_image') as File;
@@ -53,11 +120,16 @@ export async function generateDesign(formData: FormData) {
     }
 
     // --- SECURITY VALIDATION ---
+    const rawStyleUrl = (formData.get('style_url') as string) || undefined;
+    if (rawStyleUrl && !rawStyleUrl.startsWith('http') && (!rawStyleUrl.startsWith('/styles/') || rawStyleUrl.includes('..'))) {
+        return { error: 'Invalid Request: Unsafe style_url path' };
+    }
+
     const { generationSchema } = await import('@/lib/validations');
     const validationResult = generationSchema.safeParse({
-        style,
-        styleId: styleId || undefined, // undefined if empty string to allow optional check
-        style_url: formData.get('style_url') || undefined,
+        style: style || 'Custom Style',
+        styleId: styleId || undefined,
+        style_url: rawStyleUrl && rawStyleUrl.startsWith('http') ? rawStyleUrl : undefined,
         organization_id: formData.get('organization_id') || undefined
     });
 
@@ -72,10 +144,30 @@ export async function generateDesign(formData: FormData) {
         return { error: `Invalid Request: ${errorMsg}` };
     }
 
-    // Server-side file validation upfront before any billing or DB mutations
+    // Server-side MIME + size + magic-byte validation upfront before any billing or DB mutations
     const validation = InputSanitizer.validate(file);
     if (!validation.valid) {
         return { error: validation.error };
+    }
+
+    const targetArrayBuffer = await file.arrayBuffer();
+    const targetBuffer = Buffer.from(targetArrayBuffer);
+    const targetMagicCheck = InputSanitizer.validateBuffer(targetBuffer);
+    if (!targetMagicCheck.valid) {
+        return { error: targetMagicCheck.error };
+    }
+
+    let uploadedStyleBuffer: Buffer | null = null;
+    if (styleFile && styleFile.size > 0) {
+        const styleValidation = InputSanitizer.validate(styleFile);
+        if (!styleValidation.valid) {
+            return { error: styleValidation.error };
+        }
+        uploadedStyleBuffer = Buffer.from(await styleFile.arrayBuffer());
+        const styleMagicCheck = InputSanitizer.validateBuffer(uploadedStyleBuffer);
+        if (!styleMagicCheck.valid) {
+            return { error: styleMagicCheck.error };
+        }
     }
     // ---------------------------
 
@@ -100,8 +192,6 @@ export async function generateDesign(formData: FormData) {
     if (!user) {
         const organizationId = formData.get('organization_id') as string;
         if (organizationId) {
-            console.log(`[AUTH] Guest access request for Tenant ID: ${organizationId}`);
-            // Use tenant ID for billing
             profileIdToBill = organizationId;
             // Must use Admin Client to read/write another user's profile (since we are guest)
             shouldUseAdminClient = true;
@@ -115,31 +205,34 @@ export async function generateDesign(formData: FormData) {
             profileIdToBill = targetTenantId;
             shouldUseAdminClient = true;
         }
-        console.log(`[ADMIN TEST] Running in Zero-Charge Admin Test Mode for Tenant ID: ${profileIdToBill}`);
     }
 
-    // Initialize the correct client interaction
-    let profileData, profileError;
+    // Only authenticated admins or the owning tenant may inject custom prompt directives,
+    // override technical specs, upload raw custom style files, or force extra refinement passes.
+    const canOverridePromptAndSpecs = isAdmin || Boolean(user && profileIdToBill && user.id === profileIdToBill);
+
+    const adminClientInstance = createAdminClient();
     let dbClient = supabase; // Default to standard RLS client
 
     if (shouldUseAdminClient) {
-        const adminClient = createAdminClient();
-        if (!adminClient) {
+        if (!adminClientInstance) {
             console.error('[AUTH PROVISIONING] Failed to create admin client.');
             return { error: 'System configuration error. Please contact support.' };
         }
-        dbClient = adminClient;
+        dbClient = adminClientInstance;
     }
+
+    // Always use Admin Client (when available) for IP rate-limiting & telemetry queries on `generations`
+    // because RLS on `generations` hides rows from `anon` callers, which would otherwise return count = 0.
+    const rateLimitDbClient = adminClientInstance || dbClient;
 
     // --- IP SECURITY CHECK ---
     const headersList = await headers();
-    const rawIp = headersList.get('x-forwarded-for') || 'unknown';
-    const clientIp = rawIp.split(',')[0].trim();
+    const clientIp = extractClientIp(headersList);
     const userAgent = headersList.get('user-agent') || 'unknown';
 
     // Lazy load security actions
     const { checkIpStatus } = await import('@/app/admin/actions/security');
-    // Pass profileIdToBill (Tenant ID) to check for tenant-specific blocks
     const ipStatus = await checkIpStatus(clientIp, profileIdToBill);
 
     if (ipStatus.blocked && !isAdminTest) {
@@ -148,19 +241,37 @@ export async function generateDesign(formData: FormData) {
     }
     // -------------------------
 
-    // --- AUTO RATE LIMITER (20/hr) ---
-    // Bypassed for verified admin tests to support onboarding and troubleshooting
-    if (!isAdminTest && clientIp !== 'unknown') {
+    // --- AUTO RATE LIMITER (5/hr for unauthenticated Generic Demo, 20/hr for Tenant Widgets) ---
+    if (!isAdminTest) {
+        const maxHourlyGenerations = isGenericDemo ? 5 : 20;
+
+        // In-memory burst check closes the concurrent TOCTOU window while Vertex AI is still running
+        if (clientIp !== 'unknown') {
+            const burstCheck = checkRateLimit(
+                isGenericDemo ? 'ai-gen-generic' : 'ai-gen-tenant',
+                clientIp,
+                maxHourlyGenerations,
+                60 * 60 * 1000
+            );
+            if (!burstCheck.allowed) {
+                return {
+                    error: `You have reached the maximum allowed generations (${maxHourlyGenerations} per hour). Please try again later.`
+                };
+            }
+        }
+
         const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-        const { count, error: rlError } = await dbClient
+        const { count, error: rlError } = await rateLimitDbClient
             .from('generations')
             .select('*', { count: 'exact', head: true })
             .eq('ip_address', clientIp)
             .gte('created_at', oneHourAgo);
-            
-        if (!rlError && count !== null && count >= 20) {
-            console.warn(`[SECURITY] Auto Rate Limit Triggered: IP ${clientIp} exceeded 20 generations/hr.`);
-            return { error: 'You have reached the maximum allowed generations (20 per hour). Please try again later.' };
+
+        if (!rlError && count !== null && count >= maxHourlyGenerations) {
+            console.warn(`[SECURITY] Auto Rate Limit Triggered: IP ${clientIp} exceeded ${maxHourlyGenerations} generations/hr.`);
+            return {
+                error: `You have reached the maximum allowed generations (${maxHourlyGenerations} per hour). Please try again later.`
+            };
         }
     }
     // ---------------------------------
@@ -168,7 +279,7 @@ export async function generateDesign(formData: FormData) {
     // 1. Fetch current usage & tier details
     let profile: any = null;
     let dbError: any = null;
-    
+
     if (!isGenericDemo && profileIdToBill) {
         const res = await dbClient
             .from('profiles')
@@ -182,19 +293,29 @@ export async function generateDesign(formData: FormData) {
     // Lazy load pricing configs
     const { PRICING_TIERS, DEFAULT_TIER } = await import('@/config/pricing');
 
-    // Only enforce active subscription for public/tenant usage, not admin test mode
+    // Only enforce active subscription & domain origin check for public/tenant usage, not admin test mode
     if (!isGenericDemo && !isAdminTest) {
         if (dbError || !profile) {
             console.error('[BILLING] Profile fetch failed:', dbError);
             return { error: 'Could not fetch profile for billing check.' };
         }
 
-        if (profile.subscription_status !== 'active') {
+        if (profile.subscription_status !== 'active' && profile.subscription_status !== 'trialing') {
             return { error: 'Service Unavailable: The account associated with this tool is not currently active.' };
+        }
+
+        if (!user && profile.website) {
+            const originHeader = headersList.get('origin') || headersList.get('referer');
+            if (!isOriginAllowedForTenant(originHeader, profile.website)) {
+                console.warn(`[SECURITY] Blocked cross-origin widget call from ${originHeader} for tenant ${profileIdToBill}`);
+                return { error: 'Unauthorized origin for this embedded visualizer.' };
+            }
         }
     }
 
-    const tierName = profile ? (profile.tier_name || DEFAULT_TIER) as keyof typeof PRICING_TIERS : DEFAULT_TIER;
+    const rawTierName = String(profile?.tier_name || DEFAULT_TIER).toLowerCase();
+    const matchedTierKey = (Object.keys(PRICING_TIERS) as Array<keyof typeof PRICING_TIERS>).find(k => k.toLowerCase() === rawTierName) || (rawTierName.includes('volume') ? 'Volume' : rawTierName.includes('pro') ? 'Professional' : rawTierName.includes('unlimited') ? 'The Unlimited' : DEFAULT_TIER);
+    const tierName = matchedTierKey;
     const tier = PRICING_TIERS[tierName] || PRICING_TIERS[DEFAULT_TIER];
 
     const currentUsage = profile?.current_usage || 0;
@@ -213,23 +334,21 @@ export async function generateDesign(formData: FormData) {
 
     if (isGenericDemo || isAdminTest) {
         // Skip billing: Generic demo or Admin Test Mode (Zero charges for tenant)
-        console.log(`[BILLING] Bypassing billing - ${isAdminTest ? 'Admin Test Mode (Zero Usage Charges)' : 'Generic Demo'}`);
     } else if (freeCredits > 0) {
         // --- 1. FREE CREDITS FIRST (Used before any discounted or full price credits) ---
         isFreeCreditUsed = true;
         overageCost = 0;
         transactionOverageCount = 0;
-        console.log(`[BILLING] Consuming FREE credit for ${profileIdToBill}. Remaining after this run: ${freeCredits - 1}`);
     } else if (discountedCredits > 0) {
         // --- 2. DISCOUNTED CREDITS SECOND (50% promotional rate: e.g. $0.40 Volume, $0.50 Pro) ---
         isDiscountedCreditUsed = true;
         const rate = profile?.discounted_rate ? Number(profile.discounted_rate) : (tier.overageRate * 0.5);
         overageCost = rate;
         transactionOverageCount = 0; // Not counted as a full-price standard overage
-        console.log(`[BILLING] Consuming DISCOUNTED credit ($${rate.toFixed(2)}) for ${profileIdToBill}. Remaining after this run: ${discountedCredits - 1}`);
 
-        const currentPending = (profile.pending_overage_balance || 0);
-        const projectedTotal = currentPending + overageCost;
+        const currentPending = Number(profile.pending_overage_balance) || 0;
+        const cumulativeOverageSpend = ((Number(profile.current_overage_count) || 0) * tier.overageRate) + (Number(profile.pending_discounted_amount) || 0);
+        const projectedTotal = Math.max(currentPending, cumulativeOverageSpend) + overageCost;
 
         // Safety cap check
         if (profile.max_monthly_spend !== null && profile.max_monthly_spend > 0) {
@@ -246,8 +365,10 @@ export async function generateDesign(formData: FormData) {
     } else {
         // --- 3. FULL PRICE CREDITS (Standard Metered Pay-As-You-Go) ---
         overageCost = tier.overageRate;
-        const currentPending = profile.pending_overage_balance || 0;
-        const projectedTotal = currentPending + overageCost;
+        const currentPending = Number(profile.pending_overage_balance) || 0;
+        const cumulativeOverageSpend = ((Number(profile.current_overage_count) || 0) * tier.overageRate) + (Number(profile.pending_discounted_amount) || 0);
+        const effectiveCurrentSpend = Math.max(currentPending, cumulativeOverageSpend);
+        const projectedTotal = effectiveCurrentSpend + overageCost;
 
         // --- SAFETY CAP CHECK ---
         if (profile.max_monthly_spend !== null && profile.max_monthly_spend > 0) {
@@ -304,14 +425,13 @@ export async function generateDesign(formData: FormData) {
             }
 
             // 2. WARNING ALERT (Within $10)
-            const remaining = profile.max_monthly_spend - currentPending;
+            const remaining = profile.max_monthly_spend - effectiveCurrentSpend;
             if (remaining <= 10 && remaining > 0) {
                 const now = new Date();
                 const lastWarn = notificationState.usage_warning_sent_at ? new Date(notificationState.usage_warning_sent_at) : null;
                 const hoursSinceWarn = lastWarn ? (now.getTime() - lastWarn.getTime()) / (1000 * 60 * 60) : 999;
 
                 if (hoursSinceWarn > 48) {
-                    console.log('[BILLING] Usage Warning Triggered (Within $10)');
                     try {
                         const { Resend } = await import('resend');
                         const { UsageWarningEmail } = await import('@/emails/UsageWarningEmail');
@@ -322,7 +442,7 @@ export async function generateDesign(formData: FormData) {
                             to: profile.email,
                             subject: '⚠️ Spending Limit Warning',
                             react: UsageWarningEmail() as React.ReactElement,
-                        }).then(() => console.log('Usage Warning Sent'));
+                        }).catch((e) => console.error('Usage Warning Error:', e));
 
                         notificationState.usage_warning_sent_at = now.toISOString();
                     } catch (e) { console.error('Usage Warning Error:', e); }
@@ -334,16 +454,9 @@ export async function generateDesign(formData: FormData) {
         transactionOverageCount = 1;
     }
 
-    // 3. Billing Threshold Check (Charge Card for standard usage)
-    let newPendingBalance = (profile?.pending_overage_balance || 0) + overageCost;
-    let newOverageCount = (profile?.current_overage_count || 0) + transactionOverageCount;
-
-    // Check against Tier Threshold (e.g. Charge every $20 or $50) for standard usage
-    if (!isGenericDemo && !isAdminTest && !isFreeCreditUsed && !isDiscountedCreditUsed && tier && newPendingBalance >= tier.billingThreshold && tier.billingThreshold > 0) {
-        console.log(`[BILLING] THRESHOLD HIT! Tier: ${tier.name}, Balance: $${newPendingBalance} >= Threshold: $${tier.billingThreshold}`);
-        newPendingBalance = 0;
-        newOverageCount = 0;
-    }
+    // 3. Accumulate Overage Balance (Billed & reset once a month on subscription renewal payment)
+    const newPendingBalance = parseFloat(((Number(profile?.pending_overage_balance) || 0) + overageCost).toFixed(2));
+    const newOverageCount = (Number(profile?.current_overage_count) || 0) + transactionOverageCount;
 
     // 4. Prepare Usage & Credit Updates (Committed ONLY after generation succeeds)
     const shouldReportStripeUsage = !isGenericDemo && !isAdminTest && !isFreeCreditUsed && !isDiscountedCreditUsed && currentUsage >= allowance && !!(profileIdToBill && tier?.stripeMeteredPriceId);
@@ -367,9 +480,7 @@ export async function generateDesign(formData: FormData) {
     // --- METERED BILLING PREPARATION (END) ---
 
     try {
-        const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const base64Image = buffer.toString('base64');
+        const base64Image = targetBuffer.toString('base64');
 
         let styleInput: string | { 
             base64StyleImages: string[]; 
@@ -381,17 +492,18 @@ export async function generateDesign(formData: FormData) {
                 customNote?: string;
             } 
         } = style;
-        const styleId = formData.get('styleId') as string;
-        const styleDescription = formData.get('style_description') as string;
-        const rawPrompt = formData.get('prompt') as string;
-        const customPromptNote = (formData.get('custom_prompt_note') as string) ||
-            (rawPrompt && rawPrompt !== "High quality architectural photorealistic render" ? rawPrompt : undefined);
+
+        const styleDescription = canOverridePromptAndSpecs ? (formData.get('style_description') as string) : undefined;
+        const rawPrompt = canOverridePromptAndSpecs ? (formData.get('prompt') as string) : undefined;
+        const customPromptNote = canOverridePromptAndSpecs
+            ? ((formData.get('custom_prompt_note') as string) ||
+                (rawPrompt && rawPrompt !== "High quality architectural photorealistic render" ? rawPrompt : undefined))
+            : undefined;
 
         let secondPassConfig: { enabled: boolean; targets: string[]; custom_prompt?: string; detail_images?: Record<string, string> } | null = null;
 
-        if (styleFile) {
-            const styleBuffer = Buffer.from(await styleFile.arrayBuffer());
-            const styleBase64 = styleBuffer.toString('base64');
+        if (uploadedStyleBuffer && canOverridePromptAndSpecs) {
+            const styleBase64 = uploadedStyleBuffer.toString('base64');
             const formBottomRail = formData.get('has_bottom_rail');
             const formReducers = formData.get('has_reducers');
             const formPostMount = formData.get('post_mount') as string;
@@ -405,11 +517,10 @@ export async function generateDesign(formData: FormData) {
                     customNote: customPromptNote?.trim() || undefined
                 }
             };
-            console.log('[DEBUG] Using CUSTOM Style Image for Nano Banana fusion');
         } else if (styleId) {
             // Priority 2: Check for Gallery in DB via styleId
             try {
-                const styleLookupClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
+                const styleLookupClient = (isAdminTest || shouldUseAdminClient) ? (adminClientInstance || supabase) : supabase;
                 const { data: styleData } = await styleLookupClient
                     .from('portfolio')
                     .select('*')
@@ -417,6 +528,14 @@ export async function generateDesign(formData: FormData) {
                     .single();
 
                 if (styleData) {
+                    // Prevent cross-tenant style IDOR and inactive draft access for public widget callers
+                    if (!isAdmin && profileIdToBill && styleData.tenant_id && styleData.tenant_id !== profileIdToBill) {
+                        return { error: 'Invalid Request: Selected style does not belong to this organization.' };
+                    }
+                    if (!canOverridePromptAndSpecs && styleData.is_active === false) {
+                        return { error: 'Invalid Request: Selected style is not currently active.' };
+                    }
+
                     if (styleData.style_metadata?.second_pass) {
                         secondPassConfig = {
                             enabled: styleData.style_metadata.second_pass.enabled === true,
@@ -426,36 +545,21 @@ export async function generateDesign(formData: FormData) {
                         };
                     }
 
-                    // Combine Main + Hidden Refs
-                    // Note: 'reference_images' (formerly gallery) might contain the main image in legacy data.
-                    // New uploads separate them. Duplicates are harmless for AI vision.
-                    const refs = styleData.reference_images || [];
-                    const main = styleData.image_url;
-
-                    const imageUrls: string[] = [];
-                    if (main) imageUrls.push(main);
-                    if (refs.length > 0) imageUrls.push(...refs);
+                    // Combine Main + Reference Gallery and deduplicate URLs so legacy styles
+                    // with `image_url` duplicated inside `reference_images` do not double-weight Image B's room.
+                    const refs: string[] = Array.isArray(styleData.reference_images) ? styleData.reference_images : [];
+                    const main: string | undefined = styleData.image_url;
+                    const imageUrls = Array.from(new Set([main, ...refs].filter((u): u is string => Boolean(u && typeof u === 'string'))));
 
                     if (imageUrls.length > 0) {
-                        console.log(`[DEBUG] Found ${imageUrls.length} reference images in gallery/portfolio.`);
                         const styleBuffers = await Promise.all(imageUrls.map(async (url: string) => {
                             try {
-                                // Handle relative public paths vs absolute URLs
                                 if (url.startsWith('/')) {
-                                    // Local file read
-                                    const fs = await import('fs');
-                                    const path = await import('path');
-                                    const filePath = path.join(process.cwd(), 'public', url);
-                                    if (fs.existsSync(filePath)) {
-                                        return fs.readFileSync(filePath);
-                                    }
+                                    return await readSafePublicFile(url);
+                                } else if (isSafeExternalUrl(url)) {
+                                    return await safeFetchImageBuffer(url);
                                 } else {
-                                    // Remote fetch
-                                    const res = await fetch(url);
-                                    if (res.ok) {
-                                        const arrBuf = await res.arrayBuffer();
-                                        return Buffer.from(arrBuf);
-                                    }
+                                    console.warn(`[SECURITY] Blocked unsafe style URL: ${url}`);
                                 }
                                 return null;
                             } catch (e) {
@@ -465,21 +569,21 @@ export async function generateDesign(formData: FormData) {
                         }));
 
                         const validBase64s = styleBuffers
-                            .filter(b => b !== null)
-                            .map(b => b!.toString('base64'));
+                            .filter((b): b is Buffer => b !== null)
+                            .map((b) => b.toString('base64'));
 
                         if (validBase64s.length > 0) {
-                            const formBottomRail = formData.get('has_bottom_rail');
+                            const formBottomRail = canOverridePromptAndSpecs ? formData.get('has_bottom_rail') : null;
                             const hasBottomRailFinal = (formBottomRail !== null && formBottomRail !== undefined && formBottomRail !== '')
                                 ? formBottomRail === 'true'
                                 : styleData.has_bottom_rail;
 
-                            const formReducers = formData.get('has_reducers');
+                            const formReducers = canOverridePromptAndSpecs ? formData.get('has_reducers') : null;
                             const hasReducersFinal = (formReducers !== null && formReducers !== undefined && formReducers !== '')
                                 ? formReducers === 'true'
                                 : styleData.has_reducers;
 
-                            const formPostMount = formData.get('post_mount') as string;
+                            const formPostMount = canOverridePromptAndSpecs ? (formData.get('post_mount') as string) : null;
                             const postMountFinal = (formPostMount === 'side' || formPostMount === 'top')
                                 ? formPostMount
                                 : (styleData.post_mount || styleData.style_metadata?.post_mount || 'top');
@@ -494,7 +598,6 @@ export async function generateDesign(formData: FormData) {
                                     customNote: customPromptNote?.trim() || undefined
                                 }
                             };
-                            console.log(`[DEBUG] Successfully loaded ${validBase64s.length} style images for multi-shot generation.`);
                         }
                     }
                 }
@@ -504,38 +607,27 @@ export async function generateDesign(formData: FormData) {
         }
 
         // Fallback: Check for style_url if logic above didn't set image input
-        // (This handles cases where DB lookup failed or styleId wasn't passed, but style_url was)
         if (typeof styleInput === 'string') {
             const styleUrl = formData.get('style_url') as string;
-            // ... existing styleUrl logic ...
 
             if (styleUrl) {
                 try {
                     let styleBuffer: Buffer | null = null;
 
                     if (styleUrl.startsWith('http')) {
-                        console.log(`[DEBUG] Fetching remote style image: ${styleUrl}`);
-                        const response = await fetch(styleUrl);
-                        if (!response.ok) throw new Error(`Failed to fetch style image: ${response.statusText}`);
-                        const arrayBuffer = await response.arrayBuffer();
-                        styleBuffer = Buffer.from(arrayBuffer);
-                    } else if (styleUrl.startsWith('/')) {
-                        console.log(`[DEBUG] Loading local style image: ${styleUrl}`);
-                        const fs = await import('fs');
-                        const path = await import('path');
-                        const filePath = path.join(process.cwd(), 'public', styleUrl);
-                        if (fs.existsSync(filePath)) {
-                            styleBuffer = fs.readFileSync(filePath);
-                        } else {
-                            console.warn(`[DEBUG] Local file not found: ${filePath}`);
+                        if (!isSafeExternalUrl(styleUrl)) {
+                            throw new Error('Blocked unsafe remote style URL');
                         }
+                        styleBuffer = await safeFetchImageBuffer(styleUrl);
+                    } else if (styleUrl.startsWith('/')) {
+                        styleBuffer = await readSafePublicFile(styleUrl);
                     }
 
                     if (styleBuffer) {
                         const styleBase64 = styleBuffer.toString('base64');
-                        const formBottomRail = formData.get('has_bottom_rail');
-                        const formReducers = formData.get('has_reducers');
-                        const formPostMount = formData.get('post_mount') as string;
+                        const formBottomRail = canOverridePromptAndSpecs ? formData.get('has_bottom_rail') : null;
+                        const formReducers = canOverridePromptAndSpecs ? formData.get('has_reducers') : null;
+                        const formPostMount = canOverridePromptAndSpecs ? (formData.get('post_mount') as string) : null;
                         styleInput = { 
                             base64StyleImages: [styleBase64],
                             technicalSpecs: {
@@ -546,16 +638,11 @@ export async function generateDesign(formData: FormData) {
                                 customNote: customPromptNote?.trim() || undefined
                             }
                         };
-                        console.log(`[DEBUG] Successfully loaded style image for Nano Banana fusion`);
-                    } else {
-                        console.warn('[DEBUG] Could not load style image from URL, falling back to text.');
                     }
-
                 } catch (err) {
                     console.error('[DEBUG] Error processing style URL:', err);
                 }
-            } else {
-                console.log('[DEBUG] No style visuals found. Using Style Text only:', style);
+            } else if (canOverridePromptAndSpecs) {
                 const formPostMount = formData.get('post_mount') as string;
                 if (customPromptNote || styleDescription || formPostMount) {
                     styleInput = {
@@ -570,85 +657,133 @@ export async function generateDesign(formData: FormData) {
             }
         }
 
-        // Check for explicit formData overrides for second pass
-        const formSkipSecondPass = formData.get('skip_second_pass');
-        if (formSkipSecondPass === 'true') {
-            if (secondPassConfig) secondPassConfig.enabled = false;
-        }
-        const formEnableSecondPass = formData.get('enable_second_pass');
-        if (formEnableSecondPass === 'true') {
-            if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
-            secondPassConfig.enabled = true;
-        } else if (formEnableSecondPass === 'false') {
-            if (secondPassConfig) secondPassConfig.enabled = false;
-        }
-        const formSecondPassTargets = formData.get('second_pass_targets') as string;
-        if (formSecondPassTargets) {
-            try {
-                const parsed = JSON.parse(formSecondPassTargets);
-                if (Array.isArray(parsed)) {
+        // Only allow authenticated admins / owning shop owners to override Pass 2 configuration via FormData
+        if (canOverridePromptAndSpecs) {
+            const formSkipSecondPass = formData.get('skip_second_pass');
+            if (formSkipSecondPass === 'true') {
+                if (secondPassConfig) secondPassConfig.enabled = false;
+            }
+            const formEnableSecondPass = formData.get('enable_second_pass');
+            if (formEnableSecondPass === 'true') {
+                if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
+                secondPassConfig.enabled = true;
+            } else if (formEnableSecondPass === 'false') {
+                if (secondPassConfig) secondPassConfig.enabled = false;
+            }
+            const formSecondPassTargets = formData.get('second_pass_targets') as string;
+            if (formSecondPassTargets) {
+                try {
+                    const parsed = JSON.parse(formSecondPassTargets);
+                    if (Array.isArray(parsed)) {
+                        if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
+                        secondPassConfig.targets = parsed;
+                    }
+                } catch {
+                    const parsed = formSecondPassTargets.split(',').map(s => s.trim()).filter(Boolean);
                     if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
                     secondPassConfig.targets = parsed;
                 }
-            } catch {
-                const parsed = formSecondPassTargets.split(',').map(s => s.trim()).filter(Boolean);
+            }
+            const formSecondPassCustomPrompt = formData.get('second_pass_custom_prompt') as string;
+            if (formSecondPassCustomPrompt !== null && formSecondPassCustomPrompt !== undefined) {
                 if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
-                secondPassConfig.targets = parsed;
+                secondPassConfig.custom_prompt = formSecondPassCustomPrompt.trim();
             }
         }
-        const formSecondPassCustomPrompt = formData.get('second_pass_custom_prompt') as string;
-        if (formSecondPassCustomPrompt !== null && formSecondPassCustomPrompt !== undefined) {
-            if (!secondPassConfig) secondPassConfig = { enabled: true, targets: [] };
-            secondPassConfig.custom_prompt = formSecondPassCustomPrompt.trim();
-        }
 
-        // If Pass 2 is explicitly enabled (e.g. Force Pass 2) but no targets or custom_prompt were specified,
-        // automatically derive the audit targets from the active style's technicalSpecs so Pass 2 always executes.
+        // If Pass 2 is enabled without explicit targets or custom_prompt, automatically derive
+        // accurate audit targets matching `SECOND_PASS_ISSUES` IDs from the active style's technicalSpecs.
         if (secondPassConfig?.enabled && (!secondPassConfig.targets || secondPassConfig.targets.length === 0) && !secondPassConfig.custom_prompt) {
             const derivedTargets: string[] = [];
             const activeSpecs = typeof styleInput !== 'string' ? styleInput.technicalSpecs : undefined;
             if (activeSpecs) {
-                if (activeSpecs.hasBottomRail === true) derivedTargets.push('bottom_rail');
-                else if (activeSpecs.hasBottomRail === false) derivedTargets.push('direct_weld');
+                if (activeSpecs.hasBottomRail === true) {
+                    derivedTargets.push('shoe_rail');
+                } else if (activeSpecs.hasBottomRail === false) {
+                    derivedTargets.push('direct_mount');
+                }
 
-                if (activeSpecs.hasReducers === true) derivedTargets.push('reducers');
-                else if (activeSpecs.hasReducers === false && !derivedTargets.includes('direct_weld')) derivedTargets.push('direct_weld');
+                // `reducers` removes standoff pins for flush welds (`hasReducers === false`),
+                // whereas `reducer_fittings` preserves intentional stem collars (`hasReducers === true`).
+                if (activeSpecs.hasReducers === false) {
+                    derivedTargets.push('reducers');
+                } else if (activeSpecs.hasReducers === true) {
+                    derivedTargets.push('reducer_fittings');
+                }
 
-                if (activeSpecs.postMount === 'side') derivedTargets.push('side_mount');
-                else if (activeSpecs.postMount === 'top') derivedTargets.push('top_mount');
+                if (activeSpecs.postMount === 'side') {
+                    derivedTargets.push('side_mount');
+                } else if (activeSpecs.postMount === 'top') {
+                    derivedTargets.push('top_mount');
+                }
             }
             if (derivedTargets.length === 0) {
-                derivedTargets.push('direct_weld', 'top_mount');
+                derivedTargets.push('reducers', 'top_mount');
             }
             secondPassConfig.targets = derivedTargets;
         }
 
-        // 1. Fetch dynamic prompt configuration
-        // Dynamic import to avoid circular dependency loop if admin actions import this file? 
-        // Or simply separation of concerns.
+        // 1. Fetch dynamic prompt configuration using internal server-only token
         const { getActiveSystemPrompt } = await import('@/app/admin/actions');
-        const promptData = await getActiveSystemPrompt();
+        const promptData = await getActiveSystemPrompt(INTERNAL_PROMPT_TOKEN);
 
         let promptConfig = undefined;
         if (promptData) {
             promptConfig = {
                 systemInstruction: promptData.system_instruction,
                 userTemplate: promptData.user_template,
-                negative_prompt: promptData.negative_prompt
+                negative_prompt: promptData.negative_prompt ?? undefined
             };
-            console.log(`[DEBUG] Using active dynamic prompt from DB: ${promptData.key} (ID: ${promptData.id})`);
-            console.log(`[DEBUG] Negative Prompt: ${promptData.negative_prompt || 'None'}`);
-        } else {
-            console.warn('[DEBUG] Using default fallback prompt (DB fetch returned null or undefined). This usually means no active prompt found or DB error.');
         }
 
         const result = await generateDesignWithNanoBanana(base64Image, styleInput as any, promptConfig);
 
         if (result.success && result.image) {
-            console.log('[DEBUG] Image generated successfully with Nano Banana');
-
             // --- COMMIT BILLING & CREDITS AFTER SUCCESSFUL GENERATION ---
-            if (shouldReportStripeUsage && profileIdToBill) {
+            let atomicCreditResult: { used_metered?: boolean } | null = null;
+
+            if (billingUpdatePayload && profileIdToBill) {
+                const rpcClient = adminClientInstance || dbClient;
+                let committedViaRpc = false;
+
+                if (typeof (rpcClient as any).rpc === 'function') {
+                    try {
+                        const { data: rpcData, error: rpcError } = await (rpcClient as any).rpc('consume_generation_credit', {
+                            p_profile_id: profileIdToBill,
+                            p_overage_rate: tier.overageRate,
+                            p_allowance: allowance,
+                            p_notification_state: notificationState,
+                        });
+
+                        if (!rpcError && rpcData && rpcData.allowed === true) {
+                            committedViaRpc = true;
+                            atomicCreditResult = rpcData;
+                        } else if (!rpcError && rpcData && rpcData.allowed === false) {
+                            return { error: rpcData.reason || 'Monthly spend limit reached.' };
+                        }
+                    } catch {
+                        // Fall back cleanly if the RPC migration has not been applied yet
+                    }
+                }
+
+                if (!committedViaRpc) {
+                    const { error: updateError } = await dbClient
+                        .from('profiles')
+                        .update(billingUpdatePayload)
+                        .eq('id', profileIdToBill);
+
+                    if (updateError) {
+                        console.error('[BILLING] Failed to update usage:', updateError);
+                        return { error: 'Transaction failed. Please try again.' };
+                    }
+                }
+            }
+
+            const shouldReportStripeFinal = atomicCreditResult
+                ? Boolean(atomicCreditResult.used_metered && profileIdToBill && tier?.stripeMeteredPriceId)
+                : shouldReportStripeUsage;
+
+            if (shouldReportStripeFinal && profileIdToBill) {
                 try {
                     const { reportUsage } = await import('@/app/actions/stripe');
                     await reportUsage(profileIdToBill, 1);
@@ -656,48 +791,30 @@ export async function generateDesign(formData: FormData) {
                     console.error('[BILLING] Failed to report usage to Stripe:', err);
                 }
             }
-
-            if (billingUpdatePayload && profileIdToBill) {
-                const { error: updateError } = await dbClient
-                    .from('profiles')
-                    .update(billingUpdatePayload)
-                    .eq('id', profileIdToBill);
-
-                if (updateError) {
-                    console.error('[BILLING] Failed to update usage:', updateError);
-                    return { error: 'Transaction failed. Please try again.' };
-                }
-            }
             // ------------------------------------------------------------
 
             // --- SECOND-PASS AI REFINEMENT ---
             let secondPassApplied = false;
             if (secondPassConfig?.enabled && (secondPassConfig.targets?.length > 0 || secondPassConfig.custom_prompt)) {
-                console.log('[DEBUG] Executing Second-Pass AI Refinement with targets:', secondPassConfig.targets);
                 try {
                     const { assembleRefinementPrompt, refineDesignWithNanoBanana } = await import('@/lib/vertex');
                     const { SECOND_PASS_ISSUES } = await import('@/app/actions/types');
                     const refinementPrompt = assembleRefinementPrompt(secondPassConfig);
                     if (refinementPrompt) {
-                        // Gather close-up detail images for active targets
+                        // Gather close-up detail images for active targets using SSRF-safe image fetcher
                         const detailImagesForPass2: { targetId: string; label: string; base64Data: string }[] = [];
                         if (secondPassConfig.detail_images) {
                             for (const targetId of secondPassConfig.targets) {
                                 const imgUrl = secondPassConfig.detail_images[targetId];
-                                if (imgUrl) {
-                                    try {
-                                        const res = await fetch(imgUrl);
-                                        if (res.ok) {
-                                            const buf = Buffer.from(await res.arrayBuffer());
-                                            const issueMeta = SECOND_PASS_ISSUES.find(i => i.id === targetId);
-                                            detailImagesForPass2.push({
-                                                targetId,
-                                                label: issueMeta?.uploadLabel || targetId,
-                                                base64Data: buf.toString('base64')
-                                            });
-                                        }
-                                    } catch (fetchErr) {
-                                        console.warn(`Failed to fetch second pass detail image for ${targetId}:`, fetchErr);
+                                if (imgUrl && isSafeExternalUrl(imgUrl)) {
+                                    const buf = await safeFetchImageBuffer(imgUrl);
+                                    if (buf) {
+                                        const issueMeta = SECOND_PASS_ISSUES.find(i => i.id === targetId);
+                                        detailImagesForPass2.push({
+                                            targetId,
+                                            label: issueMeta?.uploadLabel || targetId,
+                                            base64Data: buf.toString('base64')
+                                        });
                                     }
                                 }
                             }
@@ -715,7 +832,6 @@ export async function generateDesign(formData: FormData) {
                             base64Image
                         );
                         if (pass2Result.success && pass2Result.image) {
-                            console.log('[DEBUG] Second-Pass Refinement completed successfully!');
                             result.image = pass2Result.image;
                             secondPassApplied = true;
                             if (pass2Result.usage && result.usage) {
@@ -731,28 +847,26 @@ export async function generateDesign(formData: FormData) {
                 }
             }
 
-            // --- TRACKING START (Added for Admin Stats) ---
+            // --- TRACKING START (Always use admin client when available so Generic Demo logs accurately for IP rate limiting) ---
             try {
-                const trackingClient = (isAdminTest || shouldUseAdminClient) ? (createAdminClient() || supabase) : supabase;
+                const trackingClient = adminClientInstance || dbClient;
 
                 const promptTag = isAdminTest
                     ? `[ADMIN_TEST] ${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}${secondPassApplied ? ' + Second-Pass' : ''}`
                     : `${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}${secondPassApplied ? ' + Second-Pass' : ''}`;
 
                 await trackingClient.from('generations').insert([{
-                    organization_id: profileIdToBill, // Use the tenant ID being tested
+                    organization_id: profileIdToBill || null,
                     image_url: result.image.startsWith('data:') ? 'Base64 Image Data' : result.image,
                     prompt_used: promptTag,
                     style_id: style,
                     ip_address: clientIp,
                     user_agent: userAgent,
                     created_at: new Date().toISOString(),
-                    // COST TRACKING
-                    model_id: 'gemini-3.1-flash-image',
+                    model_id: result.modelUsed || 'gemini-3.1-flash-image',
                     input_tokens: result.usage?.inputTokens || 0,
                     output_tokens: result.usage?.outputTokens || 0
                 }]);
-                console.log('[DEBUG] Generation tracked in DB with IP:', clientIp);
             } catch (err) {
                 console.warn('[Tracking] Failed to log generation:', err);
             }
@@ -771,16 +885,12 @@ export async function generateDesign(formData: FormData) {
 
     } catch (error: any) {
         console.error('[ERROR] Generation Failed:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
-        // CRITICAL: Return the actual error to the UI instead of a silent fallback
-        return { success: false, error: 'Generation Failed: ' + (error.message || 'Unknown error') };
-        /*
-        // Fallback for demo/dev purposes if API fails (e.g. Rate Limit or 404)
-        console.warn('Returning fallback image due to generation failure.');
+        if (isAdmin) {
+            return { success: false, error: 'Generation Failed: ' + (error.message || 'Unknown error') };
+        }
         return {
-            success: true,
-            image: '/styles/modern.png', // Fallback to a valid existing image
-            isFallback: true
+            success: false,
+            error: 'Generation Failed: Service is temporarily busy or unable to process this photo. Please try again shortly.'
         };
-        */
     }
 }

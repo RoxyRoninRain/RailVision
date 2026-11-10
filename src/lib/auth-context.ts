@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkIsAdmin } from '@/lib/auth-utils';
+import { isValidUuid } from '@/lib/validations';
 import { cookies } from 'next/headers';
 
 const IMPERSONATION_COOKIE = 'x-railify-impersonate';
@@ -19,7 +20,7 @@ export async function getActingUser(): Promise<ActingUserContext> {
     const { data: { user } } = await supabase.auth.getUser();
 
     // Default State: Regular User
-    let context: ActingUserContext = {
+    const context: ActingUserContext = {
         user,
         tenantId: user?.id || '',
         isImpersonating: false,
@@ -38,7 +39,7 @@ export async function getActingUser(): Promise<ActingUserContext> {
         const cookieStore = await cookies();
         const impersonatedTenantId = cookieStore.get(IMPERSONATION_COOKIE)?.value;
 
-        if (impersonatedTenantId) {
+        if (impersonatedTenantId && isValidUuid(impersonatedTenantId)) {
             context.isImpersonating = true;
             context.tenantId = impersonatedTenantId;
 

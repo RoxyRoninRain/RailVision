@@ -1,6 +1,6 @@
 const { Client } = require('pg');
 
-const connectionString = 'postgresql://postgres.zlwcdhgdmshtmkqngfzg:Reneg@d3roxyronin@aws-0-us-west-2.pooler.supabase.com:6543/postgres';
+const connectionString = process.env.DATABASE_URL;
 // Tenant ID for Mississippi Metal Magic
 const TENANT_ID = 'cbc0da2d-7db3-4d42-890e-86256f18378d';
 const NEW_TIER = 'The Unlimited';

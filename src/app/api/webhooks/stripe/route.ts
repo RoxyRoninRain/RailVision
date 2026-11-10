@@ -7,14 +7,25 @@ import { WelcomeEmail } from '@/emails/WelcomeEmail';
 export const dynamic = 'force-dynamic';
 
 const resend = new Resend(process.env.RESEND_API_KEY?.trim());
+const processedWebhookEvents = new Set<string>();
+const MAX_PROCESSED_WEBHOOK_EVENTS = 2000;
 
 export async function POST(req: Request) {
     const { stripe } = await import('@/lib/stripe');
-    const { supabase, adminSupabase } = await import('@/lib/supabase');
+    const { adminSupabase } = await import('@/lib/supabase');
 
     const body = await req.text();
     const signature = (await headers()).get('Stripe-Signature') as string;
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim() || '';
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET?.trim();
+
+    if (!webhookSecret) {
+        console.error('[STRIPE WEBHOOK] Missing STRIPE_WEBHOOK_SECRET');
+        return new Response('Webhook configuration error', { status: 500 });
+    }
+
+    if (!signature) {
+        return new Response('Missing Stripe-Signature header', { status: 400 });
+    }
 
     let event: Stripe.Event;
 
@@ -26,12 +37,24 @@ export async function POST(req: Request) {
         );
     } catch (error: any) {
         console.error(`Webhook Error: ${error.message}`);
-        return new Response(`Webhook Error: ${error.message}`, { status: 400 });
+        return new Response('Invalid webhook signature', { status: 400 });
     }
 
-    // We need the admin client to bypass RLS for webhook updates
-    // Assuming keys are set correctly in env
-    const supabaseAdmin = adminSupabase || supabase;
+    // Fail closed if service-role client is unavailable so webhook state mutations never silently fail under RLS
+    if (!adminSupabase) {
+        console.error('[STRIPE WEBHOOK] Missing SUPABASE_SERVICE_ROLE_KEY');
+        return new Response('Database configuration error', { status: 500 });
+    }
+    const supabaseAdmin = adminSupabase;
+
+    // Idempotency guard against duplicate deliveries within the same server worker
+    if (processedWebhookEvents.has(event.id)) {
+        return new Response(null, { status: 200 });
+    }
+    if (processedWebhookEvents.size >= MAX_PROCESSED_WEBHOOK_EVENTS) {
+        processedWebhookEvents.clear();
+    }
+    processedWebhookEvents.add(event.id);
 
     try {
         const session = event.data?.object as Stripe.Checkout.Session;

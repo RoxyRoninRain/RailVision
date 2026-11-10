@@ -38,19 +38,18 @@ function OnboardingContent() {
 
     useEffect(() => {
         if (!isPolling) return;
-        
-        let interval: NodeJS.Timeout;
+
         const checkStatus = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
             const { data } = await supabase.from('profiles').select('subscription_status').eq('id', user.id).single();
-            if (data?.subscription_status === 'active') {
+            if (data?.subscription_status === 'active' || data?.subscription_status === 'trialing') {
                 router.push('/dashboard');
             }
         };
 
         checkStatus(); // Initial check
-        interval = setInterval(checkStatus, 2000);
+        const interval = setInterval(checkStatus, 2000);
 
         return () => clearInterval(interval);
     }, [isPolling, router, supabase]);
