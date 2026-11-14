@@ -28,6 +28,9 @@
 6. **Gemini 3.6+ / 3.8 Flash & Nano Banana 2.1 API Parameter Constraints**:
    - Gemini 3.8 Flash deprecates `temperature`, `top_p`, and `top_k` (supplying them triggers HTTP `400`); omit sampling overrides and tune via `thinkingConfig.thinkingLevel` (`LOW`/`MEDIUM`/`HIGH`) instead.
    - Nano Banana 2.1 accepts `MINIMAL`, `MEDIUM` (default), or `HIGH` (controlled via `VERTEX_THINKING_LEVEL`), NOT `LOW`; use `MINIMAL` for simple Clean Plate demolition and canonical studio cutouts. Also route Vertex `gemini-3.8-flash` through `getVertexClient(true)` (`location: 'global'`), and export `maxDuration = 120` on interactive App Router style/studio routes so Vercel serverless functions don't time out.
+7. **Never Leave Legacy `has_bottom_rail = null` Unconstrained or Legacy DB Prompt Templates Active**:
+   - Production fetches the active row from `public.system_prompts` (`is_active = true`). An old prompt row containing `{{mounting_logic}}` or `{{reducers_logic}}` will override code defaults unless those placeholders are substituted or a current prompt row is activated.
+   - When a legacy style has `has_bottom_rail = null`, `buildRailingSynthesisPrompts` must emit `BOTTOM TERMINATION FORENSIC LOCK` (strictly mutually exclusive: stop all pickets on the shoe rail OR direct tread mount, never both), fall back to `style_metadata.fabrication_spec`, include Hero ref `[0]` in Pass 2 (`slice(0, 4)`), and instruct Vision QA to auto-fail hybrid "bottom shoe rail + picket pass-through" defects.
 
 ## Visualizer UX Gotchas
 1. **Step 3 Result Display (`DesignStudio.tsx` + `BeforeAfterSlider.tsx`)**:

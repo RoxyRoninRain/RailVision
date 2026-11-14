@@ -696,8 +696,8 @@ export async function getActiveSystemPrompt(internalToken?: symbol) {
         .single();
 
     if (error) {
-        // Fallback to main if no active one found (shouldn't happen due to default)
-        return getSystemPrompt('gemini-handrail-main', INTERNAL_PROMPT_TOKEN);
+        // Fallback to V11 Nano Banana 2.1 if no active row is flagged (or null so vertex.ts uses code defaults)
+        return getSystemPrompt('V11 Nano Banana 2.1', INTERNAL_PROMPT_TOKEN);
     }
 
     return data;

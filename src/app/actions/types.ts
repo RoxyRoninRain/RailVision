@@ -322,7 +322,7 @@ export const SECOND_PASS_ISSUES = [
         id: 'shoe_rail',
         label: 'Bottom Shoe Rail Integrity',
         description: 'Ensure spindles terminate into shoe rail without ghosting into steps.',
-        prompt: 'BOTTOM SHOE RAIL INTEGRITY: Ensure all vertical spindles/infill terminate cleanly and solidly into the continuous bottom shoe rail. Spindles must NEVER pass through or ghost beneath the shoe rail.',
+        prompt: 'BOTTOM SHOE RAIL INTEGRITY: Ensure all vertical spindles/infill terminate cleanly and solidly into the continuous bottom shoe rail. Spindles must NEVER pass through or ghost beneath the shoe rail. Erase any infill picket or spindle segments extending below the bottom shoe rail onto the stair treads and restore clean bare stair tread surfaces underneath so ONLY the main structural posts touch the steps, leaving crisp open air beneath the shoe rail.',
         uploadLabel: 'Shoe Rail Detail',
         uploadHint: 'Upload a close-up photo showing the bottom shoe rail and spindle terminations.'
     },

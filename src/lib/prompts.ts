@@ -25,8 +25,9 @@ Generate ONE high-resolution architectural photograph showing the user's Target 
 1. **BACKGROUND & PERSPECTIVE LOCK:** Preserve the camera lens, angle, staircase treads, nosings, risers, stringers, walls, flooring, lighting, shadows, and surroundings of **IMAGE A** unchanged—EXCEPT for deleting any pre-existing old railing/balusters/posts/brackets and healing the underlying tread/wall surfaces.
 2. **COMPLETE DEMOLITION (NO GHOSTING):** If **IMAGE A** contains an existing wood, iron, aluminum, or plastic railing, remove 100% of its handrail, posts, newels, balusters, caps, and wall brackets before installing the new railing. Never fuse new metal onto old wood posts or leave cut spindle stubs floating on treads.
 3. **100% HARDWARE & PROFILE FIDELITY:** Replicate the reference style's exact material, color/sheen, top rail cross-section, infill geometry, bottom termination (shoe rail vs direct tread embed), end/wall returns, post-to-top-rail joint (direct weld vs stem reducer), and stair mounting hardware (side fascia 2-bolt vs top tread base flange vs wall bracket) while completely ignoring the reference photos' own stairs/backgrounds.
-4. **PHYSICAL ENGINEERING REALISM:** Cast crisp ambient occlusion shadows onto treads and fascia bolts, align raked rails consistently parallel to the stair pitch line (standard ~34–38" code height), keep balusters plumb/vertical or infill parallel per style, and never occlude metal inside foreground plants improperly.
-5. **OUTPUT ONLY THE FINAL EDITED PHOTOGRAPH.**`;
+4. **MUTUALLY EXCLUSIVE BOTTOM TERMINATION — NEVER MIX SHOE RAIL & TREAD-MOUNT PICKETS:** Every railing uses EITHER (A) a continuous bottom shoe rail acting as a solid barrier where 100% of vertical infill pickets, spindles, and scrolls stop cleanly on the top face of the bottom shoe rail and NEVER pass through or extend beneath it onto the stair treads (ONLY main structural posts anchor to the steps/stringer, leaving clean open air under the shoe rail), OR (B) direct-to-tread pickets anchoring cleanly into bare treads with ZERO bottom rail—never both at the same time.
+5. **PHYSICAL ENGINEERING REALISM:** Cast crisp ambient occlusion shadows onto treads and fascia bolts, align raked rails consistently parallel to the stair pitch line (standard ~34–38" code height), keep balusters plumb/vertical or infill parallel per style, and never occlude metal inside foreground plants improperly.
+6. **OUTPUT ONLY THE FINAL EDITED PHOTOGRAPH.**`;
 
 export interface PromptStageMeta {
     id: string;
@@ -274,24 +275,38 @@ export function buildRailingSynthesisPrompts(input: RailingSynthesisPromptInput)
         customMasterTemplate,
     } = input;
 
+    const effectiveHasBottomRail = specs.hasBottomRail ?? specs.fabricationSpec?.has_bottom_rail;
+    const effectivePostMount: 'top' | 'side' | null | undefined =
+        specs.postMount ??
+        (specs.fabricationSpec?.post_mount_type === 'side' || specs.fabricationSpec?.post_mount_type === 'top'
+            ? specs.fabricationSpec.post_mount_type
+            : null);
+    const effectiveHasReducers: boolean | null | undefined =
+        specs.hasReducers ??
+        (specs.fabricationSpec?.post_to_rail_joint === 'stem_reducer'
+            ? true
+            : specs.fabricationSpec?.post_to_rail_joint === 'direct_flush_weld'
+              ? false
+              : null);
+
     let bottomRailRule = '';
-    if (specs.hasBottomRail !== undefined && specs.hasBottomRail !== null) {
-        if (specs.hasBottomRail === false) {
-            bottomRailRule = `**CRITICAL: NO BOTTOM RAIL / DIRECT TREAD MOUNT:** This design MUST NOT have a bottom horizontal shoe rail or bar along the stairs. All vertical spindles/balusters MUST extend straight down and anchor directly into the individual stair treads and landing floor.`;
-        } else {
-            bottomRailRule = `**BOTTOM SHOE RAIL REQUIRED:** Include a continuous bottom horizontal shoe rail/channel connecting the bottom of all infill spindles cleanly (parallel to the handrail slope) above the stair nosings.`;
-        }
+    if (effectiveHasBottomRail === false) {
+        bottomRailRule = `**CRITICAL: NO BOTTOM RAIL / DIRECT TREAD MOUNT:** This design MUST NOT have a bottom horizontal shoe rail or bar along the stairs. All vertical spindles/balusters MUST extend straight down and anchor directly into the individual stair treads and landing floor.`;
+    } else if (effectiveHasBottomRail === true) {
+        bottomRailRule = `**BOTTOM SHOE RAIL REQUIRED (SOLID BARRIER — NO PICKET PASS-THROUGH):** Include a continuous bottom horizontal shoe rail/channel connecting the bottom of all infill spindles cleanly (parallel to the handrail slope) above the stair nosings. **100% of vertical spindles, pickets, and decorative scrolls MUST terminate cleanly at the top surface of this bottom shoe rail and NEVER pass through, poke beneath, or extend down onto the stair treads.** ONLY the main structural posts reach down to anchor to the steps or fascia, leaving clean open air beneath the bottom shoe rail.`;
+    } else {
+        bottomRailRule = `**BOTTOM TERMINATION FORENSIC LOCK (MUTUALLY EXCLUSIVE — NEVER MIX SHOE RAIL & TREAD PICKETS):** Inspect the bottom of the infill in **IMAGE B** before rendering: (A) If **IMAGE B** has a continuous bottom horizontal shoe rail, treat that bottom rail as a solid barrier—stop 100% of vertical pickets/scrolls cleanly on the top face of the bottom rail and NEVER extend infill pickets below it onto the steps (ONLY structural posts touch the stairs, leaving open air under the bottom rail). (B) If **IMAGE B** has NO bottom rail, omit the bottom rail completely and anchor each picket directly into the stair treads. NEVER render both a bottom shoe rail and direct-mount pickets at the same time.`;
     }
 
     let postMountInstructionStep = '';
-    if (specs.postMount === 'side') {
+    if (effectivePostMount === 'side') {
         postMountInstructionStep = `1b. **POST MOUNTING (SIDE / FASCIA MOUNT - DIRECT 2-BOLT ATTACHMENT, NO PLATES):**
 - The user requires **Side Mount (Fascia Mount)** posts.
 - Inspect **IMAGE C** closely for the exact post-to-stringer mounting detail.
 - **DIRECT 2-BOLT FASTENING:** Every post (bottom newel, intermediate stair posts, and landing posts) must mount directly flat against the outer side face / exterior stringer / side fascia of the staircase using **2 through-bolts (vertically stacked)** passing directly through the post body into the wood stringer or deck rim joist.
 - **STRICTLY NO MOUNTING PLATES OR BRACKETS:** Do NOT generate mounting plates, bracket collars, standoff saddles, or external mounting tabs. The post tube/bar must sit directly flat against the stringer face with only the 2 bolt heads visible, exactly as shown in **IMAGE C**.
 - Posts must extend downward along the outside edge of the stairs; do NOT mount post bases onto the top horizontal surface of the stair treads. Keep the tread walking surface completely open and clear of post bases.`;
-    } else if (specs.postMount === 'top') {
+    } else if (effectivePostMount === 'top') {
         postMountInstructionStep = `1b. **POST MOUNTING (TOP / SURFACE MOUNT REQUIRED):**
 - The user requires **Top Mount (Surface Mount)** posts.
 - Every post base must mount directly onto the top horizontal surface of the stair treads or landing floor using surface-mounted base plates / flange shoes anchored vertically down into the tread/deck floor.
@@ -302,8 +317,8 @@ export function buildRailingSynthesisPrompts(input: RailingSynthesisPromptInput)
     }
 
     let reducerInstructionStep = '';
-    if (specs.hasReducers !== undefined && specs.hasReducers !== null) {
-        if (specs.hasReducers === true) {
+    if (effectiveHasReducers !== undefined && effectiveHasReducers !== null) {
+        if (effectiveHasReducers === true) {
             reducerInstructionStep = `1c. **POST-TO-RAIL JUNCTION (REDUCER FITTINGS REQUIRED):**
 - The style requires reducer fittings: Pay extra close attention to the post-to-rail connection point in both **IMAGE B** and **IMAGE C**.
 - Posts connect to the top rail using post-top stem reducers / transition collars at the top of each post.`;
@@ -389,13 +404,26 @@ ${specs.customPrompt ? `\n* **ARCHITECTURAL CONTEXT / USER NOTES:** "${specs.cus
             );
         }
 
-        if (bottomRailRule) {
+        const usedMountingPlaceholder = promptText.includes('{{mounting_logic}}');
+        if (usedMountingPlaceholder) {
+            promptText = promptText.replaceAll(
+                '{{mounting_logic}}',
+                [bottomRailRule, postMountInstructionStep].filter(Boolean).join('\n\n')
+            );
+        }
+
+        const usedReducersPlaceholder = promptText.includes('{{reducers_logic}}');
+        if (usedReducersPlaceholder) {
+            promptText = promptText.replaceAll('{{reducers_logic}}', reducerInstructionStep);
+        }
+
+        if (!usedMountingPlaceholder && bottomRailRule) {
             promptText += `\n\n### BOTTOM RAIL MANDATE:\n${bottomRailRule}`;
         }
-        if (postMountInstructionStep) {
+        if (!usedMountingPlaceholder && postMountInstructionStep) {
             promptText += `\n\n${postMountInstructionStep}`;
         }
-        if (reducerInstructionStep) {
+        if (!usedReducersPlaceholder && reducerInstructionStep) {
             promptText += `\n\n${reducerInstructionStep}`;
         }
         if (fabSpecBlock) {
@@ -431,6 +459,15 @@ export function buildVisionQaPrompt(
     availableDetailSlotIds: string[] = []
 ): string {
     const validTargets = SECOND_PASS_ISSUES.map((i) => i.id).join(', ');
+    const effectiveHasBottomRail = specs.hasBottomRail ?? specs.fabricationSpec?.has_bottom_rail;
+    const effectivePostMount = specs.postMount ?? specs.fabricationSpec?.post_mount_type;
+    const effectiveHasReducers =
+        specs.hasReducers ??
+        (specs.fabricationSpec?.post_to_rail_joint === 'stem_reducer'
+            ? true
+            : specs.fabricationSpec?.post_to_rail_joint === 'direct_flush_weld'
+              ? false
+              : undefined);
     const fabSummary = specs.fabricationSpec
         ? JSON.stringify(specs.fabricationSpec, null, 2)
         : 'None provided — rely on Style Reference photos.';
@@ -440,18 +477,20 @@ export function buildVisionQaPrompt(
 2) STYLE HERO & DETAIL CLOSE-UPS (middle attached images) — metal color, profile, joint type, mount hardware, bottom termination, and infill spacing MUST match.
 
 EXPLICIT USER / STYLE CONSTRAINTS:
-- Expected Post Mount: ${specs.postMount ?? specs.fabricationSpec?.post_mount_type ?? 'match reference photos'}
-- Expected Bottom Rail: ${specs.hasBottomRail === false ? 'NO bottom rail (direct into treads)' : specs.hasBottomRail === true ? 'Continuous bottom shoe rail required' : 'match reference'}
-- Expected Post-to-Rail Joint: ${specs.hasReducers === true ? 'Stem reducer collars required' : specs.hasReducers === false ? 'Direct flush weld (ZERO reducer pin/gap)' : 'match reference'}
+- Expected Post Mount: ${effectivePostMount ?? 'match reference photos'}
+- Expected Bottom Rail: ${effectiveHasBottomRail === false ? 'NO bottom rail (direct into treads)' : effectiveHasBottomRail === true ? 'Continuous bottom shoe rail required' : 'match reference photos strictly (NEVER mix bottom shoe rail with direct-to-tread pickets)'}
+- Expected Post-to-Rail Joint: ${effectiveHasReducers === true ? 'Stem reducer collars required' : effectiveHasReducers === false ? 'Direct flush weld (ZERO reducer pin/gap)' : 'match reference'}
 - Structured Fabrication Spec: ${fabSummary}
 - Available Close-Up Targets: [${availableDetailSlotIds.join(', ')}]
 
 Inspect systematically:
 1. Are there ANY floating/ghost spindles, un-demolished old wood posts, or double railings?
-2. Does post mounting match (${specs.postMount === 'side' ? '2 vertical bolts direct flat on outer fascia, ZERO base plates' : specs.postMount === 'top' ? 'top flange base plates on stair treads' : 'reference photos'})?
-3. Does post-to-rail joint match (${specs.hasReducers === false ? 'direct flush solid weld with zero pins/stems' : specs.hasReducers === true ? 'clean reducer collars' : 'reference photos'})?
-4. Does bottom termination match (${specs.hasBottomRail === false ? 'direct tread mount with zero bottom rail' : 'clean bottom shoe rail without ghosting into steps'})?
+2. Does post mounting match (${effectivePostMount === 'side' ? '2 vertical bolts direct flat on outer fascia, ZERO base plates' : effectivePostMount === 'top' ? 'top flange base plates on stair treads' : 'reference photos'})?
+3. Does post-to-rail joint match (${effectiveHasReducers === false ? 'direct flush solid weld with zero pins/stems' : effectiveHasReducers === true ? 'clean reducer collars' : 'reference photos'})?
+4. Does bottom termination match (${effectiveHasBottomRail === false ? 'direct tread mount with zero bottom rail' : effectiveHasBottomRail === true ? 'clean bottom shoe rail where 100% of pickets stop at the top of the bottom rail and ZERO pickets extend below onto steps' : 'either clean bottom shoe rail with ZERO pickets passing below it, OR direct-to-tread pickets with ZERO bottom rail—matching reference photos'})?
 5. Are background pixels, stair steps, lighting, and perspective faithful to IMAGE A?
+
+CRITICAL AUTOMATIC FAIL RULE (HYBRID BOTTOM RAIL + PICKET PASS-THROUGH): Inspect beneath any bottom horizontal shoe rail! If the rendered image shows BOTH a bottom shoe rail AND vertical infill pickets/spindles extending below that bottom rail onto the stair steps (or ghosting through it), you MUST set "passed": false and "railing_fidelity_score" <= 55. Compare against the Style Reference photo: if the Style Reference uses a bottom shoe rail, include "shoe_rail" in "suggested_targets" and instruct Pass 2 to erase all picket segments below the bottom rail so ONLY structural posts touch the steps; if the Style Reference uses direct-to-tread pickets with no bottom rail, include "direct_mount" in "suggested_targets" and instruct Pass 2 to remove the unwanted bottom shoe rail.
 
 Return STRICT JSON only:
 {

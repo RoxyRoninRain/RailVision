@@ -131,6 +131,57 @@ describe('Phase 1 & 2 — Modular Prompts & Bug Fixes', () => {
             'NO bottom rail'
         );
     });
+
+    it('prevents hybrid bottom-rail + tread-mount pickets across un-upgraded legacy styles, fabricationSpec fallbacks, legacy placeholders, and Vision QA', () => {
+        const legacyUnsetRes = buildRailingSynthesisPrompts({
+            styleDescription: 'Hearts Wrought Iron',
+            specs: { hasBottomRail: undefined, hasReducers: null },
+        });
+        expect(legacyUnsetRes.systemInstruction).toContain('MUTUALLY EXCLUSIVE BOTTOM TERMINATION');
+        expect(legacyUnsetRes.promptText).toContain('BOTTOM TERMINATION FORENSIC LOCK');
+        expect(legacyUnsetRes.promptText).toContain('NEVER render both a bottom shoe rail and direct-mount pickets at the same time');
+
+        const specFallbackRes = buildRailingSynthesisPrompts({
+            styleDescription: 'Hearts Wrought Iron',
+            specs: {
+                hasBottomRail: undefined,
+                fabricationSpec: {
+                    category: 'stair_railing',
+                    material: 'wrought iron',
+                    finish: 'black',
+                    top_rail_profile: 'molded cap',
+                    post_profile: '1.25 square',
+                    post_mount_type: 'top',
+                    bolt_pattern: '4-bolt base plate',
+                    post_to_rail_joint: 'direct_flush_weld',
+                    infill_type: 'custom_scroll',
+                    infill_profile_and_spacing: '1/2 square pickets with hearts',
+                    has_bottom_rail: true,
+                    bottom_termination: 'continuous bottom shoe rail',
+                    handrail_return: 'scroll volute',
+                    distinctive_features: [],
+                    conflicts_detected: [],
+                    confidence_notes: '',
+                },
+            },
+        });
+        expect(specFallbackRes.promptText).toContain('BOTTOM SHOE RAIL REQUIRED (SOLID BARRIER — NO PICKET PASS-THROUGH)');
+
+        const legacyPlaceholderRes = buildRailingSynthesisPrompts({
+            styleDescription: 'Hearts Wrought Iron',
+            specs: { hasBottomRail: true, postMount: 'top', hasReducers: false },
+            customMasterTemplate:
+                'ARCHITECTURAL PROMPT TEMPLATE FOR CUSTOM RAILINGS WITH LONG ENOUGH CONTEXT LENGTH TO AVOID STUB DETECTION AND TEST PLACEHOLDERS CLEANLY.\n{{mounting_logic}}\n{{reducers_logic}}\nFinalize lighting cleanly.',
+        });
+        expect(legacyPlaceholderRes.promptText).not.toContain('{{mounting_logic}}');
+        expect(legacyPlaceholderRes.promptText).not.toContain('{{reducers_logic}}');
+        expect(legacyPlaceholderRes.promptText).toContain('BOTTOM SHOE RAIL REQUIRED');
+        expect(legacyPlaceholderRes.promptText).toContain('POST-TO-RAIL JOINT (DIRECT SEAMLESS WELD)');
+
+        const qaPrompt = buildVisionQaPrompt({ hasBottomRail: true });
+        expect(qaPrompt).toContain('CRITICAL AUTOMATIC FAIL RULE (HYBRID BOTTOM RAIL + PICKET PASS-THROUGH)');
+        expect(qaPrompt).toContain('include "shoe_rail" in "suggested_targets"');
+    });
 });
 
 describe('Phase 1 & 2 — Vertex Nano Banana 2.1 Transport & Multi-Turn Thought Signatures', () => {

@@ -557,15 +557,34 @@ export async function backfillLegacyStylesSpecs(limit: number = 25) {
                 },
             });
 
-            const nextMeta = {
+            const nextMeta: Record<string, any> = {
                 ...(style.style_metadata && typeof style.style_metadata === 'object' ? style.style_metadata : {}),
                 fabrication_spec: spec,
                 use_canonical_cutout: false, // Never silently swap legacy hero photos
             };
 
+            if (
+                (nextMeta.post_mount === undefined || nextMeta.post_mount === null) &&
+                !style.post_mount &&
+                (spec.post_mount_type === 'side' || spec.post_mount_type === 'top')
+            ) {
+                nextMeta.post_mount = spec.post_mount_type;
+            }
+
+            const updatePayload: Record<string, any> = { style_metadata: nextMeta };
+            if (style.has_bottom_rail === null || style.has_bottom_rail === undefined) {
+                updatePayload.has_bottom_rail = spec.has_bottom_rail;
+            }
+            if (
+                (style.has_reducers === null || style.has_reducers === undefined) &&
+                (spec.post_to_rail_joint === 'stem_reducer' || spec.post_to_rail_joint === 'direct_flush_weld')
+            ) {
+                updatePayload.has_reducers = spec.post_to_rail_joint === 'stem_reducer';
+            }
+
             const { error: upErr } = await adminSupabase
                 .from('portfolio')
-                .update({ style_metadata: nextMeta })
+                .update(updatePayload)
                 .eq('id', style.id);
 
             if (upErr) errors.push(`${style.name}: ${upErr.message}`);

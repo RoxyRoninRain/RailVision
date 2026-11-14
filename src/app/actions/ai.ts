@@ -638,17 +638,28 @@ export async function generateDesign(formData: FormData) {
                             const formBottomRail = canOverridePromptAndSpecs ? formData.get('has_bottom_rail') : null;
                             const hasBottomRailFinal = (formBottomRail !== null && formBottomRail !== undefined && formBottomRail !== '')
                                 ? formBottomRail === 'true'
-                                : styleData.has_bottom_rail;
+                                : (styleData.has_bottom_rail ?? fabricationSpec?.has_bottom_rail);
 
                             const formReducers = canOverridePromptAndSpecs ? formData.get('has_reducers') : null;
                             const hasReducersFinal = (formReducers !== null && formReducers !== undefined && formReducers !== '')
                                 ? formReducers === 'true'
-                                : styleData.has_reducers;
+                                : (styleData.has_reducers ??
+                                    (fabricationSpec?.post_to_rail_joint === 'stem_reducer'
+                                        ? true
+                                        : fabricationSpec?.post_to_rail_joint === 'direct_flush_weld'
+                                          ? false
+                                          : styleData.has_reducers));
 
                             const formPostMount = canOverridePromptAndSpecs ? (formData.get('post_mount') as string) : null;
                             const postMountFinal = (formPostMount === 'side' || formPostMount === 'top')
                                 ? formPostMount
-                                : (styleData.post_mount || meta.post_mount || 'top');
+                                : (styleData.post_mount ||
+                                    meta.post_mount ||
+                                    (fabricationSpec?.post_mount_type === 'side' || fabricationSpec?.post_mount_type === 'top'
+                                        ? fabricationSpec.post_mount_type
+                                        : fabricationSpec?.post_mount_type === 'wall'
+                                          ? undefined
+                                          : 'top'));
 
                             styleInput = {
                                 base64StyleImages: validBase64s,
@@ -1032,7 +1043,7 @@ export async function generateDesign(formData: FormData) {
 
                     if (refinementPrompt) {
                         const refImagesForPass2 = (typeof styleInput !== 'string' && styleInput.base64StyleImages && styleInput.base64StyleImages.length > 0)
-                            ? (styleInput.base64StyleImages.length > 1 ? styleInput.base64StyleImages.slice(1) : styleInput.base64StyleImages)
+                            ? styleInput.base64StyleImages.slice(0, 4)
                             : undefined;
 
                         const hasMultiTurnState = Boolean((result as any).assistantTurnContent && (result as any).initialUserParts);
