@@ -28,3 +28,8 @@
 6. **Gemini 3.6+ / 3.8 Flash & Nano Banana 2.1 API Parameter Constraints**:
    - Gemini 3.8 Flash deprecates `temperature`, `top_p`, and `top_k` (supplying them triggers HTTP `400`); omit sampling overrides and tune via `thinkingConfig.thinkingLevel` (`LOW`/`MEDIUM`/`HIGH`) instead.
    - Nano Banana 2.1 accepts `MINIMAL`, `MEDIUM` (default), or `HIGH` (controlled via `VERTEX_THINKING_LEVEL`), NOT `LOW`; use `MINIMAL` for simple Clean Plate demolition and canonical studio cutouts. Also route Vertex `gemini-3.8-flash` through `getVertexClient(true)` (`location: 'global'`), and export `maxDuration = 120` on interactive App Router style/studio routes so Vercel serverless functions don't time out.
+
+## Visualizer UX Gotchas
+1. **Step 3 Result Display (`DesignStudio.tsx` + `BeforeAfterSlider.tsx`)**:
+   - Step 3 must always default to showing 100% of the newly generated design (`showOriginalComparison === false` renders the full `<img src={result} />`) with a two-button segmented toggle (`New Design` | `Compare Before / After`).
+   - Do NOT open `<BeforeAfterSlider />` first (or set `initialPosition` past 50%, like the old `62%`), because masking the majority of the frame with the original staircase photo makes customers think nothing changed. Keep `BeforeAfterSlider` `initialPosition = 35` so 65% of the new design remains visible on open.

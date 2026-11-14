@@ -6,7 +6,7 @@ import { generateDesign, submitLead, convertHeicToJpg } from '@/app/actions';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Upload, Check, Loader2, ArrowRight, MousePointerClick, TrendingUp, AlertCircle, Quote,
-    Download, Image as ImageIcon, Settings, Maximize2, RefreshCw, X, ChevronRight, ChevronLeft, Share2, Info
+    Download, Image as ImageIcon, Settings, Maximize2, RefreshCw, X, ChevronRight, ChevronLeft, Share2, Info, MoveHorizontal
 } from 'lucide-react';
 import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
@@ -871,7 +871,7 @@ export default function DesignStudio({
                                     <div className="flex-1 relative bg-black flex flex-col items-center justify-center overflow-hidden p-4 md:p-8">
                                         {result && (
                                             <div className="relative w-full h-full flex flex-col items-center justify-center gap-3">
-                                                {preview && !showOriginalComparison ? (
+                                                {preview && showOriginalComparison ? (
                                                     <BeforeAfterSlider
                                                         beforeImage={preview}
                                                         afterImage={result}
@@ -885,13 +885,35 @@ export default function DesignStudio({
                                                     />
                                                 )}
                                                 {preview && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowOriginalComparison(prev => !prev)}
-                                                        className="px-3.5 py-1.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider border border-white/20 bg-black/75 text-gray-200 hover:bg-black hover:text-white backdrop-blur-md transition-all"
+                                                    <div
+                                                        role="group"
+                                                        aria-label="Result view mode"
+                                                        className="inline-flex items-center p-1 rounded-full border border-white/15 bg-[#111]/90 backdrop-blur-md shadow-lg"
                                                     >
-                                                        {showOriginalComparison ? 'Switch to Before / After Slider' : 'View Full Clean Design Only'}
-                                                    </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowOriginalComparison(false)}
+                                                            className={`px-3.5 py-1.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider transition-all ${
+                                                                !showOriginalComparison
+                                                                    ? 'bg-[var(--primary)] text-black shadow-sm'
+                                                                    : 'text-gray-300 hover:text-white'
+                                                            }`}
+                                                        >
+                                                            New Design
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowOriginalComparison(true)}
+                                                            className={`px-3.5 py-1.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider transition-all inline-flex items-center gap-1.5 ${
+                                                                showOriginalComparison
+                                                                    ? 'bg-[var(--primary)] text-black shadow-sm'
+                                                                    : 'text-gray-300 hover:text-white'
+                                                            }`}
+                                                        >
+                                                            <MoveHorizontal className="w-3.5 h-3.5" />
+                                                            Compare Before / After
+                                                        </button>
+                                                    </div>
                                                 )}
                                             </div>
                                         )}

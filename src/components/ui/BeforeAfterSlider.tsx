@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MoveHorizontal } from 'lucide-react';
 
 interface BeforeAfterSliderProps {
@@ -8,6 +8,7 @@ interface BeforeAfterSliderProps {
     afterImage: string;
     beforeLabel?: string;
     afterLabel?: string;
+    initialPosition?: number;
     className?: string;
 }
 
@@ -20,11 +21,60 @@ export default function BeforeAfterSlider({
     afterImage,
     beforeLabel = 'Original Before',
     afterLabel = 'New Design (2K)',
+    initialPosition = 35,
     className = '',
 }: BeforeAfterSliderProps) {
+    const clampedInitial = Math.max(2, Math.min(98, initialPosition));
     const containerRef = useRef<HTMLDivElement | null>(null);
-    const [position, setPosition] = useState<number>(62);
+    const userInterruptedRef = useRef<boolean>(false);
+    const [position, setPosition] = useState<number>(clampedInitial);
     const [isDragging, setIsDragging] = useState<boolean>(false);
+    const [hasInteracted, setHasInteracted] = useState<boolean>(false);
+
+    useEffect(() => {
+        if (
+            typeof window === 'undefined' ||
+            typeof window.matchMedia !== 'function' ||
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+            typeof requestAnimationFrame !== 'function'
+        ) {
+            return;
+        }
+
+        userInterruptedRef.current = false;
+        let rafId = 0;
+        const durationMs = 650;
+        const startTime = performance.now();
+
+        const step = (now: number) => {
+            if (userInterruptedRef.current) return;
+            const elapsed = now - startTime;
+            const progress = Math.min(1, elapsed / durationMs);
+
+            // Smooth intro wipe: 18% -> 48% -> clampedInitial so customers see the wipe direction
+            let nextPos: number;
+            if (progress < 0.45) {
+                const t = progress / 0.45;
+                const eased = 1 - Math.pow(1 - t, 2);
+                nextPos = 18 + (48 - 18) * eased;
+            } else {
+                const t = (progress - 0.45) / 0.55;
+                const eased = 1 - Math.pow(1 - t, 3);
+                nextPos = 48 + (clampedInitial - 48) * eased;
+            }
+
+            setPosition(nextPos);
+            if (progress < 1) {
+                rafId = requestAnimationFrame(step);
+            }
+        };
+
+        rafId = requestAnimationFrame(step);
+        return () => {
+            userInterruptedRef.current = true;
+            cancelAnimationFrame(rafId);
+        };
+    }, [clampedInitial]);
 
     const updateFromClientX = useCallback((clientX: number) => {
         const el = containerRef.current;
@@ -39,6 +89,8 @@ export default function BeforeAfterSlider({
         <div
             ref={containerRef}
             onPointerDown={(e) => {
+                userInterruptedRef.current = true;
+                setHasInteracted(true);
                 setIsDragging(true);
                 (e.currentTarget as HTMLDivElement).setPointerCapture?.(e.pointerId);
                 updateFromClientX(e.clientX);
@@ -56,8 +108,16 @@ export default function BeforeAfterSlider({
             aria-valuenow={Math.round(position)}
             tabIndex={0}
             onKeyDown={(e) => {
-                if (e.key === 'ArrowLeft') setPosition((p) => Math.max(2, p - 4));
-                if (e.key === 'ArrowRight') setPosition((p) => Math.min(98, p + 4));
+                if (e.key === 'ArrowLeft') {
+                    userInterruptedRef.current = true;
+                    setHasInteracted(true);
+                    setPosition((p) => Math.max(2, p - 4));
+                }
+                if (e.key === 'ArrowRight') {
+                    userInterruptedRef.current = true;
+                    setHasInteracted(true);
+                    setPosition((p) => Math.min(98, p + 4));
+                }
             }}
         >
             {/* Full After Image (Right / Base Layer) */}
@@ -93,6 +153,11 @@ export default function BeforeAfterSlider({
                 <div className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[var(--primary)] text-black border-2 border-white shadow-xl flex items-center justify-center">
                     <MoveHorizontal size={18} strokeWidth={2.5} />
                 </div>
+                {!hasInteracted && (
+                    <div className="absolute top-1/2 translate-y-7 -translate-x-1/2 whitespace-nowrap px-2.5 py-1 rounded-full bg-black/85 border border-white/25 text-[10px] font-mono font-bold uppercase tracking-wider text-white shadow-lg">
+                        Drag to Compare
+                    </div>
+                )}
             </div>
         </div>
     );
