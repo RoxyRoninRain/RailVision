@@ -117,6 +117,9 @@ export function EstimateModal({ isOpen, onClose, styleId, styleName, onRequestQu
                                         onChange={(e) => setLinearFeet(Number(e.target.value))}
                                         className="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
                                     />
+                                    <p className="text-[11px] text-gray-400">
+                                        Quick estimator tip: count ~1.2 ft per stair step + horizontal landing length.
+                                    </p>
                                 </div>
 
                                 {/* Zip Code */}

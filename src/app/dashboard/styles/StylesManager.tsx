@@ -1,16 +1,20 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles, SECOND_PASS_ISSUES } from '@/app/actions'; // Ensure these are exported from actions.ts
+import { PortfolioItem, createStyle, deleteStyle, seedDefaultStyles, updateStyleStatus, convertHeicToJpg, reorderStyles, SECOND_PASS_ISSUES, backfillLegacyStylesSpecs } from '@/app/actions'; // Ensure these are exported from actions.ts
 import { listBucketFiles } from '@/app/admin/actions';
-import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical, Check, FolderOpen, Search, Sparkles, Upload } from 'lucide-react';
+import { Plus, Trash2, Loader2, Image as ImageIcon, X, Eye, EyeOff, GripVertical, Check, FolderOpen, Search, Sparkles, Upload, Wand2 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion';
 import { compressImage } from '@/utils/imageUtils';
 import { createClient } from '@/lib/supabase/client';
+import StyleSetupWizard from '@/components/styles/StyleSetupWizard';
 
 export default function StylesManager({ initialStyles, serverError, logoUrl, isAdmin = false, adminTenantId }: { initialStyles: PortfolioItem[], serverError?: string | null, logoUrl?: string | null, isAdmin?: boolean, adminTenantId?: string }) {
     const [styles, setStyles] = useState<PortfolioItem[]>(initialStyles);
     const [isAdding, setIsAdding] = useState(false);
+    const [wizardStyle, setWizardStyle] = useState<PortfolioItem | 'new' | null>(null);
+    const [backfilling, setBackfilling] = useState(false);
+    const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
     const [editingStyle, setEditingStyle] = useState<PortfolioItem | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
@@ -86,20 +90,64 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
         }, 1500); // Wait for user to finish dragging
     };
 
+    const handleBackfillSpecs = async () => {
+        setBackfilling(true);
+        setBackfillStatus(null);
+        try {
+            const res = await backfillLegacyStylesSpecs(25);
+            if (!res.success) {
+                setBackfillStatus(`Backfill error: ${res.error}`);
+            } else {
+                setBackfillStatus(`Backfilled specs for ${res.updatedCount} legacy styles (checked ${res.scannedCount}). Refreshing...`);
+                setTimeout(() => window.location.reload(), 1200);
+            }
+        } catch (err: any) {
+            setBackfillStatus(`Backfill failed: ${err?.message || 'Error'}`);
+        } finally {
+            setBackfilling(false);
+        }
+    };
+
     return (
         <div className="space-y-8">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-3">
                 <div>
                     <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Visualizer Styles</h2>
                     <p className="text-gray-500 font-mono text-sm mt-1">Manage the styles available in your public visualizer carousel.</p>
                 </div>
-                <button
-                    onClick={() => setIsAdding(true)}
-                    className="flex items-center gap-2 bg-[var(--primary)] text-black px-4 py-2 rounded font-bold uppercase tracking-wider hover:brightness-110 transition-colors"
-                >
-                    <Plus size={18} /> Add New Style
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                    {isAdmin && (
+                        <>
+                            <button
+                                onClick={() => void handleBackfillSpecs()}
+                                disabled={backfilling}
+                                className="flex items-center gap-2 bg-zinc-900 border border-white/15 text-gray-200 px-3.5 py-2 rounded font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                            >
+                                {backfilling ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} className="text-purple-400" />}
+                                Backfill Legacy Style Specs
+                            </button>
+                            <button
+                                onClick={() => setIsAdding(true)}
+                                className="flex items-center gap-2 bg-zinc-900 border border-white/15 text-gray-300 px-3.5 py-2 rounded font-bold text-xs uppercase tracking-wider hover:bg-zinc-800 transition-colors"
+                            >
+                                Quick Upload
+                            </button>
+                        </>
+                    )}
+                    <button
+                        onClick={() => setWizardStyle('new')}
+                        className="flex items-center gap-2 bg-[var(--primary)] text-black px-4 py-2 rounded font-bold uppercase tracking-wider hover:brightness-110 transition-colors"
+                    >
+                        <Plus size={18} /> Add New Style
+                    </button>
+                </div>
             </div>
+
+            {backfillStatus && (
+                <div className="p-3 bg-purple-950/40 border border-purple-500/40 rounded-lg text-purple-200 text-xs font-mono">
+                    {backfillStatus}
+                </div>
+            )}
 
             {serverError && (
                 <div className="p-4 bg-red-900/50 border border-red-500 rounded-lg text-red-200 mb-6">
@@ -130,7 +178,9 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
                             key={style.id}
                             style={style}
                             logoUrl={logoUrl}
+                            isAdmin={isAdmin}
                             onEdit={() => setEditingStyle(style)}
+                            onGuidedUpgrade={() => setWizardStyle(style)}
                             onToggle={(current) => handleToggleStatus(style.id, current)}
                             onDelete={() => handleDelete(style.id)}
                             onViewDetailImage={(url, label) => setLightboxImage({ url, label })}
@@ -138,6 +188,17 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
                     ))}
                 </AnimatePresence>
             </Reorder.Group>
+
+            {/* Guided Self-Serve Wizard */}
+            {wizardStyle && (
+                <StyleSetupWizard
+                    existingStyle={wizardStyle === 'new' ? null : wizardStyle}
+                    onClose={() => setWizardStyle(null)}
+                    onSuccess={() => window.location.reload()}
+                    isAdmin={isAdmin}
+                    adminTenantId={effectiveTenantId}
+                />
+            )}
 
             {/* Add Modal */}
             <AnimatePresence>
@@ -172,19 +233,22 @@ export default function StylesManager({ initialStyles, serverError, logoUrl, isA
 interface StyleListItemProps {
     style: PortfolioItem;
     logoUrl?: string | null;
+    isAdmin?: boolean;
     onEdit: () => void;
+    onGuidedUpgrade?: () => void;
     onToggle: (current: boolean) => void;
     onDelete: () => void;
     onViewDetailImage?: (url: string, label: string) => void;
 }
 
-function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete, onViewDetailImage }: StyleListItemProps) {
+function StyleListItem({ style, logoUrl, isAdmin = false, onEdit, onGuidedUpgrade, onToggle, onDelete, onViewDetailImage }: StyleListItemProps) {
     const controls = useDragControls();
 
     const secondPassEnabled = style.style_metadata?.second_pass?.enabled === true;
     const secondPassTargets: string[] = style.style_metadata?.second_pass?.targets || [];
     const secondPassDetailImages: Record<string, string> = style.style_metadata?.second_pass?.detail_images || {};
     const hasAnySavedDetailImage = Object.keys(secondPassDetailImages).length > 0;
+    const isV2Guided = style.style_metadata?.wizard_version === 2 || Boolean(style.style_metadata?.fabrication_spec);
 
     return (
         <Reorder.Item
@@ -228,7 +292,17 @@ function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete, onViewDetai
                             Side Mount
                         </span>
                     )}
-                    {secondPassEnabled ? (
+                    {isV2Guided ? (
+                        <span className="text-[10px] bg-emerald-950/80 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-1 flex-shrink-0">
+                            <Check size={10} />
+                            Guided Spec Pack
+                        </span>
+                    ) : (
+                        <span className="text-[10px] bg-amber-950/70 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-1 flex-shrink-0">
+                            Legacy Pack — Guided Upgrade Available
+                        </span>
+                    )}
+                    {isAdmin && (secondPassEnabled ? (
                         <span className="text-[10px] bg-purple-950/80 text-purple-300 border border-purple-500/30 px-1.5 py-0.5 rounded font-mono font-medium flex items-center gap-1 flex-shrink-0">
                             <Sparkles size={10} className="text-purple-400" />
                             Pass 2 Active
@@ -239,12 +313,12 @@ function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete, onViewDetai
                                 Pass 2 Off ({Object.keys(secondPassDetailImages).length} detail photos saved)
                             </span>
                         )
-                    )}
+                    ))}
                 </div>
                 <p className="text-gray-500 text-xs truncate max-w-md mt-0.5">{style.description}</p>
 
-                {/* Second-Pass Close-Up Detail Images Indicator & Previews */}
-                {(secondPassEnabled || hasAnySavedDetailImage) && (
+                {/* Admin-only Second-Pass Close-Up Detail Images Indicator & Previews */}
+                {isAdmin && (secondPassEnabled || hasAnySavedDetailImage) && (
                     <div className="mt-2 flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-white/5">
                         <span className="text-[10px] font-mono uppercase tracking-wider text-purple-300 font-semibold flex items-center gap-1">
                             <Sparkles size={10} className="text-purple-400" />
@@ -310,6 +384,20 @@ function StyleListItem({ style, logoUrl, onEdit, onToggle, onDelete, onViewDetai
 
             {/* Actions */}
             <div className="flex items-center gap-2 pr-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                {onGuidedUpgrade && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onGuidedUpgrade(); }}
+                        className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider flex items-center gap-1 transition-colors ${
+                            isV2Guided
+                                ? 'text-gray-300 bg-white/5 hover:bg-white/10 border border-white/10'
+                                : 'text-black bg-[var(--primary)] hover:brightness-110'
+                        }`}
+                        title={isV2Guided ? 'Re-open Guided Wizard' : 'Upgrade to 5+ Photo Guided Spec Pack'}
+                    >
+                        <Wand2 size={12} />
+                        {isV2Guided ? 'Wizard' : 'Guided Upgrade'}
+                    </button>
+                )}
                 <button
                     onClick={(e) => { e.stopPropagation(); onEdit(); }}
                     className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
@@ -1747,7 +1835,8 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                         </div>
                     </div>
 
-                    {/* Second-Pass AI Refinement (Post-Processing) */}
+                    {/* Second-Pass AI Refinement (Admin-only Manual Controls; Auto-QA runs invisibly for tenants) */}
+                    {isAdmin && (
                     <div className="p-3.5 bg-gradient-to-b from-[#18122B]/40 to-[#0A0A0A] border border-purple-500/30 rounded-lg space-y-3">
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-center gap-2">
@@ -2010,6 +2099,7 @@ function EditStyleModal({ style, onClose, onSuccess, isAdmin, adminTenantId }: {
                             </div>
                         )}
                     </div>
+                    )}
 
                     <div className="flex-1"></div>
 

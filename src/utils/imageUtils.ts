@@ -1,4 +1,4 @@
-export const compressImage = async (file: File, maxSize: number = 1536, quality: number = 0.88): Promise<File> => {
+export const compressImage = async (file: File, maxSize: number = 2048, quality: number = 0.92): Promise<File> => {
     console.log(`[ImageUtils] Processing file: ${file.name}, Type: ${file.type}, Size: ${file.size}`);
 
     // 1. Check for HEIC/HEIF

@@ -1,6 +1,8 @@
 import { getTenantStyles, getProfile, PortfolioItem } from '@/app/actions';
 import StylesManager from './StylesManager';
 
+export const maxDuration = 120; // Allow Step 3 cutouts & Step 4 calibration renders on Vercel
+
 export default async function Page() {
     const stylesResult = await getTenantStyles();
     const profile = await getProfile();

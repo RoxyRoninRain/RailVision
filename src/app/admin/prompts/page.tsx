@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getAllSystemPrompts, updateSystemPrompt, createSystemPrompt, setActivePrompt, testDesignGeneration, diagnoseConnection, SystemPrompt } from '@/app/admin/actions';
 import { Save, ArrowLeft, Bot, RefreshCw, CheckCircle, AlertTriangle, Plus, Play, Power, X, Upload, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
+import { PROMPT_STAGE_DEFINITIONS } from '@/lib/prompts';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function PromptsPage() {
@@ -232,7 +233,7 @@ export default function PromptsPage() {
                         </div>
                     </div>
                     <div className="flex items-center gap-4 text-xs font-mono text-gray-500">
-                        <span>MODEL: GEMINI-PRO-3.0</span>
+                        <span>IMAGE: GEMINI-NANO-BANANA-2.1 (2K) • VISION: GEMINI-3.8-FLASH</span>
                     </div>
                 </div>
             </header>
@@ -307,6 +308,23 @@ export default function PromptsPage() {
                                         <Power size={12} />
                                     </button>
                                 )}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="border-t border-white/10 p-3 bg-black/40 max-h-64 overflow-y-auto space-y-2">
+                        <div className="text-[10px] font-mono uppercase tracking-widest text-purple-300 font-bold">
+                            6-Stage Modular Prompt Pipeline
+                        </div>
+                        {PROMPT_STAGE_DEFINITIONS.map((stage) => (
+                            <div key={stage.id} className="p-2 rounded bg-white/[0.03] border border-white/5 space-y-0.5">
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-[11px] font-bold text-white truncate">
+                                        {stage.stageNumber}. {stage.name}
+                                    </span>
+                                    <span className="text-[9px] font-mono text-emerald-300 shrink-0">{stage.modelId}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-400 leading-snug">{stage.purpose}</p>
                             </div>
                         ))}
                     </div>

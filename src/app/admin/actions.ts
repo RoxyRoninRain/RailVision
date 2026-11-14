@@ -9,6 +9,7 @@ import { InputSanitizer } from '@/components/security/InputSanitizer';
 import { INTERNAL_PROMPT_TOKEN, isValidUuid } from '@/lib/validations';
 import { PRICING_TIERS, DEFAULT_TIER, TierName } from '@/config/pricing';
 import { format, startOfMonth, startOfYear } from 'date-fns';
+import { computeHistoricalGenerationCost, resolvePricingSpec } from '@/lib/model-pricing';
 
 export interface GlobalStats {
     totalLeads: number;
@@ -189,21 +190,7 @@ export interface TenantDetailsResult {
 }
 
 function computeGenerationModelCost(gen: any): number {
-    if (gen.cost_usd !== undefined && gen.cost_usd !== null) {
-        return Number(gen.cost_usd);
-    }
-    const model = (gen.model_id || '').toLowerCase();
-    const input = Number(gen.input_tokens) || 0;
-    const output = Number(gen.output_tokens) || 0;
-
-    if (model.includes('flash-image') || model.includes('flash')) {
-        return (input / 1000000) * 0.15 + (output / 1000000) * 0.60 + 0.030;
-    } else if (model.includes('gemini-3')) {
-        return (input / 1000000) * 2.00 + (output / 1000000) * 12.00 + 0.134;
-    } else if (model.includes('imagen')) {
-        return 0.040;
-    }
-    return 0.030 + (input / 1000000) * 0.15 + (output / 1000000) * 0.60;
+    return computeHistoricalGenerationCost(gen);
 }
 
 export async function getTenantDetails(tenantId: string): Promise<TenantDetailsResult | null> {
@@ -1043,22 +1030,26 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
     if (!supabase) return { error: 'Admin client missing' };
 
     try {
-        // Fetch generations with optionally filtered date range
-        let query = supabase
-            .from('generations')
-            .select('model_id, input_tokens, output_tokens, created_at') // Removed cost_usd to fix error
-            .order('created_at', { ascending: true }); // Important for bucketing
+        // Fetch generations with optionally filtered date range (prefer stored cost_usd when schema supports it)
+        const buildCostQuery = (selectCols: string) => {
+            let q = supabase
+                .from('generations')
+                .select(selectCols)
+                .order('created_at', { ascending: true });
+            if (dateRange?.from) q = q.gte('created_at', dateRange.from);
+            if (dateRange?.to) q = q.lte('created_at', dateRange.to);
+            return q;
+        };
 
-        if (dateRange?.from) {
-            query = query.gte('created_at', dateRange.from);
+        let { data, error } = await buildCostQuery('model_id, input_tokens, output_tokens, created_at, cost_usd');
+        if (error && (error.message?.includes('cost_usd') || error.code === 'PGRST204')) {
+            const retry = await buildCostQuery('model_id, input_tokens, output_tokens, created_at');
+            data = retry.data;
+            error = retry.error;
         }
-        if (dateRange?.to) {
-            query = query.lte('created_at', dateRange.to);
-        }
-
-        const { data, error } = await query;
 
         if (error) throw error;
+        const rows = Array.isArray(data) ? data : [];
 
         let totalCost = 0;
         let totalGenerations = 0;
@@ -1067,7 +1058,7 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
         const modelBreakdown: any = {};
         const chartDataMap: Record<string, any> = {};
 
-        data.forEach((gen: any) => {
+        rows.forEach((gen: any) => {
             const model = gen.model_id || 'unknown';
             const input = gen.input_tokens || 0;
             const output = gen.output_tokens || 0;
@@ -1077,38 +1068,14 @@ export async function getCostAnalysis(dateRange?: { from?: string, to?: string }
             totalOutputTokens += output;
 
             // --- COST CALCULATION ---
-            let cost = 0;
-            let inputCost = 0;
-            let outputCost = 0;
-            let imageCost = 0;
-
-            // Prefer stored cost if available, else calculate
-            if (gen.cost_usd !== undefined && gen.cost_usd !== null) {
-                cost = gen.cost_usd;
-            } else {
-                if (model.includes('flash-image') || model.includes('flash')) {
-                    // Gemini 3.1 Flash Image
-                    // 1. Input Cost ($0.15 / 1M)
-                    inputCost = (input / 1000000) * 0.15;
-                    // 2. Output Cost ($0.60 / 1M)
-                    outputCost = (output / 1000000) * 0.60;
-                    // 3. Fixed Image Cost (~$0.030)
-                    imageCost = 0.030;
-                    cost = inputCost + outputCost + imageCost;
-                } else if (model.includes('gemini-3')) {
-                    // Legacy Gemini 3 Pro Image Preview
-                    // 1. Input Cost ($2.00 / 1M)
-                    inputCost = (input / 1000000) * 2.00;
-                    // 2. Output Cost ($12.00 / 1M)
-                    outputCost = (output / 1000000) * 12.00;
-                    // 3. Fixed Image Cost (~$0.134)
-                    imageCost = 0.134;
-                    cost = inputCost + outputCost + imageCost;
-                } else if (model.includes('imagen')) {
-                    imageCost = 0.040;
-                    cost = 0.040;
-                }
-            }
+            const spec = resolvePricingSpec(model);
+            const cost = computeHistoricalGenerationCost(gen);
+            const isVisionOnly = spec.family === 'vision' || (model.toLowerCase().includes('flash') && !model.toLowerCase().includes('image'));
+            const inputCost = (input / 1_000_000) * spec.inputPer1MUsd;
+            const imageCost = isVisionOnly
+                ? 0
+                : spec.perImageUsd?.[spec.defaultImageSize || '2K'] ?? spec.perImageUsd?.['1K'] ?? 0;
+            const outputCost = Math.max(0, cost - inputCost - imageCost);
 
             totalCost += cost;
             totalGenerations++;

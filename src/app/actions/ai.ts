@@ -5,6 +5,9 @@ import { headers } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateDesignWithNanoBanana } from '@/lib/vertex';
+import { calculateGenerationCostUsd } from '@/lib/model-pricing';
+import { applyServerWatermark, pixelLockCompositeBackground } from '@/lib/image-compositor';
+import type { FabricationSpec, SceneRouterAnalysis, StyleSlotId, VisionQaResult } from '@/app/actions/types';
 import {
     detectImageMetadata,
     INTERNAL_PROMPT_TOKEN,
@@ -13,6 +16,15 @@ import {
     safeFetchImageBuffer,
 } from '@/lib/validations';
 import { checkRateLimit, extractClientIp } from '@/lib/rate-limit';
+
+function getOptionalModuleFn<T>(mod: unknown, exportName: string): T | undefined {
+    try {
+        const candidate = (mod as Record<string, unknown>)?.[exportName];
+        return typeof candidate === 'function' ? (candidate as T) : undefined;
+    } catch {
+        return undefined;
+    }
+}
 
 async function readSafePublicFile(relativeUrl: string): Promise<Buffer | null> {
     if (!relativeUrl.startsWith('/') || relativeUrl.startsWith('//') || relativeUrl.includes('\0')) {
@@ -283,7 +295,7 @@ export async function generateDesign(formData: FormData) {
     if (!isGenericDemo && profileIdToBill) {
         const res = await dbClient
             .from('profiles')
-            .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name, website, subscription_status, free_credits_remaining, discounted_credits_remaining, discounted_rate, pending_discounted_amount, pending_discounted_count')
+            .select('tier_name, enable_overdrive, pending_overage_balance, current_usage, max_monthly_spend, current_overage_count, email, notification_state, shop_name, website, subscription_status, free_credits_remaining, discounted_credits_remaining, discounted_rate, pending_discounted_amount, pending_discounted_count, logo_url, watermark_logo_url, logo_size')
             .eq('id', profileIdToBill)
             .single();
         profile = res.data;
@@ -482,16 +494,7 @@ export async function generateDesign(formData: FormData) {
     try {
         const base64Image = targetBuffer.toString('base64');
 
-        let styleInput: string | { 
-            base64StyleImages: string[]; 
-            technicalSpecs?: { 
-                hasBottomRail?: boolean; 
-                hasReducers?: boolean | null;
-                postMount?: 'top' | 'side' | string;
-                description?: string; 
-                customNote?: string;
-            } 
-        } = style;
+        let styleInput: any = style;
 
         const styleDescription = canOverridePromptAndSpecs ? (formData.get('style_description') as string) : undefined;
         const rawPrompt = canOverridePromptAndSpecs ? (formData.get('prompt') as string) : undefined;
@@ -501,13 +504,38 @@ export async function generateDesign(formData: FormData) {
             : undefined;
 
         let secondPassConfig: { enabled: boolean; targets: string[]; custom_prompt?: string; detail_images?: Record<string, string> } | null = null;
+        const urlToBase64Map = new Map<string, string>();
+        let loadedLabeledSlots: { slotId: StyleSlotId; base64Data: string }[] | undefined;
+
+        const fetchStyleUrlToBase64 = async (url: string): Promise<string | null> => {
+            if (urlToBase64Map.has(url)) return urlToBase64Map.get(url) || null;
+            try {
+                let buf: Buffer | null = null;
+                if (url.startsWith('/')) {
+                    buf = await readSafePublicFile(url);
+                } else if (isSafeExternalUrl(url)) {
+                    buf = await safeFetchImageBuffer(url);
+                } else {
+                    console.warn(`[SECURITY] Blocked unsafe style URL: ${url}`);
+                }
+                if (buf) {
+                    const b64 = buf.toString('base64');
+                    urlToBase64Map.set(url, b64);
+                    return b64;
+                }
+                return null;
+            } catch (e) {
+                console.warn(`[DEBUG] Failed to load style image: ${url}`, e);
+                return null;
+            }
+        };
 
         if (uploadedStyleBuffer && canOverridePromptAndSpecs) {
             const styleBase64 = uploadedStyleBuffer.toString('base64');
             const formBottomRail = formData.get('has_bottom_rail');
             const formReducers = formData.get('has_reducers');
             const formPostMount = formData.get('post_mount') as string;
-            styleInput = { 
+            styleInput = {
                 base64StyleImages: [styleBase64],
                 technicalSpecs: {
                     hasBottomRail: (formBottomRail !== null && formBottomRail !== undefined && formBottomRail !== '') ? formBottomRail === 'true' : undefined,
@@ -536,41 +564,75 @@ export async function generateDesign(formData: FormData) {
                         return { error: 'Invalid Request: Selected style is not currently active.' };
                     }
 
-                    if (styleData.style_metadata?.second_pass) {
+                    const meta = styleData.style_metadata || {};
+                    const fabricationSpec: FabricationSpec | null = meta.fabrication_spec || null;
+                    const labeledSlotsMap = meta.labeled_slots as Partial<Record<StyleSlotId, string[]>> | undefined;
+                    const useCanonicalCutout = meta.use_canonical_cutout === true && Boolean(meta.canonical_image_url);
+
+                    if (meta.second_pass) {
                         secondPassConfig = {
-                            enabled: styleData.style_metadata.second_pass.enabled === true,
-                            targets: Array.isArray(styleData.style_metadata.second_pass.targets) ? styleData.style_metadata.second_pass.targets : [],
-                            custom_prompt: styleData.style_metadata.second_pass.custom_prompt || undefined,
-                            detail_images: styleData.style_metadata.second_pass.detail_images || undefined
+                            enabled: meta.second_pass.enabled === true,
+                            targets: Array.isArray(meta.second_pass.targets) ? meta.second_pass.targets : [],
+                            custom_prompt: meta.second_pass.custom_prompt || undefined,
+                            detail_images: meta.second_pass.detail_images || undefined
                         };
                     }
 
-                    // Combine Main + Reference Gallery and deduplicate URLs so legacy styles
-                    // with `image_url` duplicated inside `reference_images` do not double-weight Image B's room.
+                    const orderedSlots: { slotId: StyleSlotId; url: string }[] = [];
+                    if (labeledSlotsMap && Object.keys(labeledSlotsMap).length > 0) {
+                        const slotOrder: StyleSlotId[] = [
+                            'hero_run',
+                            'post_top_joint',
+                            'post_mount_base',
+                            'infill_bottom',
+                            'end_return',
+                            'finish_macro',
+                            'extra_context',
+                        ];
+                        for (const slotId of slotOrder) {
+                            const urls = labeledSlotsMap[slotId];
+                            if (!Array.isArray(urls)) continue;
+                            urls.forEach((u, idx) => {
+                                if (typeof u === 'string' && u) {
+                                    const resolvedUrl =
+                                        slotId === 'hero_run' && idx === 0 && useCanonicalCutout
+                                            ? meta.canonical_image_url
+                                            : u;
+                                    orderedSlots.push({ slotId, url: resolvedUrl });
+                                }
+                            });
+                        }
+                    }
+
                     const refs: string[] = Array.isArray(styleData.reference_images) ? styleData.reference_images : [];
-                    const main: string | undefined = styleData.image_url;
-                    const imageUrls = Array.from(new Set([main, ...refs].filter((u): u is string => Boolean(u && typeof u === 'string'))));
+                    const primaryHeroUrl: string | undefined = useCanonicalCutout
+                        ? meta.canonical_image_url
+                        : styleData.image_url;
+
+                    const imageUrls = orderedSlots.length > 0
+                        ? Array.from(new Set(orderedSlots.map((s) => s.url)))
+                        : Array.from(new Set([primaryHeroUrl, ...refs].filter((u): u is string => Boolean(u && typeof u === 'string'))));
 
                     if (imageUrls.length > 0) {
-                        const styleBuffers = await Promise.all(imageUrls.map(async (url: string) => {
-                            try {
-                                if (url.startsWith('/')) {
-                                    return await readSafePublicFile(url);
-                                } else if (isSafeExternalUrl(url)) {
-                                    return await safeFetchImageBuffer(url);
-                                } else {
-                                    console.warn(`[SECURITY] Blocked unsafe style URL: ${url}`);
-                                }
-                                return null;
-                            } catch (e) {
-                                console.warn(`[DEBUG] Failed to load style image: ${url}`, e);
-                                return null;
-                            }
-                        }));
+                        const loadedResults = await Promise.all(
+                            imageUrls.map(async (url) => ({ url, base64: await fetchStyleUrlToBase64(url) }))
+                        );
 
-                        const validBase64s = styleBuffers
-                            .filter((b): b is Buffer => b !== null)
-                            .map((b) => b.toString('base64'));
+                        const validBase64s = loadedResults
+                            .map((r) => r.base64)
+                            .filter((b): b is string => b !== null);
+
+                        if (orderedSlots.length > 0) {
+                            const resolvedLabeled = orderedSlots
+                                .map((item) => {
+                                    const b64 = urlToBase64Map.get(item.url);
+                                    return b64 ? { slotId: item.slotId, base64Data: b64 } : null;
+                                })
+                                .filter((x): x is { slotId: StyleSlotId; base64Data: string } => x !== null);
+                            if (resolvedLabeled.length > 0) {
+                                loadedLabeledSlots = resolvedLabeled;
+                            }
+                        }
 
                         if (validBase64s.length > 0) {
                             const formBottomRail = canOverridePromptAndSpecs ? formData.get('has_bottom_rail') : null;
@@ -586,16 +648,18 @@ export async function generateDesign(formData: FormData) {
                             const formPostMount = canOverridePromptAndSpecs ? (formData.get('post_mount') as string) : null;
                             const postMountFinal = (formPostMount === 'side' || formPostMount === 'top')
                                 ? formPostMount
-                                : (styleData.post_mount || styleData.style_metadata?.post_mount || 'top');
+                                : (styleData.post_mount || meta.post_mount || 'top');
 
                             styleInput = {
                                 base64StyleImages: validBase64s,
+                                ...(loadedLabeledSlots ? { labeledSlotImages: loadedLabeledSlots } : {}),
                                 technicalSpecs: {
                                     hasBottomRail: hasBottomRailFinal,
                                     hasReducers: hasReducersFinal,
                                     postMount: postMountFinal,
                                     description: styleDescription || styleData.description,
-                                    customNote: customPromptNote?.trim() || undefined
+                                    customNote: customPromptNote?.trim() || undefined,
+                                    fabricationSpec,
                                 }
                             };
                         }
@@ -736,7 +800,66 @@ export async function generateDesign(formData: FormData) {
             };
         }
 
-        const result = await generateDesignWithNanoBanana(base64Image, styleInput as any, promptConfig);
+        // 2. Scene Router + Cached Clean Plate Demolition (when Vertex vision helpers are loaded)
+        const vertexMod = await import('@/lib/vertex');
+        const analyzeFn = getOptionalModuleFn<typeof import('@/lib/vertex').analyzeSceneWithRouter>(vertexMod, 'analyzeSceneWithRouter');
+        const cleanPlateFn = getOptionalModuleFn<typeof import('@/lib/vertex').getOrCreateCleanPlate>(vertexMod, 'getOrCreateCleanPlate');
+        const visionQaFn = getOptionalModuleFn<typeof import('@/lib/vertex').verifyRenderQualityWithVisionQA>(vertexMod, 'verifyRenderQualityWithVisionQA');
+        const getModelIdFn = getOptionalModuleFn<typeof import('@/lib/vertex').getConfiguredImageModelId>(vertexMod, 'getConfiguredImageModelId');
+        const assemblePromptFn = getOptionalModuleFn<typeof import('@/lib/vertex').assembleRefinementPrompt>(vertexMod, 'assembleRefinementPrompt');
+        const refineFn = getOptionalModuleFn<typeof import('@/lib/vertex').refineDesignWithNanoBanana>(vertexMod, 'refineDesignWithNanoBanana');
+        const fallbackModelId = (getModelIdFn ? getModelIdFn() : (process.env.VERTEX_IMAGE_MODEL?.trim() || 'gemini-nano-banana-2.1'));
+
+        let auxiliaryCostUsd = 0;
+        let sceneAnalysis: SceneRouterAnalysis | null = null;
+        let targetCanvasBase64 = base64Image;
+        let hasCleanPlate = false;
+
+        if (analyzeFn) {
+            try {
+                const routerRes = await analyzeFn(base64Image);
+                sceneAnalysis = routerRes.analysis;
+                auxiliaryCostUsd += calculateGenerationCostUsd({
+                    modelId: routerRes.modelUsed,
+                    inputTokens: routerRes.usage?.inputTokens,
+                    outputTokens: routerRes.usage?.outputTokens,
+                    imageCount: 0,
+                });
+            } catch (routerErr) {
+                console.warn('[SCENE ROUTER] Non-fatal analysis bypass:', routerErr);
+            }
+        }
+
+        if (cleanPlateFn) {
+            try {
+                const cleanRes = await cleanPlateFn(base64Image, sceneAnalysis);
+                if (cleanRes?.didDemolish && cleanRes.cleanPlateBase64) {
+                    targetCanvasBase64 = cleanRes.cleanPlateBase64;
+                    hasCleanPlate = true;
+                }
+                if (cleanRes?.modelUsed && !cleanRes.cached) {
+                    auxiliaryCostUsd += calculateGenerationCostUsd({
+                        modelId: cleanRes.modelUsed,
+                        inputTokens: cleanRes.usage?.inputTokens,
+                        outputTokens: cleanRes.usage?.outputTokens,
+                        imageCount: 1,
+                        imageSize: '1K',
+                    });
+                }
+            } catch (cleanErr) {
+                console.warn('[CLEAN PLATE] Non-fatal bypass:', cleanErr);
+            }
+        }
+
+        if (typeof styleInput !== 'string') {
+            styleInput.technicalSpecs = {
+                ...(styleInput.technicalSpecs || {}),
+                ...(sceneAnalysis ? { sceneAnalysis } : {}),
+                ...(hasCleanPlate ? { hasCleanPlate } : {}),
+            };
+        }
+
+        const result = await generateDesignWithNanoBanana(targetCanvasBase64, styleInput as any, promptConfig);
 
         if (result.success && result.image) {
             // --- COMMIT BILLING & CREDITS AFTER SUCCESSFUL GENERATION ---
@@ -793,44 +916,147 @@ export async function generateDesign(formData: FormData) {
             }
             // ------------------------------------------------------------
 
-            // --- SECOND-PASS AI REFINEMENT ---
+            // --- AGENTIC VISION QA + CONDITIONAL STATEFUL PASS 2 REFINEMENT ---
             let secondPassApplied = false;
-            if (secondPassConfig?.enabled && (secondPassConfig.targets?.length > 0 || secondPassConfig.custom_prompt)) {
-                try {
-                    const { assembleRefinementPrompt, refineDesignWithNanoBanana } = await import('@/lib/vertex');
-                    const { SECOND_PASS_ISSUES } = await import('@/app/actions/types');
-                    const refinementPrompt = assembleRefinementPrompt(secondPassConfig);
-                    if (refinementPrompt) {
-                        // Gather close-up detail images for active targets using SSRF-safe image fetcher
-                        const detailImagesForPass2: { targetId: string; label: string; base64Data: string }[] = [];
-                        if (secondPassConfig.detail_images) {
-                            for (const targetId of secondPassConfig.targets) {
-                                const imgUrl = secondPassConfig.detail_images[targetId];
-                                if (imgUrl && isSafeExternalUrl(imgUrl)) {
-                                    const buf = await safeFetchImageBuffer(imgUrl);
-                                    if (buf) {
-                                        const issueMeta = SECOND_PASS_ISSUES.find(i => i.id === targetId);
-                                        detailImagesForPass2.push({
-                                            targetId,
-                                            label: issueMeta?.uploadLabel || targetId,
-                                            base64Data: buf.toString('base64')
-                                        });
-                                    }
-                                }
+            const explicitSkipSecondPass = canOverridePromptAndSpecs && formData.get('skip_second_pass') === 'true';
+            const adminForcedSecondPass = canOverridePromptAndSpecs && formData.get('enable_second_pass') === 'true';
+
+            let visionQaResult: VisionQaResult | null = null;
+            const detailImagesForPass2: { targetId: string; label: string; base64Data: string }[] = [];
+            const { SECOND_PASS_ISSUES } = await import('@/app/actions/types');
+
+            const preloadDetailImages = async (targetIds: string[]) => {
+                if (secondPassConfig?.detail_images) {
+                    for (const targetId of targetIds) {
+                        if (detailImagesForPass2.some((d) => d.targetId === targetId)) continue;
+                        const imgUrl = secondPassConfig.detail_images[targetId];
+                        if (!imgUrl) continue;
+                        const cachedB64 = urlToBase64Map.get(imgUrl);
+                        if (cachedB64) {
+                            const issueMeta = SECOND_PASS_ISSUES.find(i => i.id === targetId);
+                            detailImagesForPass2.push({ targetId, label: issueMeta?.uploadLabel || targetId, base64Data: cachedB64 });
+                        } else if (isSafeExternalUrl(imgUrl)) {
+                            const buf = await safeFetchImageBuffer(imgUrl);
+                            if (buf) {
+                                const b64 = buf.toString('base64');
+                                urlToBase64Map.set(imgUrl, b64);
+                                const issueMeta = SECOND_PASS_ISSUES.find(i => i.id === targetId);
+                                detailImagesForPass2.push({ targetId, label: issueMeta?.uploadLabel || targetId, base64Data: b64 });
                             }
                         }
+                    }
+                }
+                if (loadedLabeledSlots) {
+                    const slotMap: { slotId: StyleSlotId; targetId: string; label: string }[] = [
+                        { slotId: 'post_top_joint', targetId: 'reducers', label: 'Post-to-Rail Joint Close-Up' },
+                        { slotId: 'post_mount_base', targetId: 'post_mount_base', label: 'Post Mount Base Close-Up' },
+                        { slotId: 'infill_bottom', targetId: 'infill_bottom', label: 'Infill & Bottom Termination Close-Up' },
+                        { slotId: 'end_return', targetId: 'end_return', label: 'End / Corner Return Close-Up' },
+                    ];
+                    for (const m of slotMap) {
+                        if (detailImagesForPass2.some((d) => d.targetId === m.targetId)) continue;
+                        const hit = loadedLabeledSlots.find((s) => s.slotId === m.slotId);
+                        if (hit) {
+                            detailImagesForPass2.push({ targetId: m.targetId, label: m.label, base64Data: hit.base64Data });
+                        }
+                    }
+                }
+            };
 
+            const initialTargets = secondPassConfig?.targets || [];
+            await preloadDetailImages(initialTargets);
+
+            if (!explicitSkipSecondPass && visionQaFn && typeof styleInput !== 'string') {
+                try {
+                    const qaRes = await visionQaFn({
+                        originalSceneBase64: targetCanvasBase64,
+                        renderedImageBase64: result.image,
+                        styleImages: styleInput.base64StyleImages || [],
+                        detailImages: detailImagesForPass2,
+                        specs: {
+                            hasBottomRail: styleInput.technicalSpecs?.hasBottomRail,
+                            postMount: (styleInput.technicalSpecs?.postMount as 'top' | 'side' | null | undefined) ?? null,
+                            hasReducers: styleInput.technicalSpecs?.hasReducers,
+                            fabricationSpec: styleInput.technicalSpecs?.fabricationSpec,
+                        },
+                    });
+                    visionQaResult = qaRes.qa;
+                    auxiliaryCostUsd += calculateGenerationCostUsd({
+                        modelId: qaRes.modelUsed,
+                        inputTokens: qaRes.usage?.inputTokens,
+                        outputTokens: qaRes.usage?.outputTokens,
+                        imageCount: 0,
+                    });
+                } catch (qaErr) {
+                    console.warn('[VISION QA] Non-fatal bypass:', qaErr);
+                }
+            }
+
+            let shouldRunPass2 = false;
+            if (!explicitSkipSecondPass) {
+                if (visionQaResult) {
+                    shouldRunPass2 =
+                        !visionQaResult.passed ||
+                        (visionQaResult.railing_fidelity_score ?? 100) < 88 ||
+                        adminForcedSecondPass ||
+                        Boolean(secondPassConfig?.custom_prompt);
+                } else {
+                    shouldRunPass2 = Boolean(
+                        secondPassConfig?.enabled &&
+                        ((secondPassConfig.targets && secondPassConfig.targets.length > 0) || secondPassConfig.custom_prompt)
+                    );
+                }
+            }
+
+            if (shouldRunPass2 && refineFn) {
+                try {
+                    const mergedTargets = Array.from(
+                        new Set([
+                            ...(secondPassConfig?.targets || []),
+                            ...(visionQaResult?.suggested_targets || []),
+                        ])
+                    );
+                    await preloadDetailImages(mergedTargets);
+
+                    let refinementPrompt = assemblePromptFn
+                        ? assemblePromptFn({
+                            targets: mergedTargets,
+                            custom_prompt: secondPassConfig?.custom_prompt,
+                            post_mount: (typeof styleInput !== 'string' ? (styleInput.technicalSpecs?.postMount as 'top' | 'side' | undefined) : undefined),
+                            detail_images: secondPassConfig?.detail_images,
+                        })
+                        : (secondPassConfig?.custom_prompt || '');
+                    if (!refinementPrompt && visionQaResult?.surgical_fix_instructions) {
+                        refinementPrompt = `Perform a targeted surgical refinement on this railing photograph while keeping the room and stairs 100% locked:\n${visionQaResult.surgical_fix_instructions}`;
+                    }
+
+                    if (refinementPrompt) {
                         const refImagesForPass2 = (typeof styleInput !== 'string' && styleInput.base64StyleImages && styleInput.base64StyleImages.length > 0)
                             ? (styleInput.base64StyleImages.length > 1 ? styleInput.base64StyleImages.slice(1) : styleInput.base64StyleImages)
                             : undefined;
 
-                        const pass2Result = await refineDesignWithNanoBanana(
-                            result.image, 
-                            refinementPrompt, 
-                            refImagesForPass2,
-                            detailImagesForPass2.length > 0 ? detailImagesForPass2 : undefined,
-                            base64Image
-                        );
+                        const hasMultiTurnState = Boolean((result as any).assistantTurnContent && (result as any).initialUserParts);
+                        const pass2Result = hasMultiTurnState
+                            ? await refineFn(
+                                result.image,
+                                refinementPrompt,
+                                refImagesForPass2,
+                                detailImagesForPass2.length > 0 ? detailImagesForPass2 : undefined,
+                                targetCanvasBase64,
+                                {
+                                    initialUserParts: (result as any).initialUserParts,
+                                    assistantTurnContent: (result as any).assistantTurnContent,
+                                    qaInstructions: visionQaResult?.surgical_fix_instructions,
+                                }
+                            )
+                            : await refineFn(
+                                result.image,
+                                refinementPrompt,
+                                refImagesForPass2,
+                                detailImagesForPass2.length > 0 ? detailImagesForPass2 : undefined,
+                                targetCanvasBase64
+                            );
+
                         if (pass2Result.success && pass2Result.image) {
                             result.image = pass2Result.image;
                             secondPassApplied = true;
@@ -838,6 +1064,13 @@ export async function generateDesign(formData: FormData) {
                                 result.usage.inputTokens += pass2Result.usage.inputTokens;
                                 result.usage.outputTokens += pass2Result.usage.outputTokens;
                             }
+                            auxiliaryCostUsd += calculateGenerationCostUsd({
+                                modelId: pass2Result.modelUsed || result.modelUsed || fallbackModelId,
+                                inputTokens: pass2Result.usage?.inputTokens,
+                                outputTokens: pass2Result.usage?.outputTokens,
+                                imageCount: 1,
+                                imageSize: result.imageSize || '2K',
+                            });
                         } else {
                             console.warn('[DEBUG] Second-Pass Refinement returned no image or failed, keeping Pass 1 image:', pass2Result.error);
                         }
@@ -847,6 +1080,31 @@ export async function generateDesign(formData: FormData) {
                 }
             }
 
+            // --- PIXEL-LOCK BACKGROUND COMPOSITING & SERVER WATERMARK ---
+            result.image = await pixelLockCompositeBackground({
+                originalBase64: base64Image,
+                generatedBase64: result.image,
+            });
+            const watermarkRes = await applyServerWatermark({
+                imageBase64: result.image,
+                logoUrl: profile?.watermark_logo_url || profile?.logo_url || null,
+                logoSizePct: profile?.logo_size ?? 25,
+            });
+            result.image = watermarkRes.imageBase64;
+
+            const activeModelId = result.modelUsed || fallbackModelId;
+            const pass1CostUsd = calculateGenerationCostUsd({
+                modelId: activeModelId,
+                inputTokens: result.usage?.inputTokens,
+                outputTokens: result.usage?.outputTokens,
+                textOutputTokens: (result.usage as any)?.textOutputTokens,
+                thinkingTokens: (result.usage as any)?.thinkingTokens,
+                imageOutputTokens: (result.usage as any)?.imageOutputTokens,
+                imageCount: 1,
+                imageSize: result.imageSize || '2K',
+            });
+            const totalCostUsd = Number((pass1CostUsd + auxiliaryCostUsd).toFixed(6));
+
             // --- TRACKING START (Always use admin client when available so Generic Demo logs accurately for IP rate limiting) ---
             try {
                 const trackingClient = adminClientInstance || dbClient;
@@ -855,7 +1113,7 @@ export async function generateDesign(formData: FormData) {
                     ? `[ADMIN_TEST] ${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}${secondPassApplied ? ' + Second-Pass' : ''}`
                     : `${promptConfig ? 'Dynamic Prompt' : 'Default Prompt'}${secondPassApplied ? ' + Second-Pass' : ''}`;
 
-                await trackingClient.from('generations').insert([{
+                const baseTrackingRow = {
                     organization_id: profileIdToBill || null,
                     image_url: result.image.startsWith('data:') ? 'Base64 Image Data' : result.image,
                     prompt_used: promptTag,
@@ -863,21 +1121,34 @@ export async function generateDesign(formData: FormData) {
                     ip_address: clientIp,
                     user_agent: userAgent,
                     created_at: new Date().toISOString(),
-                    model_id: result.modelUsed || 'gemini-3.1-flash-image',
+                    model_id: activeModelId,
                     input_tokens: result.usage?.inputTokens || 0,
-                    output_tokens: result.usage?.outputTokens || 0
+                    output_tokens: result.usage?.outputTokens || 0,
+                };
+
+                const insertRes = await trackingClient.from('generations').insert([{
+                    ...baseTrackingRow,
+                    cost_usd: totalCostUsd,
                 }]);
+
+                if ((insertRes as any)?.error?.message?.includes('cost_usd') || (insertRes as any)?.error?.code === 'PGRST204') {
+                    await trackingClient.from('generations').insert([baseTrackingRow]);
+                }
             } catch (err) {
                 console.warn('[Tracking] Failed to log generation:', err);
             }
             // --- TRACKING END ---
 
-            return { 
-                success: true, 
+            return {
+                success: true,
                 image: result.image,
                 isAdminTest: !!isAdminTest,
-                usage: result.usage,
-                secondPassApplied
+                usage: result.usage
+                    ? { inputTokens: result.usage.inputTokens, outputTokens: result.usage.outputTokens }
+                    : undefined,
+                secondPassApplied,
+                watermarkedOnServer: watermarkRes.watermarkedOnServer,
+                costUsd: totalCostUsd,
             };
         } else {
             throw new Error(result.error || 'Unknown Nano Banana error');

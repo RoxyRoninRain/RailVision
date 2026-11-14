@@ -6,3 +6,4 @@ export * from './stats';
 export * from './admin';
 export * from './types';
 export * from './auth';
+export * from './style-wizard';

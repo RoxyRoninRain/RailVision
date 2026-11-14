@@ -1,6 +1,6 @@
 'use server';
 
-import { getVertexClient, getRouterModel } from '@/lib/vertex';
+import { getVertexClient, getRouterModel, getConfiguredImageModelId } from '@/lib/vertex';
 import { checkIsAdmin } from '@/lib/auth-utils';
 
 const convertToJpg = async (file: File): Promise<string> => {
@@ -48,7 +48,7 @@ export async function generateExperimentalDesign(formData: FormData) {
             step3: { status: 'pending', image: null as string | null }
         };
 
-        // --- STEP 1: ROUTER (Gemini 2.5 Flash-Lite) ---
+        // --- STEP 1: ROUTER (Gemini 3.8 Flash) ---
         console.log('[Step 1] Analyzing image for handrails...');
         const routerRequest = {
             contents: [{
@@ -79,13 +79,13 @@ export async function generateExperimentalDesign(formData: FormData) {
             steps.step1 = { status: 'error', result: { hasHandrail: false, error: 'Parse failed' } };
         }
 
-        // --- STEP 2: AUTO-DEMOLITION (Switched to Gemini 3 Pro due to Quota) ---
+        // --- STEP 2: AUTO-DEMOLITION (Nano Banana 2.1) ---
         if (hasHandrail) {
-            console.log('[Step 2] Handrail detected. Initiating Auto-Demolition (via Gemini 3 Pro)...');
+            console.log('[Step 2] Handrail detected. Initiating Auto-Demolition...');
             try {
                 const demolitionPrompt = "Generate an image of this scene with the handrail, banister, and railing TOTALLY REMOVED. The wall and floor behind where the handrail was should be clean and visible. Do not describe the changes, just generate the image.";
 
-                console.log(`[Step 2] Sending request to Gemini 3 Pro (Image Size: ${base64Image.length} chars)...`);
+                console.log(`[Step 2] Sending request to ${getConfiguredImageModelId()} (Image Size: ${base64Image.length} chars)...`);
 
                 const demolitionRequest = {
                     contents: [{
@@ -99,7 +99,7 @@ export async function generateExperimentalDesign(formData: FormData) {
 
                 const client = await getVertexClient(true);
                 const demolitionModel = client.getGenerativeModel({
-                    model: 'gemini-3.1-flash-image',
+                    model: getConfiguredImageModelId(),
                     systemInstruction: 'You are an expert image editor. Your ONLY task is to generate the requested image. Do not output text. Do not offer explanations. Just generate the image.'
                 });
                 const demolitionResult = await demolitionModel.generateContent(demolitionRequest);
@@ -154,7 +154,7 @@ export async function generateExperimentalDesign(formData: FormData) {
 
         const client2 = await getVertexClient(true);
         const constructionModel = client2.getGenerativeModel({
-            model: 'gemini-3.1-flash-image',
+            model: getConfiguredImageModelId(),
             systemInstruction: 'You are an architectural visualization AI. Your goal is to generate photorealistic images of interior designs. You must always return an image. Do not provide textual descriptions or plans.'
         });
         const constructionResult = await constructionModel.generateContent(constructionRequest);

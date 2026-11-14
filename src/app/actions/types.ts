@@ -36,6 +36,223 @@ export interface Profile {
     current_usage?: number;
 }
 
+export type StyleSlotId =
+    | 'hero_run'
+    | 'post_top_joint'
+    | 'post_mount_base'
+    | 'infill_bottom'
+    | 'end_return'
+    | 'finish_macro'
+    | 'extra_context';
+
+export interface StyleSlotDefinition {
+    id: StyleSlotId;
+    slotNumber: number;
+    title: string;
+    wallHandrailTitle?: string;
+    required: boolean;
+    maxCount: number;
+    shortInstruction: string;
+    wallHandrailShortInstruction?: string;
+    goodTips: string[];
+    avoidTips: string[];
+    aiValidationRule: string;
+}
+
+export const STYLE_PHOTO_SLOTS: readonly StyleSlotDefinition[] = [
+    {
+        id: 'hero_run',
+        slotNumber: 1,
+        title: 'Hero Full-Run Shot',
+        required: true,
+        maxCount: 1,
+        shortInstruction: 'Wide 3/4 angle showing the full railing run, slope, and proportions.',
+        goodTips: [
+            'Stand 6–10 ft back at a 35–45° angle showing top rail, infill, and posts together',
+            'Shoot in clean, even daylight or bright interior lighting',
+            'Include bottom newel post up through the upper landing turn',
+        ],
+        avoidTips: [
+            'Blurry phone thumbnails or screenshots with UI chrome',
+            'Heavy shadows or cluttered tarps/buckets blocking the bottom rail',
+            'Tight crops that cut off the top rail or bottom mount',
+        ],
+        aiValidationRule: 'Full railing run visible in perspective showing overall system silhouette and finish.',
+    },
+    {
+        id: 'post_top_joint',
+        slotNumber: 2,
+        title: 'Post-to-Top-Rail Joint Close-Up',
+        wallHandrailTitle: 'Wall Bracket-to-Rail Joint Close-Up',
+        required: true,
+        maxCount: 1,
+        shortInstruction: 'Close-up (1–2 ft away) of where the vertical post meets the underside of the top handrail.',
+        wallHandrailShortInstruction: 'Close-up of where the wall bracket arm connects to the underside of the handrail.',
+        goodTips: [
+            'Fill 70%+ of the frame with the exact junction between post and top rail',
+            'Make it crystal clear whether it is a seamless direct weld or a stem reducer collar',
+            'Ensure crisp focus on metal texture and weld bead / bevel',
+        ],
+        avoidTips: [
+            'Standing more than 4 ft away so the joint cannot be inspected',
+            'Heavy lens flare or silhouette backlighting hiding the weld/collar',
+        ],
+        aiValidationRule: 'Close-up macro/mid shot of post-to-top-rail junction or bracket-to-rail saddle.',
+    },
+    {
+        id: 'post_mount_base',
+        slotNumber: 3,
+        title: 'Post Base / Stair Mount Close-Up',
+        wallHandrailTitle: 'Wall Bracket Rosette / Anchor Close-Up',
+        required: true,
+        maxCount: 1,
+        shortInstruction: 'Close-up of how the post bolts onto the stair tread (top flange) OR outer fascia (side bolts).',
+        wallHandrailShortInstruction: 'Close-up of the round/square wall escutcheon plate and fasteners mounted to the wall.',
+        goodTips: [
+            'Show bolt heads clearly (e.g., 2 vertical fascia bolts vs 4-bolt base shoe with cover)',
+            'Show whether base plates sit flat on tread or bolt directly flat to the stringer fascia',
+        ],
+        avoidTips: [
+            'Leaves, drop cloths, or tape covering the post base hardware',
+            'Shot from directly above where flange height cannot be seen',
+        ],
+        aiValidationRule: 'Close-up clearly showing post bottom mount hardware (flange shoe, fascia bolts, or wall escutcheon).',
+    },
+    {
+        id: 'infill_bottom',
+        slotNumber: 4,
+        title: 'Infill & Bottom Termination Close-Up',
+        wallHandrailTitle: 'Handrail Profile & Side Clearance Close-Up',
+        required: true,
+        maxCount: 1,
+        shortInstruction: 'Close-up of pickets/cables/glass AND how they terminate at the bottom (shoe rail vs direct tread).',
+        wallHandrailShortInstruction: 'Angled close-up looking down the wall-mounted rail profile showing standoff spacing from the wall.',
+        goodTips: [
+            'Show infill bar/cable thickness, spacing, and cable fittings/turnbuckles if any',
+            'Clearly capture the bottom shoe channel gap OR pickets going straight into wood/concrete',
+        ],
+        avoidTips: [
+            'Straight-on flat views where bottom clearance above treads is invisible',
+            'Extreme motion blur on cable strands or glass clamps',
+        ],
+        aiValidationRule: 'Close-up showing infill pattern geometry and how infill terminates at the bottom rail or treads.',
+    },
+    {
+        id: 'end_return',
+        slotNumber: 5,
+        title: 'End / Corner / Wall Return Close-Up',
+        required: true,
+        maxCount: 1,
+        shortInstruction: 'Close-up of how the handrail terminates at the end of a run (90° wall return, cap, volute, or miter corner).',
+        goodTips: [
+            'Capture the handrail end cap, lamb\'s tongue, or 90-degree mitered wall return',
+            'Keep the background clean so the cap silhouette is sharp',
+        ],
+        avoidTips: [
+            'Cropping off the final 6 inches of the handrail end',
+        ],
+        aiValidationRule: 'Close-up showing handrail end termination, cap style, corner transition, or wall return.',
+    },
+    {
+        id: 'finish_macro',
+        slotNumber: 6,
+        title: 'Finish / Material Macro (Optional)',
+        required: false,
+        maxCount: 1,
+        shortInstruction: 'Macro texture shot showing powder-coat sheen, brushed stainless grain, wood species, or custom patinas.',
+        goodTips: [
+            'Soft indirect daylight showing true sheen (matte vs satin vs gloss)',
+        ],
+        avoidTips: [
+            'Harsh direct flash blowing out metal sheen into pure white',
+        ],
+        aiValidationRule: 'Macro texture photo showing powder coat sheen, metal grain, or wood stain.',
+    },
+    {
+        id: 'extra_context',
+        slotNumber: 7,
+        title: 'Extra Context Angles (Optional, up to 2)',
+        required: false,
+        maxCount: 2,
+        shortInstruction: 'Interior/exterior sibling install of this exact same railing design (turns, landings, or deck transitions).',
+        goodTips: [
+            'Only upload photos of the EXACT same railing profile & finish',
+            'Great for showing how corners or level balcony transitions look',
+        ],
+        avoidTips: [
+            'Do NOT mix two different railing styles or colors into one style pack',
+        ],
+        aiValidationRule: 'Additional angle or level-balcony view of the exact same railing system.',
+    },
+] as const;
+
+export const MIN_WIZARD_REQUIRED_SLOTS = 5;
+export const MAX_WIZARD_TOTAL_PHOTOS = 8;
+export const MAX_FREE_CALIBRATION_RENDERS = 3;
+
+export type FabricationCategory = 'stair_railing' | 'wall_handrail' | 'guardrail' | 'hybrid';
+export type FabricationPostMount = 'top' | 'side' | 'wall' | 'mixed';
+export type FabricationJointType = 'direct_flush_weld' | 'stem_reducer' | 'bracket_saddle' | 'wall_bracket';
+export type FabricationInfillType =
+    | 'vertical_pickets'
+    | 'horizontal_bars'
+    | 'horizontal_cable'
+    | 'tempered_glass'
+    | 'mesh_panel'
+    | 'custom_scroll'
+    | 'none_wall_only';
+
+export interface FabricationSpec {
+    category: FabricationCategory;
+    material: string;
+    finish: string;
+    top_rail_profile: string;
+    post_profile: string;
+    post_mount_type: FabricationPostMount;
+    bolt_pattern: string;
+    post_to_rail_joint: FabricationJointType;
+    infill_type: FabricationInfillType;
+    infill_profile_and_spacing: string;
+    has_bottom_rail: boolean;
+    bottom_termination: string;
+    handrail_return: string;
+    distinctive_features: string[];
+    conflicts_detected?: string[];
+    confidence_notes?: string;
+}
+
+export interface SceneRouterAnalysis {
+    scene_category: 'interior_stairs' | 'exterior_deck_porch' | 'concrete_steps' | 'balcony_loft' | 'commercial_ramp';
+    stair_geometry: string;
+    preferred_rake_direction: 'left_to_right_ascending' | 'right_to_left_ascending' | 'flat_run' | 'mixed';
+    existing_railing_present: boolean;
+    existing_railing_description: string;
+    demolition_required: boolean;
+    mounting_surface: 'wood_fascia_stringer' | 'wood_treads' | 'carpeted_treads' | 'concrete_masonry' | 'metal_stringer' | 'drywall_wall';
+    recommended_mount_note: string;
+    lighting_direction: string;
+    camera_elevation: string;
+    occlusions_to_preserve: string[];
+    structural_anchors: string[];
+}
+
+export interface VisionQaResult {
+    passed: boolean;
+    confidence: number;
+    defects_found: string[];
+    suggested_targets: string[];
+    surgical_fix_instructions: string;
+    background_preservation_ok: boolean;
+    railing_fidelity_score: number;
+}
+
+export interface StyleLabeledSlotEntry {
+    slot_id: StyleSlotId;
+    url: string;
+    validated?: boolean;
+    validation_note?: string;
+}
+
 export interface PortfolioItem {
     id: string;
     name: string;
@@ -44,7 +261,7 @@ export interface PortfolioItem {
     tenant_id: string;
     created_at?: string;
     is_active?: boolean;
-    style_metadata?: any;
+    style_metadata?: StyleMetadata | null;
     reference_images?: string[];
     price_per_ft_min?: number;
     price_per_ft_max?: number;
@@ -63,6 +280,16 @@ export interface SecondPassConfig {
 export interface StyleMetadata {
     second_pass?: SecondPassConfig;
     post_mount?: 'top' | 'side';
+    wizard_version?: number;
+    category?: FabricationCategory;
+    labeled_slots?: Partial<Record<StyleSlotId, string[]>>;
+    fabrication_spec?: FabricationSpec;
+    canonical_image_url?: string;
+    use_canonical_cutout?: boolean;
+    free_calibration_used?: number;
+    calibration_approved?: boolean;
+    admin_review_requested?: boolean;
+    admin_review_notes?: string;
     [key: string]: any;
 }
 

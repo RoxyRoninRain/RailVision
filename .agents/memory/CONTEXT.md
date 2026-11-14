@@ -3,7 +3,9 @@
 ## 1. Project Vision & Core Capabilities
 **Railify** (`mmm-design-studio`) is a multi-tenant white-label AI handrail & stair railing visualizer and instant linear-foot quote estimator built for custom metal fabricators, ornamental ironwork shops, and railing contractors.
 - [x] Multi-tenant embeddable Design Studio widget (`/demo?org=<uuid>`) with tenant branding, domain allowlisting, and watermarking.
-- [x] Two-pass multimodal Vertex AI image generation pipeline (`Pass 1` structural synthesis + `Pass 2` targeted fabrication micro-refinement).
+- [x] Next-gen Nano Banana 2.1 (`2K`, `thinkingLevel: 'MEDIUM'`, stateful multi-turn Pass 2 with `thoughtSignature`) & Gemini 3.8 Flash (`Scene Router`, `Agentic Vision QA`, `Wizard Slot Validator`, `Fab-Spec Extractor`).
+- [x] Self-Serve 4-Step Guided Style Setup Wizard (`Min 5 / Max 8` labeled photo slots, on-screen/pop-up photo coach, editable Fabrication Spec, 3-free-render benchmark calibration, non-destructive legacy upgrade/backfill).
+- [x] Server-side `sharp` Pixel-Lock background compositing & watermarking + interactive Before/After wipe slider.
 - [x] Metered SaaS billing via Stripe (base tier + per-render metered/promotional/free credits + monthly spend safety caps).
 - [x] Instant linear-foot + ZIP-code travel radius estimator & Before/After lead capture via Supabase Storage and Resend.
 - [x] Comprehensive Security Hardening & Anti-Hallucination Pipeline Upgrade (Completed & Verified).
@@ -13,8 +15,8 @@
 ## 2. Tech Stack & Infrastructure
 - **Framework**: Next.js 16.4 (App Router, Server Actions, Middleware) + React 19 + TypeScript 5
 - **Styling**: Tailwind CSS 3.4 + Framer Motion + Lucide Icons
-- **Database, Auth & Storage**: Supabase (`@supabase/ssr`, `@supabase/supabase-js`) — Postgres with RLS, Storage buckets (`portfolio`, `quote-uploads`, `logos`)
-- **AI Engine**: Google Cloud Vertex AI (`gemini-3.1-flash-image` / configurable via `VERTEX_IMAGE_MODEL`, global endpoint)
+- **Database, Auth & Storage**: Supabase (`project_id`: `zlwcdhgdmshtmkqngfzg`, `us-west-2`, `@supabase/ssr`, `@supabase/supabase-js`) — Postgres with RLS, Storage buckets (`portfolio`, `quote-uploads`, `logos`)
+- **AI Engine**: Google Cloud Vertex AI (`gemini-nano-banana-2.1` default `2K` + `gemini-3.8-flash` Vision/QA, `@google/genai` + global Vertex REST transport)
 - **Payments & Transactional Email**: Stripe (`stripe` v20) + Resend (`resend` v6)
 - **Testing & Linting**: Vitest 4 (`jsdom`) + Testing Library + ESLint 9
 - **Package Manager**: `npm` (`package-lock.json` — exclusively use `npm`)
@@ -25,8 +27,9 @@
 - `src/app/page.tsx` — Marketing landing page with embedded live demo.
 - `src/app/demo/page.tsx` — Embeddable multi-tenant Design Studio entry point (validates subscription & Referer/frame-ancestors).
 - `src/app/actions/` — Server Actions:
-  - `ai.ts` — Main `generateDesign` (validation, IP block/rate-limit, metered billing, Pass 1 + Pass 2 orchestration, usage tracking) & `convertHeicToJpg`.
-  - `portfolio.ts` — Tenant style CRUD, gallery/reference image management, Pass 2 metadata.
+  - `ai.ts` — Main `generateDesign` (validation, IP block/rate-limit, metered billing, Scene Router + cached Clean Plate, Pass 1 `2K`, Agentic Vision QA gating conditional stateful Pass 2, `sharp` pixel-lock compositing + server watermark, Nov 2026 `cost_usd` logging) & `convertHeicToJpg`.
+  - `portfolio.ts` — Tenant style CRUD, up-to-8 reference uploads, v2 `labeled_slots` & `fabrication_spec` persistence, auto-derived Pass 2 detail references.
+  - `style-wizard.ts` — Live Vision photo slot validation, Fab-Spec extraction, optional Studio Specimen Cutout, allowlisted Benchmark Calibration tester (3 free renders per style), and Admin non-destructive legacy spec backfill.
   - `leads.ts` — `submitLead` & `trackDownload` (quote uploads + Resend notifications).
   - `profile.ts`, `estimate.ts`, `stripe.ts`, `auth.ts`, `contact.ts`, `impersonation.ts`, `stats.ts`.
   - `types.ts` — Shared TypeScript interfaces & `SECOND_PASS_ISSUES` definitions.
@@ -34,7 +37,10 @@
 - `src/app/dashboard/` — Shop owner portal (leads, styles manager, widget embed snippet, security/IP blocking, billing/spend caps).
 - `src/app/api/webhooks/stripe/route.ts` — Stripe webhook handler (checkout bonus credits, renewal invoice overages, usage resets).
 - `src/lib/` — Core server & shared utilities:
-  - `vertex.ts` — Vertex AI raw REST multimodal generation (`generateDesignWithNanoBanana`) & Pass 2 refinement (`refineDesignWithNanoBanana`).
+  - `vertex.ts` — Vertex AI Nano Banana 2.1 (`2K`, `thinkingLevel: 'MEDIUM'`, `thoughtSignature` multi-turn Pass 2) & Gemini 3.8 Flash (`SceneRouter`, `VisionQA` with `codeExecution`, Wizard validation/extraction), plus LRU Clean-Plate cache.
+  - `prompts.ts` — Centralized 6-stage modular prompt builders (`PROMPT_STAGE_DEFINITIONS`, fixing square-post bias & `{{image}}`/`{{style}}`/minimal DB stub handling).
+  - `model-pricing.ts` — Nov 2026 rate catalog & double-count-safe cost calculators for generation & Admin Cost Intelligence.
+  - `image-compositor.ts` — `sharp` Pixel-Lock background preservation compositor & local `public/logo.png` server watermarker (with `<64px` test bypass).
   - `validations.ts` — Zod schemas, SSRF URL/IP validation, image magic-byte & dimension inspection, safe remote image fetching.
   - `rate-limit.ts` — Sliding-window server-side rate limiting for unauthenticated Server Actions.
   - `supabase/` — `server.ts`, `client.ts`, `admin.ts`, `middleware.ts`.
@@ -80,3 +86,4 @@ Eliminate security vulnerabilities (rate-limit RLS bypass, SSRF redirect bypass,
 ## 5. Architecture Decision Records (ADRs)
 - **ADR-001**: Enforce `Content-Security-Policy: frame-ancestors` dynamically in `middleware.ts` using server-side service-role lookup for validated UUID `org` params rather than static `X-Frame-Options: SAMEORIGIN`, enabling authorized cross-origin tenant website embeds while keeping `public.profiles` locked down under RLS.
 - **ADR-002**: Decouple Pass 1 (holistic staircase renovation & lighting integration) from Pass 2 (targeted hardware/weld micro-refinement with read-only Original Staircase restoration reference), charging metered billing at most once per user-initiated generation.
+- **ADR-003**: Tier reasoning effort (`VERTEX_THINKING_LEVEL=MEDIUM` default for Nano Banana 2.1 synthesis/Pass 2, `MINIMAL` for Clean Plate demolition & studio cutouts; `LOW` for fast `gemini-3.8-flash` Scene Router/Photo Validator and `MEDIUM` for Fab-Spec extraction & Agentic Vision QA) while removing deprecated `temperature` overrides for Gemini 3.8 Flash compatibility.

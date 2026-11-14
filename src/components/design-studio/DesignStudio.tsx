@@ -12,6 +12,7 @@ import clsx from 'clsx';
 import { compressImage } from '@/utils/imageUtils';
 import StyleControls from '@/components/StyleControls';
 import { EstimateModal } from '@/components/EstimateModal';
+import BeforeAfterSlider from '@/components/ui/BeforeAfterSlider';
 
 interface style {
     id: string;
@@ -354,9 +355,10 @@ export default function DesignStudio({
             }
 
             if (response.success && response.image) {
-                console.log("Success! Compositing watermark...");
-                // BAKE WATERMARK HERE
-                const finalImage = await compositeWatermark(response.image);
+                // Skip redundant canvas watermarking when the server already composited branding onto the 2K image
+                const finalImage = (response as any).watermarkedOnServer
+                    ? response.image
+                    : await compositeWatermark(response.image);
                 setResult(finalImage);
 
                 // Save to session history so user can compare multiple generated styles
@@ -868,23 +870,27 @@ export default function DesignStudio({
                                     {/* Result Area */}
                                     <div className="flex-1 relative bg-black flex flex-col items-center justify-center overflow-hidden p-4 md:p-8">
                                         {result && (
-                                            <div className="relative w-full h-full flex items-center justify-center">
-                                                <img
-                                                    src={showOriginalComparison && preview ? preview : result}
-                                                    alt={showOriginalComparison ? "Original Staircase" : "Generated Railing Design"}
-                                                    className="w-full h-full object-contain max-h-[58vh] rounded-3xl border border-[#333] shadow-2xl"
-                                                />
+                                            <div className="relative w-full h-full flex flex-col items-center justify-center gap-3">
+                                                {preview && !showOriginalComparison ? (
+                                                    <BeforeAfterSlider
+                                                        beforeImage={preview}
+                                                        afterImage={result}
+                                                        className="w-full max-h-[58vh]"
+                                                    />
+                                                ) : (
+                                                    <img
+                                                        src={result}
+                                                        alt="Generated Railing Design"
+                                                        className="w-full h-full object-contain max-h-[58vh] rounded-3xl border border-[#333] shadow-2xl"
+                                                    />
+                                                )}
                                                 {preview && (
                                                     <button
                                                         type="button"
                                                         onClick={() => setShowOriginalComparison(prev => !prev)}
-                                                        className={`absolute top-4 right-4 z-30 px-3.5 py-2 rounded-full text-xs font-mono font-bold uppercase tracking-wider border backdrop-blur-md transition-all ${
-                                                            showOriginalComparison
-                                                                ? 'bg-[var(--primary)] text-black border-[var(--primary)] shadow-lg'
-                                                                : 'bg-black/70 text-white border-white/20 hover:bg-black/90'
-                                                        }`}
+                                                        className="px-3.5 py-1.5 rounded-full text-[11px] font-mono font-bold uppercase tracking-wider border border-white/20 bg-black/75 text-gray-200 hover:bg-black hover:text-white backdrop-blur-md transition-all"
                                                     >
-                                                        {showOriginalComparison ? 'Viewing Original • Click for New Design' : 'Compare Original Before Photo'}
+                                                        {showOriginalComparison ? 'Switch to Before / After Slider' : 'View Full Clean Design Only'}
                                                     </button>
                                                 )}
                                             </div>

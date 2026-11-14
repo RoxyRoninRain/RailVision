@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getCostAnalysis } from '../actions';
+import { resolvePricingSpec } from '@/lib/model-pricing';
 import Link from 'next/link';
 import { ArrowLeft, RefreshCw, DollarSign, Image as ImageIcon, Cpu, TrendingUp, X, Calendar } from 'lucide-react';
 
@@ -121,14 +122,16 @@ export default function CostDashboard() {
     };
 
     // Active Image Model Stats
-    const activeModelKey = Object.keys(modelBreakdown).find(k => k.includes('flash')) 
-        || Object.keys(modelBreakdown).find(k => k.includes('gemini')) 
-        || 'gemini-3.1-flash-image';
+    const activeModelKey =
+        Object.keys(modelBreakdown).find(k => k.includes('nano-banana-2.1'))
+        || Object.keys(modelBreakdown).find(k => k.includes('flash-image') || k.includes('flash'))
+        || Object.keys(modelBreakdown).find(k => k.includes('gemini'))
+        || 'gemini-nano-banana-2.1';
     const geminiStats = modelBreakdown[activeModelKey] || { count: 0, cost: 0, inputTokens: 0, outputTokens: 0, inputCost: 0, outputCost: 0, imageCost: 0 };
-    const isFlash = activeModelKey.includes('flash');
-    const inputRateLabel = isFlash ? '$0.15/1M' : '$2.00/1M';
-    const outputRateLabel = isFlash ? '$0.60/1M' : '$12.00/1M';
-    const modelDisplayName = isFlash ? 'Gemini 3.1 Flash Image' : 'Gemini 3 Pro';
+    const pricingSpec = resolvePricingSpec(activeModelKey);
+    const inputRateLabel = `$${pricingSpec.inputPer1MUsd.toFixed(2)}/1M`;
+    const outputRateLabel = `$${pricingSpec.textOutputPer1MUsd.toFixed(2)}/1M`;
+    const modelDisplayName = pricingSpec.displayName;
 
     const FilterTab = ({ label, value }: { label: string, value: string }) => (
         <button
@@ -456,7 +459,7 @@ export default function CostDashboard() {
             </div>
 
             <div className="mt-8 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-200 text-sm">
-                <strong>Pricing Note:</strong> Costs are based on Gemini 3.1 Flash Image: $0.15/1M Input, $0.60/1M Output (Thinking), ~$0.030/Image. (Legacy Gemini 3 Pro is tracked at $2.00/1M Input, $12.00/1M Output, $0.134/Image).
+                <strong>Pricing Note (Nov 2026 Catalog):</strong> Gemini Nano Banana 2.1 (2K primary renderer): $1.50/1M Input, $7.50/1M Text/Thinking Output, $0.0504 per 2K Image ($0.0336 per 1K, $0.113 per 4K). Gemini 3.8 Flash (Scene Router / Vision QA / Wizard Validator): $0.75/1M Input, $3.75/1M Output. Historical legacy Gemini 3.1 Flash Image ($0.030/image) and Gemini 3 Pro ($0.134/image) records remain accurately weighted.
             </div>
         </div>
     );

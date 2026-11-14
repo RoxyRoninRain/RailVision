@@ -2,7 +2,157 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { detectImageMetadata, isSafeExternalUrl, isValidUuid } from '@/lib/validations';
-import { SECOND_PASS_ISSUES } from './types';
+import {
+    FabricationCategory,
+    FabricationSpec,
+    MAX_WIZARD_TOTAL_PHOTOS,
+    SECOND_PASS_ISSUES,
+    StyleSlotId,
+    STYLE_PHOTO_SLOTS,
+} from './types';
+
+function extractWizardMetadataFromFormData(
+    formData: FormData,
+    baseMeta: Record<string, any> = {}
+): {
+    error?: string;
+    meta: Record<string, any>;
+    syncedSpecs: {
+        hasBottomRail?: boolean;
+        hasReducers?: boolean | null;
+        postMount?: 'top' | 'side';
+    };
+} {
+    const meta: Record<string, any> = { ...baseMeta };
+    const syncedSpecs: { hasBottomRail?: boolean; hasReducers?: boolean | null; postMount?: 'top' | 'side' } = {};
+    const wizardMode = formData.get('wizard_mode') as string | null;
+
+    if (wizardMode === 'v2') {
+        meta.wizard_version = 2;
+    }
+
+    const categoryRaw = formData.get('wizard_category') as string | null;
+    if (categoryRaw && ['stair_railing', 'wall_handrail', 'guardrail', 'hybrid'].includes(categoryRaw)) {
+        meta.category = categoryRaw as FabricationCategory;
+    }
+
+    const labeledSlotsRaw = formData.get('labeled_slots') as string | null;
+    if (labeledSlotsRaw) {
+        try {
+            const parsed = JSON.parse(labeledSlotsRaw);
+            if (parsed && typeof parsed === 'object') {
+                const cleanedSlots: Partial<Record<StyleSlotId, string[]>> = {};
+                let totalPhotos = 0;
+
+                for (const slotDef of STYLE_PHOTO_SLOTS) {
+                    const list = parsed[slotDef.id];
+                    if (Array.isArray(list)) {
+                        const validUrls = list
+                            .filter((u): u is string => isAllowedPortfolioUrl(u))
+                            .slice(0, slotDef.maxCount);
+                        if (validUrls.length > 0) {
+                            cleanedSlots[slotDef.id] = validUrls;
+                            totalPhotos += validUrls.length;
+                        }
+                    }
+                }
+
+                if (wizardMode === 'v2') {
+                    for (const slotDef of STYLE_PHOTO_SLOTS) {
+                        if (slotDef.required && (!cleanedSlots[slotDef.id] || cleanedSlots[slotDef.id]!.length === 0)) {
+                            return {
+                                error: `Wizard validation: Required slot #${slotDef.slotNumber} (${slotDef.title}) is missing a photo.`,
+                                meta,
+                                syncedSpecs,
+                            };
+                        }
+                    }
+                    if (totalPhotos > MAX_WIZARD_TOTAL_PHOTOS) {
+                        return {
+                            error: `Maximum ${MAX_WIZARD_TOTAL_PHOTOS} style photos allowed per style pack.`,
+                            meta,
+                            syncedSpecs,
+                        };
+                    }
+                }
+
+                meta.labeled_slots = cleanedSlots;
+
+                // Auto-populate hidden Pass 2 close-up references directly from labeled wizard slots.
+                const derivedDetails: Record<string, string> = {
+                    ...(meta.second_pass?.detail_images || {}),
+                };
+                if (cleanedSlots.post_top_joint?.[0]) {
+                    derivedDetails.reducers = cleanedSlots.post_top_joint[0];
+                    derivedDetails.reducer_fittings = cleanedSlots.post_top_joint[0];
+                }
+                if (cleanedSlots.post_mount_base?.[0]) {
+                    derivedDetails.side_mount = cleanedSlots.post_mount_base[0];
+                    derivedDetails.top_mount = cleanedSlots.post_mount_base[0];
+                }
+                if (cleanedSlots.infill_bottom?.[0]) {
+                    derivedDetails.shoe_rail = cleanedSlots.infill_bottom[0];
+                    derivedDetails.direct_mount = cleanedSlots.infill_bottom[0];
+                }
+
+                if (Object.keys(derivedDetails).length > 0) {
+                    meta.second_pass = {
+                        enabled: meta.second_pass?.enabled ?? true,
+                        targets: meta.second_pass?.targets ?? [],
+                        custom_prompt: meta.second_pass?.custom_prompt,
+                        detail_images: derivedDetails,
+                    };
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to parse labeled_slots:', err);
+        }
+    }
+
+    const fabSpecRaw = formData.get('fabrication_spec') as string | null;
+    if (fabSpecRaw) {
+        try {
+            const parsedSpec = JSON.parse(fabSpecRaw) as FabricationSpec;
+            if (parsedSpec && typeof parsedSpec === 'object' && parsedSpec.material) {
+                meta.fabrication_spec = parsedSpec;
+                syncedSpecs.hasBottomRail = Boolean(parsedSpec.has_bottom_rail);
+                if (parsedSpec.post_to_rail_joint === 'direct_flush_weld') {
+                    syncedSpecs.hasReducers = false;
+                } else if (parsedSpec.post_to_rail_joint === 'stem_reducer') {
+                    syncedSpecs.hasReducers = true;
+                }
+                if (parsedSpec.post_mount_type === 'top' || parsedSpec.post_mount_type === 'side') {
+                    syncedSpecs.postMount = parsedSpec.post_mount_type;
+                    meta.post_mount = parsedSpec.post_mount_type;
+                }
+            }
+        } catch (err) {
+            console.warn('Failed to parse fabrication_spec:', err);
+        }
+    }
+
+    const canonicalUrl = formData.get('canonical_image_url') as string | null;
+    if (canonicalUrl && isAllowedPortfolioUrl(canonicalUrl)) {
+        meta.canonical_image_url = canonicalUrl;
+    }
+
+    const useCanonicalRaw = formData.get('use_canonical_cutout');
+    if (useCanonicalRaw !== null) {
+        meta.use_canonical_cutout = useCanonicalRaw === 'true';
+    }
+
+    const calibrationApprovedRaw = formData.get('calibration_approved');
+    if (calibrationApprovedRaw !== null) {
+        meta.calibration_approved = calibrationApprovedRaw === 'true';
+    }
+
+    const freeCalibUsedRaw = formData.get('free_calibration_used');
+    if (freeCalibUsedRaw !== null && !Number.isNaN(Number(freeCalibUsedRaw))) {
+        meta.free_calibration_used = Math.max(0, Number(freeCalibUsedRaw));
+    }
+
+    return { meta, syncedSpecs };
+}
 
 const ALLOWED_PORTFOLIO_MIME_MAP: Record<string, string> = {
     'image/jpeg': 'jpg',
@@ -92,8 +242,10 @@ export async function createStyle(formData: FormData) {
 
     if (allFiles.length === 0 && !formData.get('image_url')) return { error: 'No files uploaded' };
 
-    // Limit: Max 4 images (1 Main + 3 Refs) usually, but code handles N
-    if (allFiles.length > 5) return { error: 'Too many files (Max 5)' };
+    // Up to 8 photos (5 required detail slots + up to 3 optional macro/context photos)
+    if (allFiles.length > MAX_WIZARD_TOTAL_PHOTOS) {
+        return { error: `Too many files (Max ${MAX_WIZARD_TOTAL_PHOTOS})` };
+    }
 
     const galleryUrls: string[] = [];
     const MAX_SIZE = 4.5 * 1024 * 1024;
@@ -218,6 +370,17 @@ export async function createStyle(formData: FormData) {
         styleMetadata.post_mount = postMount;
     }
 
+    const wizardExtraction = extractWizardMetadataFromFormData(formData, styleMetadata);
+    if (wizardExtraction.error) {
+        return { error: wizardExtraction.error };
+    }
+    const mergedStyleMetadata = wizardExtraction.meta;
+    const finalHasBottomRail = wizardExtraction.syncedSpecs.hasBottomRail ?? hasBottomRail;
+    const finalHasReducers = wizardExtraction.syncedSpecs.hasReducers !== undefined
+        ? wizardExtraction.syncedSpecs.hasReducers
+        : hasReducers;
+    const finalPostMount = wizardExtraction.syncedSpecs.postMount ?? postMount;
+
     // 3. Insert into DB
     // First image is "image_url" (Thumbnail/Main), Rest are "reference_images" (Hidden Context)
     const mainImage = galleryUrls[0];
@@ -243,11 +406,11 @@ export async function createStyle(formData: FormData) {
         is_active: true,
         price_per_ft_min: priceMin,
         price_per_ft_max: priceMax,
-        has_bottom_rail: hasBottomRail,
-        has_reducers: hasReducers,
-        post_mount: postMount,
+        has_bottom_rail: finalHasBottomRail,
+        has_reducers: finalHasReducers,
+        post_mount: finalPostMount,
         display_order: nextOrder,
-        style_metadata: Object.keys(styleMetadata).length > 0 ? styleMetadata : null
+        style_metadata: Object.keys(mergedStyleMetadata).length > 0 ? mergedStyleMetadata : null
     };
 
     let { data, error: dbError } = await actingSupabase
@@ -447,14 +610,29 @@ export async function updateStyle(formData: FormData) {
         }
     }
 
-    if (enableSecondPassRaw !== null || secondPassTargetsRaw !== null || secondPassCustomPromptRaw !== null || postMount !== undefined || updatedDetailImages !== null) {
+    const hasWizardMetadataUpdate =
+        formData.get('wizard_mode') === 'v2' ||
+        formData.get('labeled_slots') !== null ||
+        formData.get('fabrication_spec') !== null ||
+        formData.get('canonical_image_url') !== null ||
+        formData.get('use_canonical_cutout') !== null ||
+        formData.get('calibration_approved') !== null;
+
+    if (
+        enableSecondPassRaw !== null ||
+        secondPassTargetsRaw !== null ||
+        secondPassCustomPromptRaw !== null ||
+        postMount !== undefined ||
+        updatedDetailImages !== null ||
+        hasWizardMetadataUpdate
+    ) {
         const { data: currentStyle } = await actingSupabase
             .from('portfolio')
             .select('style_metadata')
             .eq('id', styleId)
             .single();
 
-        const currentMeta = (currentStyle?.style_metadata && typeof currentStyle.style_metadata === 'object')
+        let currentMeta = (currentStyle?.style_metadata && typeof currentStyle.style_metadata === 'object')
             ? { ...currentStyle.style_metadata }
             : {};
 
@@ -512,6 +690,23 @@ export async function updateStyle(formData: FormData) {
                 custom_prompt: customPrompt ? customPrompt.trim() : undefined,
                 detail_images: detailImages
             };
+        }
+
+        if (hasWizardMetadataUpdate) {
+            const wizardUpdate = extractWizardMetadataFromFormData(formData, currentMeta);
+            if (wizardUpdate.error) {
+                return { error: wizardUpdate.error };
+            }
+            currentMeta = wizardUpdate.meta;
+            if (wizardUpdate.syncedSpecs.hasBottomRail !== undefined && updates.has_bottom_rail === undefined) {
+                updates.has_bottom_rail = wizardUpdate.syncedSpecs.hasBottomRail;
+            }
+            if (wizardUpdate.syncedSpecs.hasReducers !== undefined && updates.has_reducers === undefined) {
+                updates.has_reducers = wizardUpdate.syncedSpecs.hasReducers;
+            }
+            if (wizardUpdate.syncedSpecs.postMount && updates.post_mount === undefined) {
+                updates.post_mount = wizardUpdate.syncedSpecs.postMount;
+            }
         }
 
         updates.style_metadata = currentMeta;
